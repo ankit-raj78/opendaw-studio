@@ -1,4 +1,4 @@
-import { LiveStreamReceiver } from "@/live-stream/LiveStreamReceiver"
+import { LiveStreamReceiver } from "fusion"
 import { Address } from "box"
 import { Bits, byte, Notifier, Observer, Subscription, Terminable, Terminator } from "std"
 

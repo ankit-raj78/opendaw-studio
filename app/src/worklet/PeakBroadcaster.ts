@@ -1,7 +1,7 @@
 import { Arrays, int, Terminable } from "std"
 import { Address } from "box"
 import { RMS, StereoMatrix } from "dsp"
-import { LiveStreamBroadcaster } from "@/live-stream/LiveStreamBroadcaster.ts"
+import { LiveStreamBroadcaster } from "fusion"
 import { RenderQuantum } from "@/worklet/constants.ts"
 
 export class PeakBroadcaster implements Terminable {

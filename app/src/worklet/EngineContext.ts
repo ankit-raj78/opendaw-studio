@@ -1,6 +1,6 @@
 import { Observer, Subscription, Terminable, UUID } from "std"
 import { Processor, ProcessPhase } from "@/worklet/processing.ts"
-import { LiveStreamBroadcaster } from "@/live-stream/LiveStreamBroadcaster.ts"
+import { LiveStreamBroadcaster } from "fusion"
 import { UpdateClock } from "@/worklet/UpdateClock.ts"
 import { TimeInfo } from "@/worklet/TimeInfo.ts"
 import { AudioUnit } from "@/worklet/AudioUnit.ts"

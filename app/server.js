@@ -3,6 +3,9 @@ import path from "path"
 import fs from "fs"
 import https from "https"
 
+// Alternative way to start a webserver after building.
+// The recommended way is to run the run-web.sh script in the root directory.
+
 const app = express()
 
 // Set COOP/COEP

@@ -31,6 +31,7 @@
     "runtime": "file:../lib/runtime",
     "box": "file:../lib/box",
     "jsx": "file:../lib/jsx",
+    "fusion": "file:../lib/fusion",
     "prettier": "^3.5.3",
     "sass": "^1.88.0",
     "ssh2-sftp-client": "^12.0.0",

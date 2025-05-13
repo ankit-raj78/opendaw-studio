@@ -4,7 +4,7 @@ import { NoteEventSource, NoteLifecycleEvent } from "@/worklet/NoteEventSource"
 import { assert, Option, Terminable, Terminator } from "std"
 import { NoteBroadcaster } from "@/audio-engine-shared/NoteBroadcaster"
 import { Address } from "box"
-import { LiveStreamBroadcaster } from "@/live-stream/LiveStreamBroadcaster"
+import { LiveStreamBroadcaster } from "fusion"
 
 export class NoteEventInstrument implements Terminable {
 	readonly #terminator = new Terminator()
