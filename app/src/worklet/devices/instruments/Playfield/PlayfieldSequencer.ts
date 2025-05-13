@@ -1,49 +1,49 @@
-import { Block, BlockFlag } from "@/worklet/processing"
-import { EngineContext } from "@/worklet/EngineContext"
-import { EventProcessor } from "@/worklet/EventProcessor"
-import { PlayfieldDeviceProcessor } from "@/worklet/devices/instruments/PlayfieldDeviceProcessor"
-import { Event } from "dsp"
-import { NoteEventSource, NoteEventTarget, NoteLifecycleEvent } from "@/worklet/NoteEventSource"
-import { NoteEventInstrument } from "@/worklet/NoteEventInstrument"
-import { Bits, Terminable } from "std"
+import {Block, BlockFlag} from "@/worklet/processing"
+import {EngineContext} from "@/worklet/EngineContext"
+import {EventProcessor} from "@/worklet/EventProcessor"
+import {PlayfieldDeviceProcessor} from "@/worklet/devices/instruments/PlayfieldDeviceProcessor"
+import {Event} from "dsp"
+import {NoteEventSource, NoteEventTarget, NoteLifecycleEvent} from "@/worklet/NoteEventSource"
+import {NoteEventInstrument} from "@/worklet/NoteEventInstrument"
+import {Bits, Terminable} from "std"
 
 export class PlayfieldSequencer extends EventProcessor implements NoteEventTarget {
-	readonly #device: PlayfieldDeviceProcessor
+    readonly #device: PlayfieldDeviceProcessor
 
-	readonly #noteEventInstrument: NoteEventInstrument
+    readonly #noteEventInstrument: NoteEventInstrument
 
-	constructor(context: EngineContext, device: PlayfieldDeviceProcessor) {
-		super(context)
+    constructor(context: EngineContext, device: PlayfieldDeviceProcessor) {
+        super(context)
 
-		this.#device = device
+        this.#device = device
 
-		this.#noteEventInstrument = new NoteEventInstrument(this, context.broadcaster, device.adapter.address)
+        this.#noteEventInstrument = new NoteEventInstrument(this, context.broadcaster, device.adapter.address)
 
-		this.own(context.registerProcessor(this))
-		this.readAllParameters()
-	}
+        this.own(context.registerProcessor(this))
+        this.readAllParameters()
+    }
 
-	introduceBlock(block: Block): void {this.#noteEventInstrument.introduceBlock(block)}
-	setNoteEventSource(source: NoteEventSource): Terminable {return this.#noteEventInstrument.setNoteEventSource(source)}
+    introduceBlock(block: Block): void {this.#noteEventInstrument.introduceBlock(block)}
+    setNoteEventSource(source: NoteEventSource): Terminable {return this.#noteEventInstrument.setNoteEventSource(source)}
 
-	reset(): void {
-		this.eventInput.clear()
-		this.#noteEventInstrument.clear()
-	}
+    reset(): void {
+        this.eventInput.clear()
+        this.#noteEventInstrument.clear()
+    }
 
-	processEvents(block: Readonly<Block>, _from: number, _to: number): void {
-		if (Bits.every(block.flags, BlockFlag.transporting)) {
-			this.eventInput.get(block.index).forEach(event => this.handleEvent(block, event))
-		}
-	}
+    processEvents(block: Readonly<Block>, _from: number, _to: number): void {
+        if (Bits.every(block.flags, BlockFlag.transporting)) {
+            this.eventInput.get(block.index).forEach(event => this.handleEvent(block, event))
+        }
+    }
 
-	handleEvent({ index }: Readonly<Block>, event: Event): void {
-		if (NoteLifecycleEvent.isStart(event)) {
-			this.#device.optSampleProcessor(event.pitch).ifSome(({ eventInput }) => eventInput.add(index, event))
-		} else if (NoteLifecycleEvent.isStop(event)) {
-			this.#device.optSampleProcessor(event.pitch).ifSome(({ eventInput }) => eventInput.add(index, event))
-		}
-	}
+    handleEvent({index}: Readonly<Block>, event: Event): void {
+        if (NoteLifecycleEvent.isStart(event)) {
+            this.#device.optSampleProcessor(event.pitch).ifSome(({eventInput}) => eventInput.add(index, event))
+        } else if (NoteLifecycleEvent.isStop(event)) {
+            this.#device.optSampleProcessor(event.pitch).ifSome(({eventInput}) => eventInput.add(index, event))
+        }
+    }
 
-	toString(): string {return "{PlayfieldSequencer}"}
+    toString(): string {return "{PlayfieldSequencer}"}
 }

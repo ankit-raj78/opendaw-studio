@@ -1,78 +1,78 @@
-import { UserInterfaceBox } from "@/data/boxes"
-import { Editing, PointerField, Vertex } from "box"
-import { Pointers } from "@/data/pointers.ts"
-import { Notifier, Observer, Option, Subscription, Terminable, Terminator } from "std"
+import {UserInterfaceBox} from "@/data/boxes"
+import {Editing, PointerField, Vertex} from "box"
+import {Pointers} from "@/data/pointers.ts"
+import {Notifier, Observer, Option, Subscription, Terminable, Terminator} from "std"
 
 export class UserEditing implements Terminable {
-	readonly #editing: Editing
-	readonly #notifier: Notifier<Option<Vertex>>
+    readonly #editing: Editing
+    readonly #notifier: Notifier<Option<Vertex>>
 
-	#subscription: Option<Subscription> = Option.None
-	#pointer: Option<PointerField<Pointers.Editing>> = Option.None
+    #subscription: Option<Subscription> = Option.None
+    #pointer: Option<PointerField<Pointers.Editing>> = Option.None
 
-	constructor(editing: Editing) {
-		this.#editing = editing
-		this.#notifier = new Notifier()
-	}
+    constructor(editing: Editing) {
+        this.#editing = editing
+        this.#notifier = new Notifier()
+    }
 
-	catchupAndSubscribe(observer: Observer<Option<Vertex>>): Subscription {
-		observer(this.get())
-		return this.#notifier.subscribe(observer)
-	}
+    catchupAndSubscribe(observer: Observer<Option<Vertex>>): Subscription {
+        observer(this.get())
+        return this.#notifier.subscribe(observer)
+    }
 
-	follow(pointer: PointerField<Pointers.Editing>): void {
-		this.#pointer = Option.wrap(pointer)
-		this.#subscription.ifSome(subscription => subscription.terminate())
-		this.#subscription = Option.wrap(pointer
-			.catchupAndSubscribe(pointer => this.#notifier.notify(pointer.targetVertex)))
-	}
+    follow(pointer: PointerField<Pointers.Editing>): void {
+        this.#pointer = Option.wrap(pointer)
+        this.#subscription.ifSome(subscription => subscription.terminate())
+        this.#subscription = Option.wrap(pointer
+            .catchupAndSubscribe(pointer => this.#notifier.notify(pointer.targetVertex)))
+    }
 
-	edit(target: Vertex<Pointers.Editing | Pointers>): void {
-		this.#pointer.ifSome(pointer => this.#editing.modify(() => pointer.refer(target)))
-	}
+    edit(target: Vertex<Pointers.Editing | Pointers>): void {
+        this.#pointer.ifSome(pointer => this.#editing.modify(() => pointer.refer(target)))
+    }
 
-	isEditing(vertex: Vertex<Pointers.Editing | Pointers>): boolean {
-		return this.#pointer.match({
-			none: () => false,
-			some: pointer => pointer.targetVertex.contains(vertex)
-		})
-	}
+    isEditing(vertex: Vertex<Pointers.Editing | Pointers>): boolean {
+        return this.#pointer.match({
+            none: () => false,
+            some: pointer => pointer.targetVertex.contains(vertex)
+        })
+    }
 
-	get(): Option<Vertex> {return this.#pointer.flatMap(pointer => pointer.targetVertex)}
+    get(): Option<Vertex> {return this.#pointer.flatMap(pointer => pointer.targetVertex)}
 
-	clear(): void {this.#pointer.ifSome(pointer => this.#editing.modify(() => pointer.defer()))}
+    clear(): void {this.#pointer.ifSome(pointer => this.#editing.modify(() => pointer.defer()))}
 
-	terminate(): void {
-		this.#pointer = Option.None
-		this.#subscription.ifSome(subscription => subscription.terminate())
-		this.#subscription = Option.None
-		this.#notifier.notify(Option.None)
-		this.#notifier.terminate()
-	}
+    terminate(): void {
+        this.#pointer = Option.None
+        this.#subscription.ifSome(subscription => subscription.terminate())
+        this.#subscription = Option.None
+        this.#notifier.notify(Option.None)
+        this.#notifier.terminate()
+    }
 }
 
 export class UserEditingManager implements Terminable {
-	readonly #terminator: Terminator
-	readonly #modularSystem: UserEditing
-	readonly #timeline: UserEditing
-	readonly #audioUnit: UserEditing
+    readonly #terminator: Terminator
+    readonly #modularSystem: UserEditing
+    readonly #timeline: UserEditing
+    readonly #audioUnit: UserEditing
 
-	constructor(editing: Editing) {
-		this.#terminator = new Terminator()
-		this.#modularSystem = this.#terminator.own(new UserEditing(editing))
-		this.#timeline = this.#terminator.own(new UserEditing(editing))
-		this.#audioUnit = this.#terminator.own(new UserEditing(editing))
-	}
+    constructor(editing: Editing) {
+        this.#terminator = new Terminator()
+        this.#modularSystem = this.#terminator.own(new UserEditing(editing))
+        this.#timeline = this.#terminator.own(new UserEditing(editing))
+        this.#audioUnit = this.#terminator.own(new UserEditing(editing))
+    }
 
-	follow(userInterfaceBox: UserInterfaceBox): void {
-		this.#modularSystem.follow(userInterfaceBox.editingModularSystem)
-		this.#timeline.follow(userInterfaceBox.editingTimelineRegion)
-		this.#audioUnit.follow(userInterfaceBox.editingDeviceChain)
-	}
+    follow(userInterfaceBox: UserInterfaceBox): void {
+        this.#modularSystem.follow(userInterfaceBox.editingModularSystem)
+        this.#timeline.follow(userInterfaceBox.editingTimelineRegion)
+        this.#audioUnit.follow(userInterfaceBox.editingDeviceChain)
+    }
 
-	get modularSystem(): UserEditing {return this.#modularSystem}
-	get timeline(): UserEditing {return this.#timeline}
-	get audioUnit(): UserEditing {return this.#audioUnit}
+    get modularSystem(): UserEditing {return this.#modularSystem}
+    get timeline(): UserEditing {return this.#timeline}
+    get audioUnit(): UserEditing {return this.#audioUnit}
 
-	terminate(): void {this.#terminator.terminate()}
+    terminate(): void {this.#terminator.terminate()}
 }

@@ -1,20 +1,20 @@
 import css from "./AudioEditorHeader.sass?inline"
-import { Lifecycle } from "std"
-import { StudioService } from "@/service/StudioService.ts"
-import { createElement } from "jsx"
-import { Html } from "dom"
+import {Lifecycle} from "std"
+import {StudioService} from "@/service/StudioService.ts"
+import {createElement} from "jsx"
+import {Html} from "dom"
 
 const className = Html.adoptStyleSheet(css, "AudioEditorHeader")
 
 type Construct = {
-	lifecycle: Lifecycle
-	service: StudioService
+    lifecycle: Lifecycle
+    service: StudioService
 }
 
 export const AudioEditorHeader = ({}: Construct) => (
-	<div className={className}>
-		<p className="help-section">
-			Navigatable but otherwise non-functional yet
-		</p>
-	</div>
+    <div className={className}>
+        <p className="help-section">
+            Navigatable but otherwise non-functional yet
+        </p>
+    </div>
 )

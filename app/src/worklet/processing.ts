@@ -1,34 +1,34 @@
-import { int, Terminable } from "std"
-import { NoteEvent, ppqn } from "dsp"
-import { EventBuffer } from "@/worklet/EventBuffer.ts"
-import { AudioBuffer } from "@/worklet/AudioBuffer.ts"
-import { UpdateEvent } from "@/worklet/UpdateClock.ts"
+import {int, Terminable} from "std"
+import {NoteEvent, ppqn} from "dsp"
+import {EventBuffer} from "@/worklet/EventBuffer.ts"
+import {AudioBuffer} from "@/worklet/AudioBuffer.ts"
+import {UpdateEvent} from "@/worklet/UpdateClock.ts"
 
 export const enum BlockFlag {
-	transporting = 1 << 0, // set, if the time has not been advanced naturally (release notes)
-	discontinuous = 1 << 1, // set, if the time has not been advanced naturally (release notes)
-	playing = 1 << 2 // set, if arrangement should generate sound
+    transporting = 1 << 0, // set, if the time has not been advanced naturally (release notes)
+    discontinuous = 1 << 1, // set, if the time has not been advanced naturally (release notes)
+    playing = 1 << 2 // set, if arrangement should generate sound
 }
 
 export namespace BlockFlags {
-	export const create = (transporting: boolean, discontinuous: boolean, playing: boolean): int => 0
-		| (transporting ? BlockFlag.transporting : 0)
-		| (discontinuous ? BlockFlag.discontinuous : 0)
-		| (playing ? BlockFlag.playing : 0)
+    export const create = (transporting: boolean, discontinuous: boolean, playing: boolean): int => 0
+        | (transporting ? BlockFlag.transporting : 0)
+        | (discontinuous ? BlockFlag.discontinuous : 0)
+        | (playing ? BlockFlag.playing : 0)
 }
 
 export type Block = Readonly<{
-	index: int,
-	// range in ppqn time
-	p0: ppqn
-	p1: ppqn
-	// range in audio block
-	s0: int
-	s1: int
-	// tempo in this block
-	bpm: number
-	// BlockFlag
-	flags: int
+    index: int,
+    // range in ppqn time
+    p0: ppqn
+    p1: ppqn
+    // range in audio block
+    s0: int
+    s1: int
+    // tempo in this block
+    bpm: number
+    // BlockFlag
+    flags: int
 }>
 
 export enum ProcessPhase {Before, After}
@@ -36,26 +36,26 @@ export enum ProcessPhase {Before, After}
 export type AnyEvent = UpdateEvent | NoteEvent
 
 export interface ProcessInfo {
-	blocks: ReadonlyArray<Block>
+    blocks: ReadonlyArray<Block>
 }
 
 export interface Processor extends EventReceiver {
-	reset(): void
-	process(processInfo: ProcessInfo): void
+    reset(): void
+    process(processInfo: ProcessInfo): void
 }
 
 export interface EventReceiver {
-	get eventInput(): EventBuffer
+    get eventInput(): EventBuffer
 }
 
 export interface AudioGenerator {
-	get audioOutput(): AudioBuffer
+    get audioOutput(): AudioBuffer
 }
 
 export interface EventGenerator {
-	setEventTarget(target: EventBuffer): Terminable
+    setEventTarget(target: EventBuffer): Terminable
 }
 
 export interface AudioInput {
-	setAudioSource(source: AudioBuffer): Terminable
+    setAudioSource(source: AudioBuffer): Terminable
 }

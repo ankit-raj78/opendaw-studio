@@ -10,19 +10,19 @@ import {Editing, PrimitiveValues} from "box"
 import {MidiDevices} from "@/midi/devices/MidiDevices"
 
 type Creation<T extends PrimitiveValues> = {
-	lifecycle: TerminableOwner
-	editing: Editing
-	midiDevices: MidiDevices
-	adapter: DeviceBoxAdapter
-	parameter: ParameterFieldAdapter<T>
-	options?: ValueGuide.Options
-	anchor?: number
-	color?: string
+    lifecycle: TerminableOwner
+    editing: Editing
+    midiDevices: MidiDevices
+    adapter: DeviceBoxAdapter
+    parameter: ParameterFieldAdapter<T>
+    options?: ValueGuide.Options
+    anchor?: number
+    color?: string
 }
 
 export namespace ControlBuilder {
-	export const createKnob = <T extends PrimitiveValues, >
-	({ lifecycle, editing, midiDevices, adapter, parameter, options, anchor, color }: Creation<T>) => {
+    export const createKnob = <T extends PrimitiveValues, >
+    ({lifecycle, editing, midiDevices, adapter, parameter, options, anchor, color}: Creation<T>) => {
         return (
             <Column ems={LKR} color={color ?? Colors.cream}>
                 <h5>{parameter.name}</h5>
@@ -35,5 +35,5 @@ export namespace ControlBuilder {
                                     anchor={anchor}/>
             </Column>
         )
-	}
+    }
 }

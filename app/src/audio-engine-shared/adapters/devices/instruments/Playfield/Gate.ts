@@ -1,3 +1,3 @@
 export enum Gate {
-	Off, On, Loop
+    Off, On, Loop
 }

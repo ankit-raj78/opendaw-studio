@@ -1,3 +1,3 @@
 export enum SlotState {
-	Idle = "idle", Busy = "busy", Playing = "playing",
+    Idle = "idle", Busy = "busy", Playing = "playing",
 }

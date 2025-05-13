@@ -1,10 +1,10 @@
-import { ClipSequencingUpdates } from "@/audio-engine-shared/ClipSequencingUpdates"
-import { UUID } from "std"
+import {ClipSequencingUpdates} from "@/audio-engine-shared/ClipSequencingUpdates"
+import {UUID} from "std"
 
 export type ClipNotification = {
-	type: "sequencing"
-	changes: ClipSequencingUpdates
+    type: "sequencing"
+    changes: ClipSequencingUpdates
 } | {
-	type: "waiting"
-	clips: ReadonlyArray<UUID.Format>
+    type: "waiting"
+    clips: ReadonlyArray<UUID.Format>
 }

@@ -1,84 +1,84 @@
-import { RevampDeviceBox } from "@/data/boxes"
-import { int, StringMapping, UUID, ValueMapping } from "std"
-import { ParameterAdapterSet } from "../../ParameterAdapterSet.ts"
-import { RevampPass } from "@/data/boxes/RevampPass.ts"
-import { RevampShelf } from "@/data/boxes/RevampShelf.ts"
-import { RevampBell } from "@/data/boxes/RevampBell.ts"
-import { ParameterFieldAdapter } from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
-import { Address, BooleanField, FieldKeys, Int32Field, PointerField, StringField } from "box"
-import { AudioEffectDeviceBoxAdapter, DeviceHost, Devices } from "@/audio-engine-shared/adapters/devices.ts"
-import { Pointers } from "@/data/pointers.ts"
+import {RevampDeviceBox} from "@/data/boxes"
+import {int, StringMapping, UUID, ValueMapping} from "std"
+import {ParameterAdapterSet} from "../../ParameterAdapterSet.ts"
+import {RevampPass} from "@/data/boxes/RevampPass.ts"
+import {RevampShelf} from "@/data/boxes/RevampShelf.ts"
+import {RevampBell} from "@/data/boxes/RevampBell.ts"
+import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {Address, BooleanField, FieldKeys, Int32Field, PointerField, StringField} from "box"
+import {AudioEffectDeviceBoxAdapter, DeviceHost, Devices} from "@/audio-engine-shared/adapters/devices.ts"
+import {Pointers} from "@/data/pointers.ts"
 
-import { AudioUnitBoxAdapter } from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter"
-import { BoxAdaptersContext } from "@/audio-engine-shared/BoxAdaptersContext"
+import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter"
+import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 
 export class RevampDeviceBoxAdapter implements AudioEffectDeviceBoxAdapter {
-	readonly type = "audio-effect"
-	readonly accepts = "audio"
+    readonly type = "audio-effect"
+    readonly accepts = "audio"
 
-	readonly #context: BoxAdaptersContext
-	readonly #box: RevampDeviceBox
-	readonly #parametric: ParameterAdapterSet
-	readonly namedParameter // let typescript infer the type
+    readonly #context: BoxAdaptersContext
+    readonly #box: RevampDeviceBox
+    readonly #parametric: ParameterAdapterSet
+    readonly namedParameter // let typescript infer the type
 
-	constructor(context: BoxAdaptersContext, box: RevampDeviceBox) {
-		this.#context = context
-		this.#box = box
-		this.#parametric = new ParameterAdapterSet(this.#context)
-		this.namedParameter = this.#wrapParameters(box)
-	}
+    constructor(context: BoxAdaptersContext, box: RevampDeviceBox) {
+        this.#context = context
+        this.#box = box
+        this.#parametric = new ParameterAdapterSet(this.#context)
+        this.namedParameter = this.#wrapParameters(box)
+    }
 
-	get box(): RevampDeviceBox {return this.#box}
-	get uuid(): UUID.Format {return this.#box.address.uuid}
-	get address(): Address {return this.#box.address}
-	get indexField(): Int32Field {return this.#box.index}
-	get labelField(): StringField {return this.#box.label}
-	get enabledField(): BooleanField {return this.#box.enabled}
-	get minimizedField(): BooleanField {return this.#box.minimized}
-	get host(): PointerField<Pointers.AudioEffectHost> {return this.#box.host}
-	get spectrum(): Address {return this.#box.address.append(0xFFF)}
+    get box(): RevampDeviceBox {return this.#box}
+    get uuid(): UUID.Format {return this.#box.address.uuid}
+    get address(): Address {return this.#box.address}
+    get indexField(): Int32Field {return this.#box.index}
+    get labelField(): StringField {return this.#box.label}
+    get enabledField(): BooleanField {return this.#box.enabled}
+    get minimizedField(): BooleanField {return this.#box.minimized}
+    get host(): PointerField<Pointers.AudioEffectHost> {return this.#box.host}
+    get spectrum(): Address {return this.#box.address.append(0xFFF)}
 
-	deviceHost(): DeviceHost {
-		return this.#context.boxAdapters
-			.adapterFor(this.#box.host.targetVertex.unwrap("no device-host").box, Devices.isHost)
-	}
+    deviceHost(): DeviceHost {
+        return this.#context.boxAdapters
+            .adapterFor(this.#box.host.targetVertex.unwrap("no device-host").box, Devices.isHost)
+    }
 
-	audioUnitBoxAdapter(): AudioUnitBoxAdapter {return this.deviceHost().audioUnitBoxAdapter()}
+    audioUnitBoxAdapter(): AudioUnitBoxAdapter {return this.deviceHost().audioUnitBoxAdapter()}
 
-	parameterAt(fieldIndices: FieldKeys): ParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
+    parameterAt(fieldIndices: FieldKeys): ParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
 
-	terminate(): void {this.#parametric.terminate()}
+    terminate(): void {this.#parametric.terminate()}
 
-	#wrapParameters(box: RevampDeviceBox) {
-		return {
-			highPass: createPass(this.#parametric, box.highPass, "High-Pass"),
-			lowShelf: createShelf(this.#parametric, box.lowShelf, "Low-Shelf"),
-			lowBell: createBell(this.#parametric, box.lowBell, "Low-Bell"),
-			midBell: createBell(this.#parametric, box.midBell, "Mid-Bell"),
-			highBell: createBell(this.#parametric, box.highBell, "High-Bell"),
-			highShelf: createShelf(this.#parametric, box.highShelf, "High-Shelf"),
-			lowPass: createPass(this.#parametric, box.lowPass, "Low-Pass")
-		} as const
-	}
+    #wrapParameters(box: RevampDeviceBox) {
+        return {
+            highPass: createPass(this.#parametric, box.highPass, "High-Pass"),
+            lowShelf: createShelf(this.#parametric, box.lowShelf, "Low-Shelf"),
+            lowBell: createBell(this.#parametric, box.lowBell, "Low-Bell"),
+            midBell: createBell(this.#parametric, box.midBell, "Mid-Bell"),
+            highBell: createBell(this.#parametric, box.highBell, "High-Bell"),
+            highShelf: createShelf(this.#parametric, box.highShelf, "High-Shelf"),
+            lowPass: createPass(this.#parametric, box.lowPass, "Low-Pass")
+        } as const
+    }
 }
 
 export type Parameters = {
-	enabled: ParameterFieldAdapter<boolean>
-	frequency: ParameterFieldAdapter<number>
+    enabled: ParameterFieldAdapter<boolean>
+    frequency: ParameterFieldAdapter<number>
 }
 
 export type PassParameters = Parameters & {
-	order: ParameterFieldAdapter<int>
-	q: ParameterFieldAdapter<number>
+    order: ParameterFieldAdapter<int>
+    q: ParameterFieldAdapter<number>
 }
 
 export type ShelfParameters = Parameters & {
-	gain: ParameterFieldAdapter<number>
+    gain: ParameterFieldAdapter<number>
 }
 
 export type BellParameters = Parameters & {
-	q: ParameterFieldAdapter<number>
-	gain: ParameterFieldAdapter<number>
+    q: ParameterFieldAdapter<number>
+    gain: ParameterFieldAdapter<number>
 }
 
 const FrequencyMapping = ValueMapping.exponential(20.0, 20_000.0)
@@ -86,55 +86,55 @@ const GainMapping = ValueMapping.linear(-24.0, 24.0)
 const QMapping = ValueMapping.exponential(0.01, 10.0)
 
 const createPass = (parametric: ParameterAdapterSet, pass: RevampPass, name: string): PassParameters => {
-	return ({
-		enabled: parametric.createParameter(pass.enabled, ValueMapping.bool, StringMapping.bool, "enabled"),
-		frequency: parametric.createParameter(
-			pass.frequency,
-			FrequencyMapping,
-			StringMapping.numeric({ unit: "Hz", fractionDigits: 0 }),
-			`${name} Freq`),
-		order: parametric.createParameter(
-			pass.order,
-			ValueMapping.linearInteger(1, 4),
-			StringMapping.indices("db", ["12", "24", "36", "48"]),
-			`${name} Order`),
-		q: parametric.createParameter(
-			pass.q,
-			QMapping,
-			StringMapping.numeric({ unit: "", fractionDigits: 3 }),
-			`${name} Q`)
-	})
+    return ({
+        enabled: parametric.createParameter(pass.enabled, ValueMapping.bool, StringMapping.bool, "enabled"),
+        frequency: parametric.createParameter(
+            pass.frequency,
+            FrequencyMapping,
+            StringMapping.numeric({unit: "Hz", fractionDigits: 0}),
+            `${name} Freq`),
+        order: parametric.createParameter(
+            pass.order,
+            ValueMapping.linearInteger(1, 4),
+            StringMapping.indices("db", ["12", "24", "36", "48"]),
+            `${name} Order`),
+        q: parametric.createParameter(
+            pass.q,
+            QMapping,
+            StringMapping.numeric({unit: "", fractionDigits: 3}),
+            `${name} Q`)
+    })
 }
 
 const createShelf = (parametric: ParameterAdapterSet, shelf: RevampShelf, name: string): ShelfParameters => ({
-	enabled: parametric.createParameter(shelf.enabled, ValueMapping.bool, StringMapping.bool, "enabled"),
-	frequency: parametric.createParameter(
-		shelf.frequency,
-		FrequencyMapping,
-		StringMapping.numeric({ unit: "Hz", fractionDigits: 0 }),
-		`${name} Freq`),
-	gain: parametric.createParameter(
-		shelf.gain,
-		GainMapping,
-		StringMapping.numeric({ unit: "db", fractionDigits: 1, bipolar: true }),
-		`${name} Gain`, 0.5)
+    enabled: parametric.createParameter(shelf.enabled, ValueMapping.bool, StringMapping.bool, "enabled"),
+    frequency: parametric.createParameter(
+        shelf.frequency,
+        FrequencyMapping,
+        StringMapping.numeric({unit: "Hz", fractionDigits: 0}),
+        `${name} Freq`),
+    gain: parametric.createParameter(
+        shelf.gain,
+        GainMapping,
+        StringMapping.numeric({unit: "db", fractionDigits: 1, bipolar: true}),
+        `${name} Gain`, 0.5)
 })
 
 const createBell = (parametric: ParameterAdapterSet, bell: RevampBell, name: string): BellParameters => ({
-	enabled: parametric.createParameter(bell.enabled, ValueMapping.bool, StringMapping.bool, "enabled"),
-	frequency: parametric.createParameter(
-		bell.frequency,
-		FrequencyMapping,
-		StringMapping.numeric({ unit: "Hz", fractionDigits: 0 }),
-		`${name} Freq`),
-	gain: parametric.createParameter(
-		bell.gain,
-		GainMapping,
-		StringMapping.numeric({ unit: "db", fractionDigits: 1, bipolar: true }),
-		`${name} Gain`, 0.5),
-	q: parametric.createParameter(
-		bell.q,
-		QMapping,
-		StringMapping.numeric({ unit: "", fractionDigits: 3 }),
-		`${name} Q`)
+    enabled: parametric.createParameter(bell.enabled, ValueMapping.bool, StringMapping.bool, "enabled"),
+    frequency: parametric.createParameter(
+        bell.frequency,
+        FrequencyMapping,
+        StringMapping.numeric({unit: "Hz", fractionDigits: 0}),
+        `${name} Freq`),
+    gain: parametric.createParameter(
+        bell.gain,
+        GainMapping,
+        StringMapping.numeric({unit: "db", fractionDigits: 1, bipolar: true}),
+        `${name} Gain`, 0.5),
+    q: parametric.createParameter(
+        bell.q,
+        QMapping,
+        StringMapping.numeric({unit: "", fractionDigits: 3}),
+        `${name} Q`)
 })

@@ -1,10 +1,10 @@
-import { NoteEvent, ppqn } from "dsp"
-import { int } from "std"
+import {NoteEvent, ppqn} from "dsp"
+import {int} from "std"
 
 export type UINoteEvent = NoteEvent & {
-	isSelected: boolean
-	complete: ppqn
-	chance: number
-	playCount: int
-	playCurve: number
+    isSelected: boolean
+    complete: ppqn
+    chance: number
+    playCount: int
+    playCurve: number
 }

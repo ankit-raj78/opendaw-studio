@@ -1,23 +1,23 @@
-import { JSONValue } from "std"
+import {JSONValue} from "std"
 
 export type ProjectMeta = {
-	name: string
-	description: string
-	tags: Array<string>
-	created: Readonly<string>
-	modified: string
-	notepad?: string
+    name: string
+    description: string
+    tags: Array<string>
+    created: Readonly<string>
+    modified: string
+    notepad?: string
 } & JSONValue
 
 export namespace ProjectMeta {
-	const created = new Date().toISOString()
-	export const init = (name: string = "Untitled"): ProjectMeta => ({
-		name,
-		description: "",
-		tags: [],
-		created,
-		modified: created
-	})
+    const created = new Date().toISOString()
+    export const init = (name: string = "Untitled"): ProjectMeta => ({
+        name,
+        description: "",
+        tags: [],
+        created,
+        modified: created
+    })
 
-	export const copy = (meta: ProjectMeta): ProjectMeta => Object.assign({}, meta)
+    export const copy = (meta: ProjectMeta): ProjectMeta => Object.assign({}, meta)
 }

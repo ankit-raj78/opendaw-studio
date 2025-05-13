@@ -1,3 +1,3 @@
-import { byte } from "std"
+import {byte} from "std"
 
 export type Channel = byte

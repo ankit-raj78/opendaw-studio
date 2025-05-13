@@ -1,8 +1,8 @@
-import { int } from "std"
+import {int} from "std"
 
 export interface PeakMeterProcessorOptions {
-	sab: SharedArrayBuffer
-	numberOfChannels: int
-	rmsWindowInSeconds: number
-	valueDecay: number
+    sab: SharedArrayBuffer
+    numberOfChannels: int
+    rmsWindowInSeconds: number
+    valueDecay: number
 }

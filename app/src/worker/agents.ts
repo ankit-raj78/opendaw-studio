@@ -1,6 +1,5 @@
 import {Messenger} from "runtime"
-import {PeakWorker} from "fusion"
-import {OpfsWorker} from "@/opfs/OpfsWorker"
+import {OpfsWorker, PeakWorker} from "fusion"
 
 const messenger: Messenger = Messenger.for(self)
 

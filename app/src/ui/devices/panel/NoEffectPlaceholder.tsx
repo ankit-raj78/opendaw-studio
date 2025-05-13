@@ -1,25 +1,23 @@
 import css from "./NoEffectPlaceholder.sass?inline"
-import { Html } from "dom"
-import { Lifecycle } from "std"
-import { createElement } from "jsx"
-import { StudioService } from "@/service/StudioService.ts"
-import { TextButton } from "@/ui/components/TextButton"
-import { PanelType } from "@/ui/workspace/PanelType"
+import {Html} from "dom"
+import {createElement} from "jsx"
+import {StudioService} from "@/service/StudioService.ts"
+import {TextButton} from "@/ui/components/TextButton"
+import {PanelType} from "@/ui/workspace/PanelType"
 
 const className = Html.adoptStyleSheet(css, "NoEffectPlaceholder")
 
 type Construct = {
-	lifecycle: Lifecycle
-	service: StudioService
+    service: StudioService
 }
 
-export const NoEffectPlaceholder = ({ lifecycle, service }: Construct) => {
-	return (
-		<div className={className}>
-			Drag an effect from the <TextButton onClick={() => {
-			service.switchScreen("default")
-			service.panelLayout.showIfAvailable(PanelType.BrowserPanel)
-		}}>Device Browser</TextButton>
-		</div>
-	)
+export const NoEffectPlaceholder = ({service}: Construct) => {
+    return (
+        <div className={className}>
+            Drag an effect from the <TextButton onClick={() => {
+            service.switchScreen("default")
+            service.panelLayout.showIfAvailable(PanelType.BrowserPanel)
+        }}>Device Browser</TextButton>
+        </div>
+    )
 }

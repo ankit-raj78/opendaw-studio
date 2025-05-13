@@ -1,16 +1,16 @@
-import { FontFaceProperties } from "dom"
+import {FontFaceProperties} from "dom"
 
 export const Fonts = {
-	Rubik: <FontFaceProperties>{
-		"font-family": "Rubik",
-		"font-weight": 300,
-		"font-style": "normal",
-		"src": "/fonts/rubik.woff2"
-	},
-	OpenSans: <FontFaceProperties>{
-		"font-family": "Open Sans",
-		"font-weight": "normal",
-		"font-style": "normal",
-		"src": "/fonts/OpenSans-Regular.ttf"
-	}
+    Rubik: <FontFaceProperties>{
+        "font-family": "Rubik",
+        "font-weight": 300,
+        "font-style": "normal",
+        "src": "/fonts/rubik.woff2"
+    },
+    OpenSans: <FontFaceProperties>{
+        "font-family": "Open Sans",
+        "font-weight": "normal",
+        "font-style": "normal",
+        "src": "/fonts/OpenSans-Regular.ttf"
+    }
 }
