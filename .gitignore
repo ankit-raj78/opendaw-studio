@@ -1,0 +1,6 @@
+/app/src/data/boxes/
+localhost.pem
+localhost-key.pem
+package-lock.json
+dist/
+node_modules/
