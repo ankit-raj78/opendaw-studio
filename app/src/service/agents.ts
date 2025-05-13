@@ -1,6 +1,6 @@
 import { FloatArray, int, Procedure } from "std"
 import WorkerUrl from "../worker/agents.ts?worker&url"
-import { PeakProtocol } from "@/peaks/PeakProtocol"
+import { PeakProtocol } from "fusion"
 import { Entry, OpfsProtocol } from "@/opfs/OpfsProtocol"
 import { Communicator, Messenger } from "runtime"
 
