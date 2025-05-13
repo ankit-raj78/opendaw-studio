@@ -1,11 +1,11 @@
 {
-  "name": "opendaw-boxes",
+  "name": "opendaw-studio-boxes",
   "version": "0.0.0",
   "type": "commonjs",
   "scripts": {
     "gen": "npm run clear && npm run build --prefix ../lib/box-forge && npx tsx src/forge.ts && npm run format",
-    "clear": "rm -rf ../app/src/data/boxes/*",
-    "format": "prettier --write \"../app/src/data/boxes/**/*.ts\" --ignore-path /dev/null"
+    "clear": "rm -rf ../studio/src/data/boxes/*",
+    "format": "prettier --write \"../studio/src/data/boxes/**/*.ts\" --ignore-path /dev/null"
   },
   "devDependencies": {
     "std": "file:../lib/std",

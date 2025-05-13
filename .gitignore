@@ -1,8 +1,7 @@
-/app/src/data/boxes/
+.idea
 localhost.pem
 localhost-key.pem
 package-lock.json
 dist/
 node_modules/
-/.idea/inspectionProfiles/Project_Default.xml
-/.idea/dictionaries/project.xml
+/studio/src/data/boxes/

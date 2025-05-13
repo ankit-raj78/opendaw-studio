@@ -17,7 +17,7 @@ import { MarkerBox } from "./schema/timeline/marker"
 import { GrooveShuffleBox } from "./schema/grooves"
 
 BoxForge.gen<Pointers>({
-	path: "../app/src/data/boxes",
+	path: "../studio/src/data/boxes",
 	pointers: {
 		from: "@/data/pointers",
 		enum: "Pointers",
