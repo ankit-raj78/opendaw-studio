@@ -24,7 +24,7 @@ openDAW.
 ## Tech Stack
 
 A document is part of the manuals. [Click here](studio/public/manuals/tech-stack.md). The library has its
-own [README](https://github.com/andremichelle/opendaw-lib/blob/main/README.md).
+own [README](https://github.com/andremichelle/opendaw-lib).
 
 ### Prerequisites
 
