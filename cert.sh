@@ -1,3 +1,3 @@
 #!/bin/bash
 echo "mkcert localhost"
-(cd app && mkcert localhost) || exit 1
+mkcert localhost || exit 1
