@@ -27,8 +27,8 @@ app.use((req, res) => {
 https
 	.createServer(
 		{
-			key: fs.readFileSync("localhost-key.pem"),
-			cert: fs.readFileSync("localhost.pem")
+			key: fs.readFileSync("../localhost-key.pem"),
+			cert: fs.readFileSync("../localhost.pem")
 		},
 		app
 	)

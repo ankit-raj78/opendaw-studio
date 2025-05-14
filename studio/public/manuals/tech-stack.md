@@ -10,32 +10,33 @@
 
 openDAW uses minimal external dependencies, avoiding hidden behaviors from bulky UI frameworks.
 
-Each in-house library has a clear, focused purpose. They are currently prefixed **jet** for no apparent reason.
+Each in-house library has a clear, focused purpose. [github repository](https://github.com/andremichelle/opendaw-lib)
 
 ### Dependency Table
 
-| Library           | Dependencies                  |
-|-------------------|-------------------------------|
-| **fat-std**       | none                          |
-| **jet-dsp**       | fat-std                       |
-| **jet-dom**       | fat-std                       |
-| **jet-tsx**       | fat-std, jet-dom              |
-| **jet-runtime**   | fat-std                       |
-| **jet-box**       | fat-std, jet-dom, jet-runtime |
-| **jet-box-forge** | fat-std, jet-dom, jet-box     |
+| Library       | Dependencies                        |
+|---------------|-------------------------------------|
+| **std**       | none                                |
+| **dsp**       | std                                 |
+| **dom**       | std                                 |
+| **jsx**       | std, dom                            |
+| **runtime**   | std                                 |
+| **box**       | std, dom, runtime                   |
+| **box-forge** | std, dom, box                       |
+| **fusion**    | std, dom, box, runtime (all peered) |
 
 ### In-House Runtime
 
-* fat-std (Core)
-* jet-dsp (DSP & Sequencing)
-* jet-dom (DOM Integration)
-* jet-tsx ([TSX](https://en.wikipedia.org/wiki/JSX_(JavaScript)) Integration)
-* jet-runtime (Runtime and Scheduling)
+* std (Core)
+* dsp (DSP & Sequencing)
+* dom (DOM Integration)
+* jsx ([JSX](https://en.wikipedia.org/wiki/JSX_(JavaScript)) Integration)
+* runtime (Runtime and Scheduling)
 
 ### In-House Data Management
 
-* jet-box (Runtime Immutable Data Graph)
-* jet-box-forge (Jet-box Code Generator)
+* box (Runtime Immutable Data Graph)
+* box-forge (Box Code Generator)
 
 ### External
 
