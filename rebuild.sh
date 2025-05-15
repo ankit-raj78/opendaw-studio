@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 export TERM=${TERM:-dumb}
 clear
 set -e
