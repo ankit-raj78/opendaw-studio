@@ -31,7 +31,7 @@ if (DRY_RUN) {
     process.exit(0)
 }
 const sftp = new SftpClient()
-const staticFolders = ["viscious-speed"]
+const staticFolders = ["/viscious-speed"]
 const readLastDeployTime = (): string => {
     try {
         return new Date(
