@@ -22,6 +22,10 @@ jobs:
           cache: npm
       - run: npm ci
 
+      - name: 🏗️  Build project
+        run: ./rebuild.sh     # stop here on error automatically
+        shell: bash
+
       - name: Run deploy script
         env:
           SFTP_HOST: ${{ vars.SFTP_HOST }}

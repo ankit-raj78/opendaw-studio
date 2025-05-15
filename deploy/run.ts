@@ -83,8 +83,6 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
 // --------------------- main -------------------------------------------------
 (async () => {
     const commits = readCommitsSinceLastDeploy()
-    console.log(`⏩ build…`)
-    execSync("npm run build", {stdio: "inherit"})
 
     console.log(`⏩ upload…`)
     await sftp.connect(config)
