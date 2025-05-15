@@ -3,8 +3,8 @@ set -euo pipefail
 export TERM=${TERM:-dumb}
 if [[ -t 1 ]]; then clear; fi
 
-./clean.sh || exit 1
-(cd lib && ./rebuild.sh) || exit 1
+bash ./clean.sh           || exit 1
+(cd lib && bash ./rebuild.sh) || exit 1
 
 echo "install boxes"
 (cd studio-boxes && npm install)   || exit 1
