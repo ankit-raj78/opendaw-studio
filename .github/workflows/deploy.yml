@@ -7,7 +7,7 @@ on:
       dry:
         description: "Dry run (check secrets, no upload)"
         required: false
-        default: 'true'
+        default: 'true'          # booleans must be quoted strings here
         type: boolean
 
 jobs:
@@ -16,47 +16,36 @@ jobs:
     environment: production
 
     steps:
-      # 1. Checkout the main repo with GITHUB_TOKEN (default)
-      - name: ⬇️ Checkout main repo
+      - name: ⬇️ Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0     # full history for git log
-
-      # 2. Checkout the private submodule using your PAT
-      - name: ⬇️ Checkout private submodule
-        uses: actions/checkout@v4
-        with:
-          repository: andremichelle/opendaw-lib
-          token:       ${{ secrets.SUBMODULE_PAT }}
-          path:        lib
           fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_PAT }}
 
-      # 3. Toolchain & deps
       - name: 🦄 Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: 'npm'
 
       - name: 📦 Install dependencies
         run: npm ci
 
-      # 4. Build (now lib/rebuild.sh exists)
       - name: 🏗️ Build project
         shell: bash
         run: |
-          chmod +x rebuild.sh
-          ./rebuild.sh
+          chmod +x rebuild.sh        # make sure it’s executable
+          ./rebuild.sh               # exits on error because of set -e in bash
 
-      # 5. Deploy (or dry-run)
       - name: 🚚 Run deploy script
         env:
           TERM: xterm-256color
-          SFTP_HOST:       ${{ vars.SFTP_HOST }}
-          SFTP_PORT:       ${{ vars.SFTP_PORT }}
-          SFTP_USERNAME:   ${{ vars.SFTP_USERNAME }}
-          SFTP_PASSWORD:   ${{ secrets.SFTP_PASSWORD }}
+          SFTP_HOST: ${{ vars.SFTP_HOST }}
+          SFTP_PORT: ${{ vars.SFTP_PORT }}
+          SFTP_USERNAME: ${{ vars.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          DRY_RUN:         ${{ inputs.dry && '1' || '0' }}
+          DRY_RUN: ${{ inputs.dry && '1' || '0' }}
         run: |
           npx ts-node --transpile-only deploy/run.ts ${{ inputs.dry && '--dry' || '' }}
