@@ -1,4 +1,4 @@
-import {defineConfig} from "vite"
+import {defineConfig, UserConfig} from "vite"
 import {resolve} from "path"
 import * as path from "node:path"
 import {readFileSync, writeFileSync} from "fs"
@@ -7,11 +7,11 @@ import {BuildInfo} from "./src/BuildInfo"
 import viteCompression from "vite-plugin-compression"
 import crossOriginIsolation from "vite-plugin-cross-origin-isolation"
 
-export default defineConfig(({mode}) => {
+export default defineConfig(({mode, command}) => {
     const uuid = UUID.toString(UUID.generate())
     const env = process.env.NODE_ENV as BuildInfo["env"]
     const date = Date.now()
-    return {
+    const config: UserConfig = {
         base: "/",
         mode,
         plugins: [
@@ -52,7 +52,6 @@ export default defineConfig(({mode}) => {
             rollupOptions: {
                 output: {
                     format: "es",
-                    treeshake: true,
                     entryFileNames: `[name].${uuid}.js`,
                     chunkFileNames: `[name].${uuid}.js`,
                     assetFileNames: `[name].${uuid}.[ext]`
@@ -62,17 +61,20 @@ export default defineConfig(({mode}) => {
         esbuild: {
             target: "esnext"
         },
-        clearScreen: false,
-        server: {
+        clearScreen: false
+    }
+    if (command === "serve") {
+        config.server = {
             port: 8080,
             strictPort: true,
             https: {
-                key: readFileSync("../localhost-key.pem"),
-                cert: readFileSync("../localhost.pem")
+                key: readFileSync(resolve(__dirname, "../localhost-key.pem")),
+                cert: readFileSync(resolve(__dirname, "../localhost.pem"))
             },
             watch: {
                 ignored: ["**/src-tauri/**"]
             }
         }
     }
+    return config
 })
