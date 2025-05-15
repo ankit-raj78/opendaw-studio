@@ -47,14 +47,13 @@ jobs:
         run: |
           bash ./rebuild.sh
 
-
       # 5. Deploy (or dry-run)
       - name: 🚚 Run deploy script
         env:
           TERM: xterm-256color
-          SFTP_HOST: ${{ vars.SFTP_HOST }}
-          SFTP_PORT: ${{ vars.SFTP_PORT }}
-          SFTP_USERNAME: ${{ vars.SFTP_USERNAME }}
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           DRY_RUN: ${{ inputs.dry && '1' || '0' }}
