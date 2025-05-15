@@ -7,31 +7,50 @@ on:
       dry:
         description: "Dry run (check secrets, no upload)"
         required: false
-        default: true
+        default: 'true'          # booleans must be quoted strings here
         type: boolean
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # 1 ▸ pull repo *and* all sub-modules so lib/rebuild.sh exists
+      - name: ⬇️ Checkout (incl. submodules)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # keeps full history → git log works
+          submodules: recursive   # grabs lib/ and any nested subs
+          # if the sub-module is private add:
+          # token: ${{ secrets.PRIVATE_SUBMODULE_PAT }}
+
+      # 2 ▸ Node toolchain
+      - name: 🦄 Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
+          cache: 'npm'
 
-      - name: 🏗️  Build project
-        run: ./rebuild.sh     # stop here on error automatically
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      # 3 ▸ Build (top-level script may call lib/rebuild.sh)
+      - name: 🏗️ Build project
         shell: bash
+        run: |
+          chmod +x rebuild.sh        # make sure it’s executable
+          ./rebuild.sh               # exits on error because of set -e in bash
 
-      - name: Run deploy script
+      # 4 ▸ Deploy (or dry-run)
+      - name: 🚚 Run deploy script
         env:
-          SFTP_HOST: ${{ vars.SFTP_HOST }}
-          SFTP_PORT: ${{ vars.SFTP_PORT }}
-          SFTP_USERNAME: ${{ vars.SFTP_USERNAME }}
-          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          TERM: xterm-256color       # quells “TERM not set” warnings
+          SFTP_HOST:       ${{ vars.SFTP_HOST }}
+          SFTP_PORT:       ${{ vars.SFTP_PORT }}
+          SFTP_USERNAME:   ${{ vars.SFTP_USERNAME }}
+          SFTP_PASSWORD:   ${{ secrets.SFTP_PASSWORD }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          DRY_RUN: ${{ inputs.dry == 'true' && '1' || '0' }}
-        run: npx ts-node --transpile-only deploy/run.ts ${{ inputs.dry == 'true' && '--dry' || '' }}
+          DRY_RUN:         ${{ inputs.dry && '1' || '0' }}
+        run: |
+          npx ts-node --transpile-only deploy/run.ts ${{ inputs.dry && '--dry' || '' }}
