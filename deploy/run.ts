@@ -14,25 +14,24 @@ const webhookUrl = process.env.DISCORD_WEBHOOK
 
 const DRY_RUN = process.env.DRY_RUN === "1" || process.argv.includes("--dry")
 console.info(`DRY_RUN: ${DRY_RUN}`)
-const missing = Object.entries({
+const env = Object.entries({
     SFTP_HOST: process.env.SFTP_HOST,
     SFTP_PORT: process.env.SFTP_PORT,
     SFTP_USERNAME: process.env.SFTP_USERNAME,
     SFTP_PASSWORD: process.env.SFTP_PASSWORD,
     DISCORD_WEBHOOK: process.env.DISCORD_WEBHOOK
-}).filter(([, v]) => !v).map(([k]) => k)
+})
+console.log(env)
+const missing = env.filter(([, v]) => !v).map(([k]) => k)
 if (missing.length > 0) {
     throw new Error(`Missing secrets/vars: ${missing.join(", ")}`)
 }
-
 if (DRY_RUN) {
     console.log("✅ All secrets & variables are set. Nothing was uploaded (dry-run).")
     process.exit(0)
 }
-
 const sftp = new SftpClient()
-
-const staticFolders = [""]
+const staticFolders = ["viscious-speed"]
 const readLastDeployTime = (): string => {
     try {
         return new Date(
