@@ -27,8 +27,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: andremichelle/opendaw-lib
-          token:       ${{ secrets.SUBMODULE_PAT }}
-          path:        lib
+          ssh-key: ${{ secrets.SUBMODULE_SSH_KEY }}
+          path: lib
           fetch-depth: 0
 
       # 3. Toolchain & deps
@@ -52,11 +52,11 @@ jobs:
       - name: 🚚 Run deploy script
         env:
           TERM: xterm-256color
-          SFTP_HOST:       ${{ vars.SFTP_HOST }}
-          SFTP_PORT:       ${{ vars.SFTP_PORT }}
-          SFTP_USERNAME:   ${{ vars.SFTP_USERNAME }}
-          SFTP_PASSWORD:   ${{ secrets.SFTP_PASSWORD }}
+          SFTP_HOST: ${{ vars.SFTP_HOST }}
+          SFTP_PORT: ${{ vars.SFTP_PORT }}
+          SFTP_USERNAME: ${{ vars.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          DRY_RUN:         ${{ inputs.dry && '1' || '0' }}
+          DRY_RUN: ${{ inputs.dry && '1' || '0' }}
         run: |
           npx ts-node --transpile-only deploy/run.ts ${{ inputs.dry && '--dry' || '' }}
