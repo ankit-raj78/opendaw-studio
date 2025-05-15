@@ -1,4 +1,4 @@
-import {Arrays, asDefined, DefaultObservableValue, panic, Procedure, unitValue, UUID} from "std"
+import {Arrays, asDefined, DefaultObservableValue, isDefined, panic, Procedure, tryCatch, unitValue, UUID} from "std"
 import {AudioData} from "@/audio/AudioData.ts"
 import {showInfoDialog, showProcessDialog} from "@/ui/components/dialogs.tsx"
 import {AudioMetaData} from "@/audio/AudioMetaData"
@@ -76,8 +76,18 @@ export namespace SampleApi {
         const dialogHandler = showProcessDialog("Uploading", progress)
         const formData = new FormData()
         Object.entries(metaData).forEach(([key, value]) => formData.set(key, String(value)))
+        const params = new URLSearchParams(location.search)
+        const accessKey = params.get("access-key")
+        if (!isDefined(accessKey)) {
+            showInfoDialog({
+                headline: "Upload Failure",
+                message: "Cannot upload without access-key."
+            })
+            return
+        }
+        formData.set("key", accessKey)
         formData.append("file", new Blob([arrayBuffer]))
-        console.log(Array.from(formData.entries()), arrayBuffer.byteLength)
+        console.log("upload data", Array.from(formData.entries()), arrayBuffer.byteLength)
         const xhr = new XMLHttpRequest()
         xhr.upload.addEventListener("progress", (event: ProgressEvent) => {
             if (event.lengthComputable) {
@@ -88,10 +98,16 @@ export namespace SampleApi {
             if (xhr.readyState === 4) {
                 dialogHandler.close()
                 if (xhr.status === 200) {
-                    console.log(xhr.responseText)
                     showInfoDialog({message: xhr.responseText})
                 } else {
-                    showInfoDialog({message: `Upload failed: '${xhr.statusText}')`})
+                    const {
+                        status,
+                        value
+                    } = tryCatch(() => JSON.parse(xhr.responseText).message ?? "Unknown error message")
+                    showInfoDialog({
+                        headline: "Upload Failure",
+                        message: status === "success" ? value : "Unknown error"
+                    })
                 }
             }
         }
