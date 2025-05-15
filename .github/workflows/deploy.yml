@@ -45,8 +45,8 @@ jobs:
       - name: 🏗️ Build project
         shell: bash
         run: |
-          chmod +x rebuild.sh
-          ./rebuild.sh
+          bash ./rebuild.sh
+
 
       # 5. Deploy (or dry-run)
       - name: 🚚 Run deploy script
