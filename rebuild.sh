@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export TERM=${TERM:-dumb}
 clear
 set -e
 ./clean.sh || exit 1

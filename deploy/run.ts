@@ -5,25 +5,27 @@ import {execSync} from "child_process"
 
 const config = {
     host: process.env.SFTP_HOST,
-    port: Number(process.env.SFTP_PORT ?? 22),
+    port: Number(process.env.SFTP_PORT),
     username: process.env.SFTP_USERNAME,
     password: process.env.SFTP_PASSWORD
 } as const
-const webhookUrl = process.env.DISCORD_WEBHOOK!
-const dryRun = process.env.DRY_RUN === "1" || process.argv.includes("--dry")
 
-if (dryRun) {
-    // ✅ verify all env vars are present but **do not** contact the server
-    const missing = Object.entries({
-        SFTP_HOST: process.env.SFTP_HOST,
-        SFTP_PORT: process.env.SFTP_PORT ?? "22",
-        SFTP_USERNAME: process.env.SFTP_USERNAME,
-        SFTP_PASSWORD: process.env.SFTP_PASSWORD,
-        DISCORD_WEBHOOK: process.env.DISCORD_WEBHOOK
-    }).filter(([, v]) => !v).map(([k]) => k)
-    if (missing.length > 0) {
-        throw new Error(`Missing secrets/vars: ${missing.join(", ")}`)
-    }
+const webhookUrl = process.env.DISCORD_WEBHOOK
+
+const DRY_RUN = process.env.DRY_RUN === "1" || process.argv.includes("--dry")
+console.info(`DRY_RUN: ${DRY_RUN}`)
+const missing = Object.entries({
+    SFTP_HOST: process.env.SFTP_HOST,
+    SFTP_PORT: process.env.SFTP_PORT,
+    SFTP_USERNAME: process.env.SFTP_USERNAME,
+    SFTP_PASSWORD: process.env.SFTP_PASSWORD,
+    DISCORD_WEBHOOK: process.env.DISCORD_WEBHOOK
+}).filter(([, v]) => !v).map(([k]) => k)
+if (missing.length > 0) {
+    throw new Error(`Missing secrets/vars: ${missing.join(", ")}`)
+}
+
+if (DRY_RUN) {
     console.log("✅ All secrets & variables are set. Nothing was uploaded (dry-run).")
     process.exit(0)
 }
@@ -83,8 +85,6 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
 // --------------------- main -------------------------------------------------
 (async () => {
     const commits = readCommitsSinceLastDeploy()
-    console.log(`⏩ build…`)
-    execSync("npm run build", {stdio: "inherit"})
 
     console.log(`⏩ upload…`)
     await sftp.connect(config)

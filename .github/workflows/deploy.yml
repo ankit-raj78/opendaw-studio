@@ -1,5 +1,5 @@
 # .github/workflows/deploy.yml
-name: Deploy
+name: Deploy openDAW studio
 
 on:
   workflow_dispatch:
@@ -21,6 +21,10 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+
+      - name: 🏗️  Build project
+        run: ./rebuild.sh     # stop here on error automatically
+        shell: bash
 
       - name: Run deploy script
         env:
