@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 clear
 set -e
-sh ./clean.sh || exit 1
-(cd lib && sh rebuild.sh) || exit 1
+./clean.sh || exit 1
+(cd lib && ./rebuild.sh) || exit 1
 echo "install boxes"
 (cd studio-boxes && npm install) || exit 1
 echo "install studio"

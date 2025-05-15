@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 echo "clean"
 declare -a targets=("dist" "node_modules" "package-lock.json" "gen")
 remove_targets() {
