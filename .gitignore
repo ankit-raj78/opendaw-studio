@@ -1,7 +1,7 @@
 .idea
 localhost.pem
 localhost-key.pem
-package-lock.json
 dist/
 node_modules/
-/studio/src/data/boxes/
+studio/src/data/boxes/
+studio/public/build-info.json

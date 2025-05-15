@@ -5,6 +5,17 @@
       <excludeFolder url="file://$MODULE_DIR$/.tmp" />
       <excludeFolder url="file://$MODULE_DIR$/temp" />
       <excludeFolder url="file://$MODULE_DIR$/tmp" />
+      <excludeFolder url="file://$MODULE_DIR$/.idea/dictionaries" />
+      <excludeFolder url="file://$MODULE_DIR$/.idea/inspectionProfiles" />
+      <excludeFolder url="file://$MODULE_DIR$/lib/box-forge/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/lib/box/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/lib/dom/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/lib/dsp/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/lib/fusion/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/lib/jsx/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/lib/runtime/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/lib/std/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/studio/dist" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
