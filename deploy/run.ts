@@ -89,7 +89,7 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
     console.log(`⏩ upload…`)
     await sftp.connect(config)
     await deleteDirectory("/")
-    await uploadDirectory("dist", "/")
+    await uploadDirectory("./studio/dist", "/")
     await sftp.end()
 
     console.log(`✅ deploy complete (${commits.length} commits)`)
