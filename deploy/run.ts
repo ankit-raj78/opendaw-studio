@@ -77,6 +77,7 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
             if (staticFolders.includes(remotePath)) continue
             await uploadDirectory(localPath, remotePath)
         } else {
+            console.log(`upload ${remotePath}`)
             await sftp.put(localPath, remotePath)
         }
     }
@@ -85,15 +86,14 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
 // --------------------- main -------------------------------------------------
 (async () => {
     const commits = readCommitsSinceLastDeploy()
-
     console.log(`⏩ upload…`)
     await sftp.connect(config)
     await deleteDirectory("/")
     await uploadDirectory("./studio/dist", "/")
     await sftp.end()
-
     console.log(`✅ deploy complete (${commits.length} commits)`)
     if (webhookUrl) {
+        console.log(`posting to discord with webhookUrl: '${webhookUrl}'`)
         await fetch(webhookUrl, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
@@ -106,4 +106,5 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
             })
         })
     }
+    console.log("deploy complete")
 })()
