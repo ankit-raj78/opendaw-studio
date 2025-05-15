@@ -1,4 +1,4 @@
-import {Arrays, asDefined, DefaultObservableValue, isDefined, panic, Procedure, tryCatch, unitValue, UUID} from "std"
+import {Arrays, asDefined, DefaultObservableValue, panic, Procedure, tryCatch, unitValue, UUID} from "std"
 import {AudioData} from "@/audio/AudioData.ts"
 import {showInfoDialog, showProcessDialog} from "@/ui/components/dialogs.tsx"
 import {AudioMetaData} from "@/audio/AudioMetaData"
@@ -77,14 +77,7 @@ export namespace SampleApi {
         const formData = new FormData()
         Object.entries(metaData).forEach(([key, value]) => formData.set(key, String(value)))
         const params = new URLSearchParams(location.search)
-        const accessKey = params.get("access-key")
-        if (!isDefined(accessKey)) {
-            showInfoDialog({
-                headline: "Upload Failure",
-                message: "Cannot upload without access-key."
-            })
-            return
-        }
+        const accessKey = asDefined(params.get("access-key"), "Cannot upload without access-key.")
         formData.set("key", accessKey)
         formData.append("file", new Blob([arrayBuffer]))
         console.log("upload data", Array.from(formData.entries()), arrayBuffer.byteLength)
