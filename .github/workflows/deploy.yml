@@ -1,0 +1,33 @@
+# .github/workflows/deploy.yml
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: "Dry run (check secrets, no upload)"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Run deploy script
+        env:
+          SFTP_HOST: ${{ vars.SFTP_HOST }}
+          SFTP_PORT: ${{ vars.SFTP_PORT }}
+          SFTP_USERNAME: ${{ vars.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DRY_RUN: ${{ inputs.dry == 'true' && '1' || '0' }}
+        run: npx ts-node --transpile-only deploy/run.ts ${{ inputs.dry == 'true' && '--dry' || '' }}
