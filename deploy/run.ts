@@ -10,8 +10,6 @@ const config = {
     password: process.env.SFTP_PASSWORD
 } as const
 
-const webhookUrl = process.env.DISCORD_WEBHOOK
-
 const DRY_RUN = process.env.DRY_RUN === "1" || process.argv.includes("--dry")
 console.info(`DRY_RUN: ${DRY_RUN}`)
 const env = Object.entries({
@@ -91,19 +89,25 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
     await uploadDirectory("./studio/dist", "/")
     await sftp.end()
     console.log(`✅ deploy complete (${commits.length} commits)`)
+    const webhookUrl = process.env.DISCORD_WEBHOOK
     if (webhookUrl) {
         console.log(`posting to discord with webhookUrl: '${webhookUrl}'`)
-        await fetch(webhookUrl, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                content: [
-                    "🚀 **openDAW** has been deployed to <https://opendaw.studio>.",
-                    "",
-                    ...commits
-                ].join("\n")
+        try {
+            await fetch(webhookUrl, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    content: [
+                        "🚀 **openDAW** has been deployed to <https://opendaw.studio>.",
+                        "",
+                        ...commits
+                    ].join("\n")
+                })
             })
-        })
+            console.debug("sent to discord")
+        } catch (error) {
+            console.warn(error)
+        }
     }
     console.log("deploy complete")
 })()
