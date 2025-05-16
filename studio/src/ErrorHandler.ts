@@ -21,7 +21,7 @@ export namespace ErrorHandler {
 
     console.debug("meta.env.MODE", import.meta.env.MODE)
 
-    export const rollbar: { error: any } = isProduction
+    export const rollbar: { error: any, warning: any } = isProduction
         ? new Rollbar({
             accessToken: "5f89b677914d49bab814e1261c292af9",
             environment: import.meta.env.MODE,
@@ -40,7 +40,7 @@ export namespace ErrorHandler {
                 }
             }
         })
-        : {error: console.error}
+        : {error: console.error, warning: console.warn}
 
     const processError = async (scope: string, reason: any) => {
         if (processed) {return}
