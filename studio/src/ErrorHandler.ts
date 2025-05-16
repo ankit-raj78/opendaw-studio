@@ -15,28 +15,32 @@ export namespace ErrorHandler {
 
     export let optSession: Option<ProjectSession> = Option.None
 
+    const isProduction = import.meta.env.MODE === "production"
+
     let processed: boolean = false
 
     console.debug("meta.env.MODE", import.meta.env.MODE)
 
-    export const rollbar = new Rollbar({
-        accessToken: "5f89b677914d49bab814e1261c292af9",
-        environment: import.meta.env.MODE,
-        logLevel: "debug",
-        host: location.hostname,
-        enabled: import.meta.env.MODE === "production",
-        autoInstrument: Browser.isLocalHost() ? {
-            network: false,   // Disable network telemetry
-            log: false,       // Disable console log capture
-            dom: false,       // Disable UI events capture
-            navigation: false // Disable URL changes tracking
-        } : undefined,
-        payload: {
-            context: {
-                scripts: document.scripts.length
+    export const rollbar: { error: any } = isProduction
+        ? new Rollbar({
+            accessToken: "5f89b677914d49bab814e1261c292af9",
+            environment: import.meta.env.MODE,
+            logLevel: "debug",
+            host: location.hostname,
+            enabled: isProduction,
+            autoInstrument: Browser.isLocalHost() ? {
+                network: false,   // Disable network telemetry
+                log: false,       // Disable console log capture
+                dom: false,       // Disable UI events capture
+                navigation: false // Disable URL changes tracking
+            } : undefined,
+            payload: {
+                context: {
+                    scripts: document.scripts.length
+                }
             }
-        }
-    })
+        })
+        : {error: console.error}
 
     const processError = async (scope: string, reason: any) => {
         if (processed) {return}
@@ -80,11 +84,6 @@ export namespace ErrorHandler {
 
     const appLifetime = new Terminator()
 
-    export const thrown = (scope: string, reason: any): void => {
-        appLifetime.terminate()
-        processError(scope, reason)
-    }
-
     export const install = (owner: WindowProxy | Worker | AudioWorkletNode, scope: string): Terminable => {
         if (processed) {return Terminable.Empty}
         const lifetime = appLifetime.own(new Terminator())
@@ -92,28 +91,28 @@ export namespace ErrorHandler {
             Events.subscribe(owner, "error", event => {
                 lifetime.terminate()
                 console.debug(scope, event)
-                processError(scope, event)
+                processError(scope, event).then()
             }),
             Events.subscribe(owner, "unhandledrejection", event => {
                 lifetime.terminate()
                 console.debug(scope, event)
-                processError(scope, event)
+                processError(scope, event).then()
             }),
             Events.subscribe(owner, "messageerror", event => {
                 lifetime.terminate()
                 console.debug(scope, event)
-                processError(scope, event)
+                processError(scope, event).then()
             }),
             Events.subscribe(owner, "processorerror" as any, event => {
                 lifetime.terminate()
                 console.debug(scope, event)
-                processError(scope, event)
+                processError(scope, event).then()
             }),
             Events.subscribe(owner, "securitypolicyviolation", (event: SecurityPolicyViolationEvent) => {
                 lifetime.terminate()
                 console.debug(scope, event)
                 if ("blockedURI" in event) {
-                    processError(scope, `URL '${event.blockedURI}' is blocked`)
+                    processError(scope, `URL '${event.blockedURI}' is blocked`).then()
                 }
             })
         )
