@@ -1,4 +1,10 @@
 {
+  "scripts": {
+    "clean": "sh ./clean.sh",
+    "build": "sh ./rebuild.sh",
+    "cert": "sh ./cert.sh",
+    "web": "sh ./run-web.sh"
+  },
   "dependencies": {
     "@types/node": "^22.15.18",
     "@types/ssh2-sftp-client": "^9.0.4",

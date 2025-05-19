@@ -34,7 +34,8 @@ Before starting, ensure you have the following installed on your system:
 
 1. **Git** is required for cloning the repository and managing submodules. Download and install it
    from [git-scm.com](https://git-scm.com/).
-2. **mkcert** is required to create a certificate for developing with https protocol. Get information on how to install [here](https://github.com/FiloSottile/mkcert#installation)
+2. **mkcert** is required to create a certificate for developing with https protocol. Get information on how to
+   install [here](https://github.com/FiloSottile/mkcert#installation)
 3. Ensure you have Node.js version **>= 23**. This is necessary for running the development server and installing
    dependencies. Download Node.js from [nodejs.org](https://nodejs.org/).
 4. **Sass** While Sass is handled internally during the development process, you will need to ensure you have the
@@ -60,15 +61,15 @@ Before starting, ensure you have the following installed on your system:
 
 ### Generate local certificates (once)
 
-`./cert.sh`
+`npm run cert`
 
-### Rebuild the project
+### Clean & Install & Rebuild the entire project (once)
 
-`./rebuild.sh`
+`npm run build`
 
 ### Start the development server
 
-`./run-web.sh` – open the printed URL `https://localhost:8080`
+`npm run web` – open the printed URL `https://localhost:8080`
 
 ## Code Philosophy
 
