@@ -13,6 +13,9 @@ import {NameValidator} from "@/ui/validator/name.ts"
 import {DebugMenus} from "@/ui/menu/debug"
 import {exportNotesToMidiFile} from "@/ui/timeline/editors/notes/NoteUtils"
 import {ColorMenu} from "@/ui/timeline/ColorMenu"
+import {BPMTools} from "dsp"
+import {Browser} from "dom"
+import {showInfoDialog} from "@/ui/components/dialogs.tsx"
 
 type Construct = {
     element: Element
@@ -91,7 +94,23 @@ export const installRegionContextMenu =
                 }).setTriggerProcedure(() => {
                     if (region.type === "note-region") {
                         const label = region.label
-                        exportNotesToMidiFile(region.optCollection.unwrap(), `${label.length === 0 ? "region" : label}.mid`)
+                        exportNotesToMidiFile(region.optCollection.unwrap(), `${label.length === 0 ? "region" : label}.mid`).then()
+                    }
+                }),
+                MenuItem.default({
+                    label: "Calc Bpm",
+                    hidden: region.type !== "audio-region"
+                }).setTriggerProcedure(() => {
+                    if (region.type === "audio-region") {
+                        region.file.data.ifSome(data => {
+                            // TODO This is just for testing BPMTools
+                            const bpm = BPMTools.detect(data.frames[0], data.sampleRate)
+                            if (Browser.isLocalHost()) {
+                                console.debug(bpm)
+                            } else {
+                                showInfoDialog({headline: "BPMTools", message: `${bpm.toFixed(3)} BPM`}).then()
+                            }
+                        })
                     }
                 }),
                 DebugMenus.debugBox(region.box)
