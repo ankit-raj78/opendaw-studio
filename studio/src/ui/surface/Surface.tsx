@@ -17,7 +17,7 @@ import {
 } from "std"
 import {createElement, DomElement} from "jsx"
 import {IconLibrary} from "@/ui/IconLibrary.tsx"
-import {ErrorHandler} from "@/ErrorHandler.ts"
+import {ErrorHandler} from "@/errors/ErrorHandler.ts"
 import {ValueTooltip} from "@/ui/surface/ValueTooltip.tsx"
 import {TextTooltip} from "./TextTooltip"
 import {FloatingTextInput} from "@/ui/components/FloatingTextInput.tsx"
@@ -30,11 +30,11 @@ export interface SurfaceConfigurator {
 }
 
 export class Surface implements TerminableOwner {
-    static main(configurator: SurfaceConfigurator): Surface {
+    static main(configurator: SurfaceConfigurator, errorHandler: ErrorHandler): Surface {
         assert(!isDefined(this.#configurator), "Main must only be called once")
         this.#configurator = configurator
         const surface = this.create(window, "main", null)
-        ErrorHandler.install(window, "main")
+        errorHandler.install(window, "main")
         return surface
     }
 

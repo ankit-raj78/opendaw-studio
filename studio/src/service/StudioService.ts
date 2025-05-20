@@ -1,5 +1,4 @@
 import {
-    assert,
     DefaultObservableValue,
     EmptyExec,
     Func,
@@ -33,7 +32,7 @@ import {showApproveDialog, showInfoDialog, showProcessDialog} from "@/ui/compone
 import {BuildInfo} from "@/BuildInfo.ts"
 import {MidiDeviceAccess} from "@/midi/devices/MidiDeviceAccess"
 import {EngineWorklet} from "@/audio-engine/EngineWorklet"
-import {ErrorHandler} from "@/ErrorHandler"
+import {ErrorHandler} from "@/errors/ErrorHandler.ts"
 import {SamplePlayback} from "@/service/SamplePlayback"
 import {Shortcuts} from "@/service/Shortcuts"
 import {ProjectMeta} from "@/project/ProjectMeta"
@@ -98,7 +97,7 @@ export class StudioService {
     readonly panelLayout = new PanelContents(createPanelFactory(this))
     readonly spotlightDataSupplier = new SpotlightDataSupplier()
     readonly samplePlayback: SamplePlayback
-    readonly shortcuts = new Shortcuts(this)
+    readonly shortcuts = new Shortcuts(this) // TODO reference will be used later in configurator
     readonly engine = new EngineFacade()
     readonly #signals = new Notifier<StudioSignal>()
 
@@ -110,11 +109,12 @@ export class StudioService {
                 readonly audioWorklets: AudioWorklets,
                 readonly audioDevices: AudioOutputDevice,
                 readonly audioManager: UIAudioManager,
+                readonly errorHandler: ErrorHandler,
                 readonly buildInfo: BuildInfo) {
         this.samplePlayback = new SamplePlayback(context)
         const lifeTime = new Terminator()
         const observer = (optSession: Option<ProjectSession>) => {
-            ErrorHandler.optSession = optSession
+            errorHandler.optSession = optSession
             this.layout.screen.setValue(null)
             lifeTime.terminate()
             if (optSession.nonEmpty()) {
@@ -207,7 +207,7 @@ export class StudioService {
                 document.body.classList.toggle("help-hidden", !visible)
             }, true)
 
-        ErrorHandler.restoreSession(this).then(optSession => {
+        this.errorHandler.restoreSession(this).then(optSession => {
             if (optSession.nonEmpty()) {
                 this.sessionService.setValue(optSession)
             } else if (Browser.isLocalHost()) {
@@ -372,8 +372,6 @@ export class StudioService {
 
     resetPeaks(): void {this.#signals.notify({type: "reset-peaks"})}
 
-    assertProject(): void {assert(this.hasProjectSession, "No Project available")}
-
     #startAudioWorklet(terminator: Terminator, project: Project): void {
         console.debug(`start AudioWorklet`)
         const lifecycle = terminator.spawn()
@@ -383,7 +381,7 @@ export class StudioService {
             // we will only accept the first error
             client.removeEventListener("error", handler)
             client.removeEventListener("processorerror", handler)
-            ErrorHandler.rollbar.warning(event)
+            this.errorHandler.warning(event)
             const screen = this.layout.screen.getValue()
             // we need to restart the screen to subscribe to new broadcaster instances
             this.switchScreen(null)

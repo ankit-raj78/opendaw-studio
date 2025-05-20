@@ -24,6 +24,7 @@ import {AnimationFrame, Browser, Events, Keyboard} from "dom"
 import {AudioOutputDevice} from "@/audio/AudioOutputDevice"
 import {FontLoader} from "@/ui/FontLoader"
 import {AudioWorklets} from "@/audio-engine/AudioWorklets"
+import {ErrorHandler, ErrorReporting} from "@/errors/ErrorHandler.ts"
 
 window.name = "main"
 
@@ -32,11 +33,17 @@ const loadBuildInfo = async () => fetch(`/build-info.json?v=${Date.now()}`).then
 requestAnimationFrame(async () => {
         if (!window.crossOriginIsolated) {return panic("window must be crossOriginIsolated")}
         console.debug("booting...")
+        const errorReportingResult = await Promises.tryCatch(ErrorReporting.init())
+        if (errorReportingResult.status === "rejected") {
+            alert(errorReportingResult.error)
+            return
+        }
+        const errorHandler = new ErrorHandler(errorReportingResult.value)
         await FontLoader.load()
-        const {status, error} = await Promises.tryCatch(testFeatures())
-        if (status === "rejected") {
+        const testFeaturesResult = await Promises.tryCatch(testFeatures())
+        if (testFeaturesResult.status === "rejected") {
             document.querySelector("#preloader")?.remove()
-            replaceChildren(document.body, MissingFeature({error}))
+            replaceChildren(document.body, MissingFeature({error: testFeaturesResult.error}))
             return
         }
         const buildInfo: BuildInfo = await loadBuildInfo()
@@ -62,7 +69,7 @@ requestAnimationFrame(async () => {
                 SampleApi.load(context, uuid, progress)
         } satisfies AudioServerApi, context)
         const service: StudioService = new StudioService(
-            context, audioWorklets.value, audioDevices, audioManager, buildInfo)
+            context, audioWorklets.value, audioDevices, audioManager, errorHandler, buildInfo)
         const surface = Surface.main({
             config: (surface: Surface) => {
                 surface.ownAll(
@@ -80,7 +87,7 @@ requestAnimationFrame(async () => {
                     Spotlight.install(surface, service)
                 )
             }
-        })
+        }, errorHandler)
         document.querySelector("#preloader")?.remove()
         document.addEventListener("touchmove", (event: TouchEvent) => event.preventDefault(), {passive: false})
         replaceChildren(surface.ground, App(service))
@@ -109,7 +116,7 @@ requestAnimationFrame(async () => {
         if (Browser.isFirefox()) {
             const persisted = await Promises.tryCatch(navigator.storage.persisted())
             console.debug("Firefox.isPersisted", persisted.value)
-            if (status === "resolved" && !persisted.value) {
+            if (persisted.status === "resolved" && !persisted.value) {
                 await Promises.tryCatch(showStoragePersistDialog())
             }
         }
