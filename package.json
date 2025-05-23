@@ -1,9 +1,9 @@
 {
   "scripts": {
-    "clean": "sh ./clean.sh",
-    "build": "sh ./rebuild.sh",
-    "cert": "sh ./cert.sh",
-    "web": "sh ./run-web.sh"
+    "clean": "bash ./clean.sh",
+    "build": "bash ./rebuild.sh",
+    "cert": "bash ./cert.sh",
+    "web": "bash ./run-web.sh"
   },
   "dependencies": {
     "@types/node": "^22.15.18",
