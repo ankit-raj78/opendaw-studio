@@ -4,7 +4,7 @@ import {createElement} from "jsx"
 import {StudioService} from "@/service/StudioService"
 import {Button} from "@/ui/components/Button.tsx"
 import {Colors} from "@/ui/Colors.ts"
-import {Lifecycle} from "std"
+import {Lifecycle, MutableObservableValueFalse} from "std"
 import {IconSymbol} from "@/IconSymbol.ts"
 
 type Construct = {
@@ -15,7 +15,7 @@ type Construct = {
 export const TransportGroup = ({lifecycle, service: {engine, transport}}: Construct) => (
     <div style={{display: "flex"}}>
         <Checkbox lifecycle={lifecycle}
-                  model={engine.isRecording()}
+                  model={MutableObservableValueFalse}
                   appearance={{activeColor: "hsl(0, 50%, 50%)", tooltip: "Recording"}}>
             <Icon symbol={IconSymbol.Record}/>
         </Checkbox>
