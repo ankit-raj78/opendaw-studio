@@ -87,6 +87,8 @@ export class RegionClipResolver {
     }
 
     addMask(region: AnyRegionBoxAdapter) {
+        // addMask 21120 24960
+        // addMask 21120 24960
         console.debug("addMask", region.position, region.complete)
         const strategy = this.#strategy.selectedModifyStrategy()
         this.addMaskRange(strategy.readPosition(region), strategy.readComplete(region))

@@ -14,7 +14,9 @@ export const installTrackHeaderMenu = (project: Project,
                                        audioUnitBoxAdapter: AudioUnitBoxAdapter,
                                        trackBoxAdapter: TrackBoxAdapter): Procedure<MenuItem> =>
     parent => {
-        const accepts: DeviceAccepts = audioUnitBoxAdapter.input.getValue().unwrap().accepts
+        const inputAdapter = audioUnitBoxAdapter.input.getValue()
+        if (inputAdapter.isEmpty()) {return parent}
+        const accepts: DeviceAccepts = inputAdapter.unwrap().accepts
         const trackType = DeviceAccepts.toTrackType(accepts)
         const {editing, selection, midiDevices} = project
         return parent.addMenuItem(
@@ -58,11 +60,11 @@ export const installTrackHeaderMenu = (project: Project,
                     .forEach(region => selection.select(region.box))),
             MenuItem.default({
                 label: "Import Midi...",
-                selectable: audioUnitBoxAdapter.input.getValue().mapOr(x => x.accepts === "midi", false)
+                selectable: inputAdapter.mapOr(x => x.accepts === "midi", false)
             }).setTriggerProcedure(() => MidiImport.toTracks(project, audioUnitBoxAdapter)),
             MenuItem.default({
                 label: midiDevices.hasMidiConnection(audioUnitBoxAdapter.address) ? "Forget Midi" : "Learn Midi...",
-                selectable: audioUnitBoxAdapter.input.getValue().mapOr(x => x.accepts === "midi", false)
+                selectable: inputAdapter.mapOr(x => x.accepts === "midi", false)
             }).setTriggerProcedure(() => {
                 if (midiDevices.hasMidiConnection(audioUnitBoxAdapter.address)) {
                     midiDevices.forgetMidiConnection(audioUnitBoxAdapter.address)
