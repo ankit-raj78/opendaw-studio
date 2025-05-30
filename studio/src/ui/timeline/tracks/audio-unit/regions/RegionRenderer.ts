@@ -23,7 +23,7 @@ export const renderRegions = (context: CanvasRenderingContext2D,
     const {width, height} = canvas
     const {fontFamily} = getComputedStyle(canvas)
 
-    // subtract one pixels to avoid making special cases for a possible outline
+    // subtract one pixel to avoid making special cases for a possible outline
     const unitMin = range.unitMin - range.unitPadding - range.unitsPerPixel
     const unitMax = range.unitMax
     const unitsPerPixel = range.unitsPerPixel
@@ -50,6 +50,7 @@ export const renderRegions = (context: CanvasRenderingContext2D,
         if (optTrack.isEmpty()) {return}
         const trackBoxAdapter = optTrack.unwrap().trackBoxAdapter
         const regions = strategy.iterateRange(trackBoxAdapter.regions.collection, unitMin, unitMax)
+        const dpr = devicePixelRatio
 
         for (const region of regions) {
             if (region.isSelected ? hideSelected : !filterSelected) {continue}
@@ -57,8 +58,8 @@ export const renderRegions = (context: CanvasRenderingContext2D,
             const position = strategy.readPosition(region)
             const complete = strategy.readComplete(region) - unitsPerPixel
 
-            const x0Int = Math.floor(range.unitToX(Math.max(position, unitMin)) * devicePixelRatio)
-            const x1Int = Math.max(Math.floor(range.unitToX(Math.min(complete, unitMax)) * devicePixelRatio), x0Int + devicePixelRatio)
+            const x0Int = Math.floor(range.unitToX(Math.max(position, unitMin)) * dpr)
+            const x1Int = Math.max(Math.floor(range.unitToX(Math.min(complete, unitMax)) * dpr), x0Int + dpr)
             const xnInt = x1Int - x0Int
 
             const selected = region.isSelected && !filterSelected
@@ -107,7 +108,7 @@ export const renderRegions = (context: CanvasRenderingContext2D,
                         loopDuration: strategy.readLoopDuration(region)
                     }, unitMin, unitMax)) {
                         if (pass.index > 0) {
-                            const x = Math.floor(range.unitToX(pass.resultStart) * devicePixelRatio)
+                            const x = Math.floor(range.unitToX(pass.resultStart) * dpr)
                             context.fillStyle = loopColor
                             context.fillRect(x, labelHeight, 1, height - labelHeight)
                         }
@@ -122,7 +123,7 @@ export const renderRegions = (context: CanvasRenderingContext2D,
                         loopDuration: strategy.readLoopDuration(region)
                     }, unitMin, unitMax)) {
                         if (pass.index > 0) {
-                            const x = Math.floor(range.unitToX(pass.resultStart) * devicePixelRatio)
+                            const x = Math.floor(range.unitToX(pass.resultStart) * dpr)
                             context.fillStyle = loopColor
                             context.fillRect(x, labelHeight, 1, height - labelHeight)
                         }
@@ -130,7 +131,7 @@ export const renderRegions = (context: CanvasRenderingContext2D,
                     }
                 },
                 visitValueRegionBoxAdapter: (region: ValueRegionBoxAdapter) => {
-                    const padding = devicePixelRatio
+                    const padding = dpr
                     const top = labelHeight + padding
                     const bottom = height - padding
                     context.save()
@@ -146,7 +147,7 @@ export const renderRegions = (context: CanvasRenderingContext2D,
                         loopDuration: strategy.readLoopDuration(region)
                     }, unitMin, unitMax)) {
                         if (pass.index > 0) {
-                            const x = Math.floor(range.unitToX(pass.resultStart) * devicePixelRatio)
+                            const x = Math.floor(range.unitToX(pass.resultStart) * dpr)
                             context.fillStyle = loopColor
                             context.fillRect(x, labelHeight, 1, height - labelHeight)
                         }
@@ -164,7 +165,7 @@ export const renderRegions = (context: CanvasRenderingContext2D,
             if (tracks.service.project.userEditingManager.timeline.isEditing(region.box)) {
                 context.strokeStyle = `hsla(${hue}, ${normSat}%, 45%, 0.1)`
                 context.beginPath()
-                context.rect(x0Int + devicePixelRatio, devicePixelRatio, xnInt - 2 * devicePixelRatio, height - 2 * devicePixelRatio)
+                context.rect(x0Int + dpr, dpr, xnInt - 2 * dpr, height - 2 * dpr)
                 context.stroke()
             }
         }
