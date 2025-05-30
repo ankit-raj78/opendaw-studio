@@ -92,10 +92,10 @@ export class EngineWorklet extends AudioWorkletNode implements Engine {
                         return dispatcher.dispatchAndReturn(this.queryLoadingComplete)
                     }
                     panic(): void {dispatcher.dispatchAndForget(this.panic)}
-                    noteOn(uuid: Readonly<Uint8Array<ArrayBufferLike>>, pitch: byte, velocity: unitValue): void {
+                    noteOn(uuid: UUID.Format, pitch: byte, velocity: unitValue): void {
                         dispatcher.dispatchAndForget(this.noteOn, uuid, pitch, velocity)
                     }
-                    noteOff(uuid: Readonly<Uint8Array<ArrayBufferLike>>, pitch: byte): void {
+                    noteOff(uuid: UUID.Format, pitch: byte): void {
                         dispatcher.dispatchAndForget(this.noteOff, uuid, pitch)
                     }
                     scheduleClipPlay(clipIds: ReadonlyArray<UUID.Format>): void {
