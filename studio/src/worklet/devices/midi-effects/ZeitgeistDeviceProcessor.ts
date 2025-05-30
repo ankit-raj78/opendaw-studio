@@ -1,7 +1,7 @@
 import {EngineContext} from "@/worklet/EngineContext.ts"
 import {Event, NoteEvent, ppqn} from "dsp"
 import {MidiEffectProcessor} from "@/worklet/processors.ts"
-import {asDefined, assert, int, Nullable, Objects, Option, Terminable, UUID} from "std"
+import {asDefined, assert, clamp, int, Nullable, Objects, Option, Terminable, UUID} from "std"
 import {AutomatableParameter} from "@/worklet/AutomatableParameter.ts"
 import {NoteEventSource, NoteLifecycleEvent} from "@/worklet/NoteEventSource"
 import {ZeitgeistDeviceBoxAdapter} from "@/audio-engine-shared/adapters/devices/midi-effects/ZeitgeistDeviceBoxAdapter"
@@ -60,7 +60,7 @@ export class ZeitgeistDeviceProcessor extends EventProcessor implements MidiEffe
             } else {
                 this.#noteBroadcaster.noteOff(event.pitch)
             }
-            yield Objects.overwrite(event, {position: groove.warp(event.position)})
+            yield Objects.overwrite(event, {position: clamp(groove.warp(event.position), from, to)})
         }
     }
 
