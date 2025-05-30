@@ -1,10 +1,8 @@
 import {
     AudioFileBox,
-    DelayDeviceBox,
     NanoDeviceBox,
     PlayfieldDeviceBox,
     PlayfieldSampleBox,
-    ReverbDeviceBox,
     TapeDeviceBox,
     TrackBox,
     VaporisateurDeviceBox
@@ -18,7 +16,6 @@ import {enumToName, IconSymbol} from "@/IconSymbol.ts"
 import {Waveform} from "dsp"
 import {Modifier} from "@/ui/Modifier.ts"
 import {AudioUnitType} from "@/data/enums.ts"
-import {Browser} from "dom"
 import {DeviceHost} from "@/audio-engine-shared/adapters/devices"
 import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter"
 
@@ -124,30 +121,6 @@ export namespace Instruments {
             }))
             samples[7].exclude.setValue(true)
             samples[8].exclude.setValue(true)
-
-            if (Browser.isLocalHost() && false) {
-                ReverbDeviceBox.create(boxGraph, UUID.generate(), box => {
-                    box.label.setValue("Reverb")
-                    box.preDelay.setValue(0.001)
-                    box.damp.setValue(0.0)
-                    box.decay.setValue(1.0)
-                    box.index.setValue(0)
-                    box.host.refer(samples[5].audioEffects)
-                })
-                DelayDeviceBox.create(boxGraph, UUID.generate(), box => {
-                    box.label.setValue("Delay")
-                    box.index.setValue(0)
-                    box.host.refer(samples[0].audioEffects)
-                })
-                ReverbDeviceBox.create(boxGraph, UUID.generate(), box => {
-                    box.label.setValue("Reverb")
-                    box.preDelay.setValue(0.001)
-                    box.damp.setValue(0.5)
-                    box.decay.setValue(0.5)
-                    box.index.setValue(1)
-                    box.host.refer(samples[0].audioEffects)
-                })
-            }
             return deviceBox
         },
         createTrack: (boxGraph: BoxGraph, deviceHost: DeviceHost) =>
@@ -167,12 +140,12 @@ export namespace Instruments {
             VaporisateurDeviceBox.create(boxGraph, UUID.generate(), box => {
                 box.label.setValue(name)
                 box.icon.setValue(enumToName(icon))
-                box.tune.setValue(0.0)
-                box.cutoff.setValue(1000.0)
-                box.resonance.setValue(0.1)
-                box.attack.setValue(0.005)
-                box.release.setValue(0.1)
-                box.waveform.setValue(Waveform.sine)
+                box.tune.setInitValue(0.0)
+                box.cutoff.setInitValue(1000.0)
+                box.resonance.setInitValue(0.1)
+                box.attack.setInitValue(0.005)
+                box.release.setInitValue(0.1)
+                box.waveform.setInitValue(Waveform.sine)
                 box.host.refer(deviceHost.inputField)
             }),
         createTrack: (boxGraph: BoxGraph, deviceHost: DeviceHost) =>

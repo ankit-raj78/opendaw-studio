@@ -155,7 +155,7 @@ export const ChannelStrip = ({lifecycle, service, adapter, compact}: Construct) 
         </div>
     )
     if (!isOutput) {
-        lifecycle.own(attachParameterContextMenu(editing, midiDevices, adapter.tracks, solo.field, soloControl))
+        lifecycle.own(attachParameterContextMenu(editing, midiDevices, adapter.tracks, solo, soloControl))
     }
     lifecycle.ownAll(
         mixer.registerChannelStrip(adapter, {
@@ -182,9 +182,9 @@ export const ChannelStrip = ({lifecycle, service, adapter, compact}: Construct) 
             )
         }),
         adapter.input.catchupAndSubscribeLabelChange(option => inputLabel.value = option.unwrapOrElse("No Input")),
-        attachParameterContextMenu(editing, midiDevices, adapter.tracks, volume.field, volumeControl),
-        attachParameterContextMenu(editing, midiDevices, adapter.tracks, panning.field, panningControl),
-        attachParameterContextMenu(editing, midiDevices, adapter.tracks, mute.field, muteControl),
+        attachParameterContextMenu(editing, midiDevices, adapter.tracks, volume, volumeControl),
+        attachParameterContextMenu(editing, midiDevices, adapter.tracks, panning, panningControl),
+        attachParameterContextMenu(editing, midiDevices, adapter.tracks, mute, muteControl),
         service.subscribeSignal(() => permanentPeak = Number.NEGATIVE_INFINITY, "reset-peaks"),
         Events.subscribe(maxPeakLabel, "pointerdown", (event) => {
             service.resetPeaks()

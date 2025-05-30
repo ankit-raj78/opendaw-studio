@@ -1,17 +1,18 @@
 import {ContextMenu} from "@/ui/ContextMenu.ts"
 import {MenuItem} from "@/ui/model/menu-item.ts"
 import {TrackType} from "@/audio-engine-shared/adapters/timeline/TrackType.ts"
-import {Editing, PrimitiveField, PrimitiveValues} from "box"
+import {Editing, PrimitiveValues} from "box"
 import {AudioUnitTracks} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitTracks.ts"
-import {Pointers} from "@/data/pointers.ts"
 import {MidiDevices} from "@/midi/devices/MidiDevices"
+import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
 
 export const attachParameterContextMenu = <T extends PrimitiveValues>(editing: Editing,
                                                                       midiDevices: MidiDevices,
                                                                       tracks: AudioUnitTracks,
-                                                                      field: PrimitiveField<T, Pointers.Automation | Pointers.MidiControl>,
+                                                                      parameter: ParameterFieldAdapter<T>,
                                                                       element: Element) =>
     ContextMenu.subscribe(element, collector => {
+        const field = parameter.field
         const automation = tracks.controls(field)
         collector.addItems(
             automation.isEmpty()
@@ -29,10 +30,10 @@ export const attachParameterContextMenu = <T extends PrimitiveValues>(editing: E
                 if (midiDevices.hasMidiConnection(field.address)) {
                     midiDevices.forgetMidiConnection(field.address)
                 } else {
-                    midiDevices.learnMidiControls(field)
+                    midiDevices.learnMidiControls(field).then()
                 }
             }),
             MenuItem.default({label: "Reset Value", checked: field.getValue() === field.initValue})
-                .setTriggerProcedure(() => editing.modify(() => field.reset()))
+                .setTriggerProcedure(() => editing.modify(() => parameter.reset()))
         )
     })

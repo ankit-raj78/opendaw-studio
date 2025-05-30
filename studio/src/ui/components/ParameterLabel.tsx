@@ -33,7 +33,7 @@ export const ParameterLabel = (
     lifecycle.ownAll(
         standalone === true
             ? attachParameterContextMenu(editing, midiDevices,
-                adapter.deviceHost().audioUnitBoxAdapter().tracks, parameter.field, element)
+                adapter.deviceHost().audioUnitBoxAdapter().tracks, parameter, element)
             : Terminable.Empty,
         parameter.catchupAndSubscribeControlSources({
             onControlSourceAdd: (source: ControlSource) => element.classList.add(source),

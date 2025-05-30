@@ -81,7 +81,7 @@ export const RevampDeviceEditor = ({adapter, project, lifecycle, deviceHost}: Co
                                                   </ControlIndicator>
                                               )
                                               lifecycle.own(attachParameterContextMenu(
-                                                  editing, midiDevices, deviceHost.audioUnitBoxAdapter().tracks, enabled.field, checkbox))
+                                                  editing, midiDevices, deviceHost.audioUnitBoxAdapter().tracks, enabled, checkbox))
                                               return checkbox
                                           })}
                                   </div>

@@ -48,6 +48,6 @@ export const ParameterLabelKnob = ({
     )
     lifecycle.own(
         attachParameterContextMenu(editing, midiDevices,
-            adapter.deviceHost().audioUnitBoxAdapter().tracks, parameter.field, element))
+            adapter.deviceHost().audioUnitBoxAdapter().tracks, parameter, element))
     return element
 }

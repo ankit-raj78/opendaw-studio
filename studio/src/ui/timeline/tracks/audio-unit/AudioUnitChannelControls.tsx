@@ -66,10 +66,10 @@ export const AudioUnitChannelControls = ({lifecycle, editing, midiDevices, adapt
         </ControlIndicator>
     )
     lifecycle.ownAll(
-        attachParameterContextMenu(editing, midiDevices, adapter.tracks, volume.field, volumeControl),
-        attachParameterContextMenu(editing, midiDevices, adapter.tracks, panning.field, panningControl),
-        attachParameterContextMenu(editing, midiDevices, adapter.tracks, mute.field, muteControl),
-        attachParameterContextMenu(editing, midiDevices, adapter.tracks, solo.field, soloControl)
+        attachParameterContextMenu(editing, midiDevices, adapter.tracks, volume, volumeControl),
+        attachParameterContextMenu(editing, midiDevices, adapter.tracks, panning, panningControl),
+        attachParameterContextMenu(editing, midiDevices, adapter.tracks, mute, muteControl),
+        attachParameterContextMenu(editing, midiDevices, adapter.tracks, solo, soloControl)
     )
     return (
         <div className={className}>
