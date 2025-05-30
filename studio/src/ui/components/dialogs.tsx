@@ -1,6 +1,6 @@
 import {createElement} from "jsx"
 import {Button, Dialog, DialogHandler} from "@/ui/components/Dialog.tsx"
-import {Arrays, Exec, isDefined, ObservableValue, Procedure, Terminator, unitValue} from "std"
+import {Arrays, Exec, isDefined, ObservableValue, Option, Procedure, Provider, Terminator, unitValue} from "std"
 import {Surface} from "@/ui/surface/Surface.tsx"
 import {IconSymbol} from "@/IconSymbol.ts"
 import {Box, BoxGraph} from "box"
@@ -225,19 +225,28 @@ export const showNewItemDialog = (headline: string, suggestion: string, factory:
     dialog.showModal()
 }
 
-export const showErrorDialog = (scope: string, message: string, backup: boolean = false): void => {
+export const showErrorDialog = (scope: string,
+                                message: string,
+                                backupCommand: Option<Provider<Promise<void>>> = Option.None): void => {
     const dialog: HTMLDialogElement = (
         <Dialog headline="An error occurred :("
                 icon={IconSymbol.Robot}
-                buttons={backup ? [{
-                    text: "Recover",
-                    onClick: () => location.reload()
-                }, {
-                    text: "EMail",
-                    primary: true,
-                    onClick: () => window.location.href =
-                        `mailto:support@opendaw.org?subject=${encodeURI("Bug Report - openDAW")}&body=${encodeURI(EmailBody)}`
-                }] : Arrays.empty()}
+                buttons={backupCommand.nonEmpty() ? [
+                    {
+                        text: "Recover",
+                        onClick: () => {
+                            const command = backupCommand.unwrap()
+                            command().then(() => location.reload())
+                        }
+                    }, {
+                        text: "Dismiss",
+                        onClick: () => location.reload()
+                    }, {
+                        text: "EMail",
+                        primary: true,
+                        onClick: () => window.location.href =
+                            `mailto:support@opendaw.org?subject=${encodeURI("Bug Report - openDAW")}&body=${encodeURI(EmailBody)}`
+                    }] : Arrays.empty()}
                 cancelable={false}
                 error>
             <div style={{padding: "1em 0", maxWidth: "50vw"}}>

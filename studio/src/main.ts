@@ -1,6 +1,6 @@
 import "./main.sass"
 import {App} from "@/ui/App.tsx"
-import {panic, Procedure, unitValue, UUID} from "std"
+import {Option, panic, Procedure, unitValue, UUID} from "std"
 import {StudioService} from "@/service/StudioService"
 import {UIAudioManager} from "@/project/UIAudioManager"
 import {AudioData} from "@/audio/AudioData"
@@ -55,7 +55,7 @@ requestAnimationFrame(async () => {
         console.debug(`AudioContext state: ${context.state}, sampleRate: ${context.sampleRate}`)
         const audioWorklets = await Promises.tryCatch(AudioWorklets.install(context))
         if (audioWorklets.status === "rejected") {
-            showErrorDialog("Audio", `Could not boot audio-worklets (${audioWorklets.error})`, false)
+            showErrorDialog("Audio", `Could not boot audio-worklets (${audioWorklets.error})`, Option.None)
             return
         }
         if (context.state === "suspended") {

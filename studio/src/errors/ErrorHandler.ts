@@ -1,4 +1,4 @@
-import {Option, Terminable, Terminator, UUID} from "std"
+import {Option, Provider, Terminable, Terminator, UUID} from "std"
 import {showErrorDialog} from "@/ui/components/dialogs.tsx"
 import {Surface} from "@/ui/surface/Surface.tsx"
 import {OpfsAgent} from "@/service/agents.ts"
@@ -81,22 +81,21 @@ export class ErrorHandler implements ErrorReporting {
         if (this.#errorThrown) {return}
         this.#errorThrown = true
         AnimationFrame.terminate()
-        const backup = await this.backupSession()
-        const message = ErrorHandler.#decodeToString(reason)
-        console.log(`project: ${this.optSession.unwrapOrNull()?.meta?.name}`)
-        console.log(`scripts: ${document.scripts.length}`)
-        console.error(scope, message)
-        if (Surface.isAvailable()) {
-            showErrorDialog(scope, message, backup)
-        } else {
-            alert(`Boot Error in '${scope}': ${message}`)
-        }
         if (reason instanceof ErrorEvent && reason.error instanceof Error) {
             this.error(scope, reason.error)
         } else if (reason instanceof PromiseRejectionEvent) {
             this.error(scope, reason.reason)
         } else {
             this.error(scope, reason)
+        }
+        const message = ErrorHandler.#decodeToString(reason)
+        console.log(`project: ${this.optSession.unwrapOrNull()?.meta?.name}`)
+        console.log(`scripts: ${document.scripts.length}`)
+        console.error(scope, message)
+        if (Surface.isAvailable()) {
+            showErrorDialog(scope, message, this.#createBackupCommand())
+        } else {
+            alert(`Boot Error in '${scope}': ${message}`)
         }
     }
 
@@ -157,26 +156,16 @@ export class ErrorHandler implements ErrorReporting {
         return Option.wrap(session)
     }
 
-    async backupSession(): Promise<boolean> {
-        return this.optSession.match({
-            none: async () => false,
-            some: async (session: ProjectSession) => {
-                console.debug("temp storing project")
-                const {project, meta, uuid} = session
-                const {status, error} = await Promises.tryCatch(Promise.all([
-                    OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/uuid`, uuid),
-                    OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/project.od`, new Uint8Array(project.toArrayBuffer())),
-                    OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/meta.json`, new TextEncoder().encode(JSON.stringify(meta))),
-                    OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/saved`, new Uint8Array([session.saved() ? 1 : 0]))
-                ]))
-                if (status === "resolved") {
-                    console.debug("done.")
-                    return true
-                } else {
-                    console.warn(error)
-                    return false
-                }
-            }
+    #createBackupCommand(): Option<Provider<Promise<void>>> {
+        return this.optSession.map((session: ProjectSession) => async () => {
+            console.debug("temp storing project")
+            const {project, meta, uuid} = session
+            return Promises.tryCatch(Promise.all([
+                OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/uuid`, uuid),
+                OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/project.od`, new Uint8Array(project.toArrayBuffer())),
+                OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/meta.json`, new TextEncoder().encode(JSON.stringify(meta))),
+                OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/saved`, new Uint8Array([session.saved() ? 1 : 0]))
+            ])).then(result => console.debug(`backup result: ${result.status}`))
         })
     }
 }
