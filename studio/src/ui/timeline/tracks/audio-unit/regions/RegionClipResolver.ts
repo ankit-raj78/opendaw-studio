@@ -1,5 +1,5 @@
 import {TrackBoxAdapter} from "@/audio-engine-shared/adapters/timeline/TrackBoxAdapter.ts"
-import {Event, EventCollection, PPQN, ppqn} from "dsp"
+import {Event, EventCollection, ppqn} from "dsp"
 import {RegionModifyStrategies} from "@/ui/timeline/tracks/audio-unit/regions/RegionModifyStrategies.ts"
 import {AnyRegionBoxAdapter, UnionAdapterTypes} from "@/audio-engine-shared/adapters/UnionAdapterTypes.ts"
 import {asDefined, assert, Exec, int, mod, panic} from "std"
@@ -50,7 +50,7 @@ export class RegionClipResolver {
     }
 
     static validateTracks(tracks: ReadonlyArray<TrackBoxAdapter>): void {
-        // TODO for (const track of tracks) {this.validateTrack(track)}
+        for (const track of tracks) {this.validateTrack(track)}
     }
 
     static validateTrack(track: TrackBoxAdapter): void {
@@ -86,14 +86,12 @@ export class RegionClipResolver {
         this.#masks = []
     }
 
-    addMask(region: AnyRegionBoxAdapter) {
-        // addMask 6.3.1:0 7.3.1:0
-        console.debug("addMask", PPQN.toString(region.position), PPQN.toString(region.complete))
+    addMask(region: AnyRegionBoxAdapter): void {
         const strategy = this.#strategy.selectedModifyStrategy()
         this.addMaskRange(strategy.readPosition(region), strategy.readComplete(region))
     }
 
-    addMaskRange(position: ppqn, complete: ppqn) {
+    addMaskRange(position: ppqn, complete: ppqn): void {
         this.#masks.push({type: "range", position, complete})
     }
 
@@ -162,7 +160,6 @@ export class RegionClipResolver {
                 return 0
             })
             .forEach(task => {
-                console.debug(task)
                 const {type, region} = task
                 switch (type) {
                     case "delete":
