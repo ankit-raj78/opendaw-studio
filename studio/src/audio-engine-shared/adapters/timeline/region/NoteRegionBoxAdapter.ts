@@ -31,6 +31,7 @@ type CopyToParams = {
     position?: ppqn
     duration?: ppqn
     loopOffset?: ppqn
+    loopDuration?: ppqn
     consolidate?: boolean
 }
 
@@ -153,7 +154,7 @@ export class NoteRegionBoxAdapter implements LoopableRegionBoxAdapter<NoteEventC
             box.position.setValue(params?.position ?? this.position)
             box.duration.setValue(params?.duration ?? this.duration)
             box.loopOffset.setValue(params?.loopOffset ?? this.loopOffset)
-            box.loopDuration.setValue(this.loopDuration)
+            box.loopDuration.setValue(params?.loopDuration ?? this.loopDuration)
             box.hue.setValue(this.hue)
             box.label.setValue(this.label)
             box.mute.setValue(this.mute)

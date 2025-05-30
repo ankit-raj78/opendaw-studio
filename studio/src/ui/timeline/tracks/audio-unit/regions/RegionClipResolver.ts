@@ -1,5 +1,5 @@
 import {TrackBoxAdapter} from "@/audio-engine-shared/adapters/timeline/TrackBoxAdapter.ts"
-import {Event, EventCollection, ppqn} from "dsp"
+import {Event, EventCollection, PPQN, ppqn} from "dsp"
 import {RegionModifyStrategies} from "@/ui/timeline/tracks/audio-unit/regions/RegionModifyStrategies.ts"
 import {AnyRegionBoxAdapter, UnionAdapterTypes} from "@/audio-engine-shared/adapters/UnionAdapterTypes.ts"
 import {asDefined, assert, Exec, int, mod, panic} from "std"
@@ -50,7 +50,7 @@ export class RegionClipResolver {
     }
 
     static validateTracks(tracks: ReadonlyArray<TrackBoxAdapter>): void {
-        for (const track of tracks) {this.validateTrack(track)}
+        // TODO for (const track of tracks) {this.validateTrack(track)}
     }
 
     static validateTrack(track: TrackBoxAdapter): void {
@@ -87,9 +87,8 @@ export class RegionClipResolver {
     }
 
     addMask(region: AnyRegionBoxAdapter) {
-        // addMask 21120 24960
-        // addMask 21120 24960
-        console.debug("addMask", region.position, region.complete)
+        // addMask 6.3.1:0 7.3.1:0
+        console.debug("addMask", PPQN.toString(region.position), PPQN.toString(region.complete))
         const strategy = this.#strategy.selectedModifyStrategy()
         this.addMaskRange(strategy.readPosition(region), strategy.readComplete(region))
     }
@@ -163,10 +162,11 @@ export class RegionClipResolver {
                 return 0
             })
             .forEach(task => {
+                console.debug(task)
                 const {type, region} = task
                 switch (type) {
                     case "delete":
-                        // This is necessary to update the modifed pointers while running the transaction.
+                        // This is necessary to update the modified pointers while running the transaction.
                         // TODO I hope for a better solution that updates them automatically when information are to be read
                         region.box.graph.resolvePointers()
                         region.box.delete()

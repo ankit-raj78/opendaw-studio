@@ -18,7 +18,7 @@ type CopyToParams = {
     position?: ppqn
     duration?: ppqn
     loopOffset?: ppqn
-    consolidate?: boolean
+    loopDuration?: ppqn
 }
 
 export class AudioRegionBoxAdapter implements LoopableRegionBoxAdapter<never> {
@@ -148,7 +148,7 @@ export class AudioRegionBoxAdapter implements LoopableRegionBoxAdapter<never> {
             box.position.setValue(params?.position ?? this.position)
             box.duration.setValue(params?.duration ?? this.duration)
             box.loopOffset.setValue(params?.loopOffset ?? this.loopOffset)
-            box.loopDuration.setValue(this.#box.loopDuration.getValue())
+            box.loopDuration.setValue(params?.loopDuration ?? this.loopDuration)
             box.regions.refer(params?.track ?? this.#box.regions.targetVertex.unwrap())
             box.file.refer(this.#box.file.targetVertex.unwrap())
             box.mute.setValue(this.mute)

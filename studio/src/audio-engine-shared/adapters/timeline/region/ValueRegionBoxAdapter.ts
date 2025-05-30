@@ -30,8 +30,11 @@ import {TrackBoxAdapter} from "../TrackBoxAdapter.ts"
 import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 
 type CopyToParams = {
-    track?: Field<Pointers.RegionCollection>,
-    position?: ppqn,
+    track?: Field<Pointers.RegionCollection>
+    position?: ppqn
+    duration?: ppqn
+    loopOffset?: ppqn
+    loopDuration?: ppqn
     consolidate?: boolean
 }
 
@@ -134,12 +137,12 @@ export class ValueRegionBoxAdapter implements LoopableRegionBoxAdapter<ValueEven
     get box(): ValueRegionBox {return this.#box}
     get uuid(): UUID.Format {return this.#box.address.uuid}
     get address(): Address {return this.#box.address}
-    get position(): int {return this.#box.position.getValue()}
-    get duration(): int {return this.#box.duration.getValue()}
+    get position(): ppqn {return this.#box.position.getValue()}
+    get duration(): ppqn {return this.#box.duration.getValue()}
     get loopOffset(): ppqn {return this.#box.loopOffset.getValue()}
     get loopDuration(): ppqn {return this.#box.loopDuration.getValue()}
     get offset(): ppqn {return this.position - this.loopOffset}
-    get complete(): int {return this.position + this.duration}
+    get complete(): ppqn {return this.position + this.duration}
     get mute(): boolean {return this.#box.mute.getValue()}
     get hue(): int {return this.#box.hue.getValue()}
     get hasCollection() {return !this.optCollection.isEmpty()}
@@ -159,21 +162,21 @@ export class ValueRegionBoxAdapter implements LoopableRegionBoxAdapter<ValueEven
     get isMirrowed(): boolean {return this.optCollection.mapOr(adapter => adapter.numOwners > 1, false)}
     get canMirror(): boolean {return true}
 
-    copyTo(target?: CopyToParams): ValueRegionBoxAdapter {
+    copyTo(params?: CopyToParams): ValueRegionBoxAdapter {
         const eventCollection = this.optCollection.unwrap("Cannot make copy without event-collection")
-        const eventTarget = target?.consolidate === true
+        const eventTarget = params?.consolidate === true
             ? eventCollection.copy().box.owners
             : eventCollection.box.owners
         return this.#context.boxAdapters.adapterFor(ValueRegionBox.create(this.#context.boxGraph, UUID.generate(), box => {
-            box.position.setValue(target?.position ?? this.position)
-            box.duration.setValue(this.duration)
-            box.loopOffset.setValue(this.loopOffset)
-            box.loopDuration.setValue(this.loopDuration)
+            box.position.setValue(params?.position ?? this.position)
+            box.duration.setValue(params?.duration ?? this.duration)
+            box.loopOffset.setValue(params?.loopOffset ?? this.loopOffset)
+            box.loopDuration.setValue(params?.loopDuration ?? this.loopDuration)
             box.hue.setValue(this.hue)
             box.label.setValue(this.label)
             box.mute.setValue(this.mute)
             box.events.refer(eventTarget)
-            box.regions.refer(target?.track ?? this.#box.regions.targetVertex.unwrap())
+            box.regions.refer(params?.track ?? this.#box.regions.targetVertex.unwrap())
         }), ValueRegionBoxAdapter)
     }
 
