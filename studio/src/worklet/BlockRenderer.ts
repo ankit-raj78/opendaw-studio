@@ -18,7 +18,7 @@ export class BlockRenderer {
     #currentMarker: Nullable<[MarkerBoxAdapter, int]> = null
     #someMarkersChanged: boolean = false
     #freeRunningPosition: ppqn = 0.0 // synced with timeInfo when transporting
-    #playing: boolean = true // playing events
+    #playEvents: boolean = true // playing events
 
     constructor(context: EngineContext) {
         this.#context = context
@@ -27,8 +27,8 @@ export class BlockRenderer {
         this.#callbacks = new SetMultimap()
     }
 
-    get playing(): boolean {return this.#playing}
-    set playing(value: boolean) {this.#playing = value}
+    get playEvents(): boolean {return this.#playEvents}
+    set playEvents(value: boolean) {this.#playEvents = value}
 
     setCallback(position: ppqn, callback: Exec): Terminable {
         this.#callbacks.add(position, callback)
@@ -58,13 +58,13 @@ export class BlockRenderer {
                         markerChanged = true
                     }
                 }
-                const sn: int = RenderQuantum - s0 // distance to block end
+                const sn: int = RenderQuantum - s0
                 const p1 = p0 + PPQN.samplesToPulses(sn, bpm, sampleRate)
                 let action: Action = null
                 let actionPosition: ppqn = Number.POSITIVE_INFINITY
 
                 //
-                // evalate nearest global action
+                // evaluate nearest global action
                 //
 
                 // --- MARKER ---
@@ -72,7 +72,7 @@ export class BlockRenderer {
                     const markers = Array.from(Iterables.take(markerTrack.events.iterateFrom(p0), 2))
                     if (markers.length > 0) {
                         const [prev, next] = markers
-                        // This branch happens, if all markers are in the future
+                        // This branch happens if all markers are in the future
                         if (this.#currentMarker === null) {
                             if (prev.position >= p0 && prev.position < p1) {
                                 action = {type: "marker", prev, next}
@@ -80,7 +80,7 @@ export class BlockRenderer {
                             }
                         } else if (
                             isDefined(next)
-                            && next !== this.#currentMarker[0] // must be different than current
+                            && next !== this.#currentMarker[0] // must be different from the current
                             && prev.position < p0 // must be in the past
                             && next.position < p1 // must be inside the block
                         ) {
@@ -113,11 +113,10 @@ export class BlockRenderer {
                 // handle action (if any)
                 //
                 if (action === null) {
-                    // move to end of block
                     const s1 = s0 + sn
                     blocks.push({
                         index: index++, p0, p1, s0, s1, bpm,
-                        flags: BlockFlags.create(transporting, discontinuous, this.#playing)
+                        flags: BlockFlags.create(transporting, discontinuous, this.#playEvents)
                     })
                     discontinuous = false
                     p0 = p1
@@ -128,7 +127,7 @@ export class BlockRenderer {
                             const s1 = s0 + PPQN.pulsesToSamples(actionPosition - p0, bpm, sampleRate) | 0
                             blocks.push({
                                 index: index++, p0, p1: actionPosition, s0, s1, bpm,
-                                flags: BlockFlags.create(transporting, discontinuous, this.#playing)
+                                flags: BlockFlags.create(transporting, discontinuous, this.#playEvents)
                             })
                             discontinuous = false
                             p0 = actionPosition
@@ -196,6 +195,4 @@ export class BlockRenderer {
                 ? [this.#currentMarker[0].uuid, this.#currentMarker[1]] : null)
         }
     }
-
-    get currentMarker(): Nullable<[MarkerBoxAdapter, number]> {return this.#currentMarker}
 }

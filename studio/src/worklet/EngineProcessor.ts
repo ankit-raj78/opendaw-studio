@@ -36,7 +36,7 @@ import {UpdateClock} from "@/worklet/UpdateClock.ts"
 import {PeakBroadcaster} from "@/worklet/PeakBroadcaster.ts"
 import {Metronome} from "@/worklet/Metronome.ts"
 import {BlockRenderer} from "@/worklet/BlockRenderer.ts"
-import {Graph, TopologicalSort} from "dsp"
+import {Graph, PPQN, TopologicalSort} from "dsp"
 import {AudioManagerWorklet} from "@/worklet/AudioManagerWorklet.ts"
 import {EngineStateSchema} from "@/worklet/EngineStateSchema.ts"
 import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter.ts"
@@ -132,10 +132,32 @@ registerProcessor("engine-processor", class extends AudioWorkletProcessor implem
                 setPlaying: (value: boolean) => this.#timeInfo.transporting = value,
                 setPosition: (position: number) => {this.#timeInfo.position = position},
                 setRecording: (value: boolean) => {
-                    console.debug("setRecording", value)
+                    if (value) {
+                        if (this.#timeInfo.transporting) {
+                            // smoothly turn on recording
+                        } else {
+                            console.debug("COUNT-IN RECORDING...")
+                            const position = this.#timeInfo.position
+                            const metronomeEnabled = this.#timeInfo.metronomeEnabled
+                            this.#timeInfo.metronomeEnabled = true
+                            this.#renderer.playEvents = false
+                            this.#timeInfo.transporting = true
+                            this.#timeInfo.position = position - PPQN.Bar
+                            const subscription = this.#renderer.setCallback(position, () => {
+                                console.debug("START RECORDING...")
+                                this.#timeInfo.metronomeEnabled = metronomeEnabled
+                                this.#renderer.playEvents = true
+                                subscription.terminate()
+                            })
+                            // TODO Cancel subscription and reset, if user stops recording or changes position
+                        }
+                    } else {
+                        console.debug("STOP RECORDING")
+                    }
                 },
                 setMetronomeEnabled: (value: boolean) => this.#timeInfo.metronomeEnabled = value,
                 stopAndReset: () => {
+                    console.debug("stopAndReset")
                     this.#timeInfo.position = 0.0
                     this.#timeInfo.transporting = false
                     this.#renderer.reset()

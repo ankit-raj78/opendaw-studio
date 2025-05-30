@@ -144,10 +144,16 @@ export class EngineWorklet extends AudioWorkletNode implements Engine {
                 const isPlaying = owner.getValue()
                 if (isPlaying) {
                     this.#commands.setPosition(this.#playbackTimestamp.getValue())
+                } else if (this.#isRecording.getValue()) {
+                    this.#isRecording.setValue(false)
                 }
                 this.#commands.setPlaying(isPlaying)
             }),
-            this.#isRecording.catchupAndSubscribe(owner => this.#commands.setRecording(owner.getValue())),
+            this.#isRecording.subscribe(owner => {
+                const willRecord = owner.getValue()
+                this.#commands.setPlaying(willRecord)
+                this.#commands.setRecording(willRecord)
+            }),
             this.#metronomeEnabled.catchupAndSubscribe(owner => this.#commands.setMetronomeEnabled(owner.getValue())),
             this.#position.catchupAndSubscribe(owner => {
                 if (!this.#ignoreUpdates) {this.#commands.setPosition(owner.getValue())}
@@ -159,6 +165,7 @@ export class EngineWorklet extends AudioWorkletNode implements Engine {
         if (!this.#isPlaying.getValue() && this.#position.getValue() === 0.0) {
             this.#commands.stopAndReset()
         } else {
+            this.#isRecording.setValue(false)
             this.#isPlaying.setValue(false)
             this.requestPosition(0.0)
         }

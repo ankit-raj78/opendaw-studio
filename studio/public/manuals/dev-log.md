@@ -14,6 +14,10 @@
 ### Coming Up
 
 * Audio/Midi Recording
+    * Solid state for recording in main-thread (none, running, cancel, abort)
+    * Listen to all incoming midi-signals and create track, region, notes and automation (revertible process)
+    * Record audio to memory and create track and region (revertible process)
+    * Preview / update peaks
     * ~~Count in~~
     * ~~Global shuffle~~
     * ~~Midi generator effects should continue to run when transport is stopped~~
@@ -34,7 +38,7 @@
         * ~~octave index~~
         * ~~cache editor~~
     * Fix envelope (not in prototype)
-    * Fix loop discontinounties with fades (not in prototype)
+    * Fix loop discontinuations with fades (not in prototype)
     * Update start & end while playing (not in prototype)
     * ~~Reset Playfield and delete samples~~
     * ~~Automation~~
