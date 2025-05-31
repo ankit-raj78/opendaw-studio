@@ -51,7 +51,7 @@ export const Footer = ({lifecycle, service}: Construct) => {
     const labelLatency: HTMLElement = (<div title="Latency">N/A</div>)
     lifecycle.own(Interval.scheduleInterval(() => {
         const outputLatency = service.context.outputLatency
-        if (typeof outputLatency === "number" && outputLatency > 0.0) {
+        if (outputLatency > 0.0) {
             labelLatency.textContent = `${(outputLatency * 1000.0).toFixed(1)}ms`
         }
     }, 1000))
@@ -61,7 +61,8 @@ export const Footer = ({lifecycle, service}: Construct) => {
             {labelName}
             <div title="SampleRate">{service.context.sampleRate}</div>
             {labelLatency}
-            <div title="Last Build">{lastBuildTime}</div>
+            <div title="Build Version">{service.buildInfo.uuid}</div>
+            <div title="Build Time">{lastBuildTime}</div>
         </footer>
     )
     service.registerFooter((): FooterLabel => {
