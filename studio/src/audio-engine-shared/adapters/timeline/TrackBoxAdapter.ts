@@ -101,11 +101,11 @@ export class TrackBoxAdapter implements BoxAdapter {
             }
             case TrackType.Value: {
                 const target = this.#box.target.targetVertex.unwrap()
-                if (target.isBox()) {
-                    // I cannot think of a scenario where this target is a box, but at least the UI shows the box's name
-                    observer(Option.wrap(target.name))
-                } else if (target.isField()) {
+                if (target.isField()) {
                     observer(this.#context.parameterFieldAdapters.opt(target.address).map(vertex => vertex.name))
+                } else if (target.isBox()) {
+                    // I cannot think of a scenario where target is a box, but at least the UI shows the box's name
+                    observer(Option.wrap(target.name))
                 } else {
                     return panic("Illegal State. Vertex is not a field nor box.")
                 }
@@ -138,38 +138,20 @@ export class TrackBoxAdapter implements BoxAdapter {
     get listIndex(): int {return this.#listIndex.getValue()}
     set listIndex(value: int) {this.#listIndex.setValue(value)}
 
-    acceptsClip(clip: AnyClipBoxAdapter): boolean {
-        switch (clip.type) {
+    accepts(subject: AnyClipBoxAdapter | AnyRegionBoxAdapter): boolean {
+        switch (subject.type) {
             case "audio-clip":
                 return this.type === TrackType.Audio
             case "note-clip":
                 return this.type === TrackType.Notes
             case "value-clip":
                 return this.type === TrackType.Value
-        }
-    }
-
-    acceptsRegion(region: AnyRegionBoxAdapter): boolean {
-        switch (region.type) {
             case "audio-region":
                 return this.type === TrackType.Audio
             case "note-region":
                 return this.type === TrackType.Notes
             case "value-region":
                 return this.type === TrackType.Value
-        }
-    }
-
-    typeToName(): string {
-        switch (this.type) {
-            case TrackType.Audio:
-                return "Audio"
-            case TrackType.Notes:
-                return "Notes"
-            case TrackType.Value:
-                return "Automation"
-            default:
-                return "Unknown"
         }
     }
 

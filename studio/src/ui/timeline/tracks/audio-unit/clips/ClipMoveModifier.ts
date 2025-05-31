@@ -126,7 +126,7 @@ export class ClipMoveModifier implements ClipModifier {
         if (!adapters.every(adapter => {
             const trackIndex = adapter.trackBoxAdapter.unwrap().listIndex + trackDelta
             const trackAdapter = this.#manager.getByIndex(trackIndex).unwrap().trackBoxAdapter
-            return trackAdapter.acceptsClip(adapter)
+            return trackAdapter.accepts(adapter)
         })) {
             this.cancel()
             showInfoDialog({message: "Cannot move clip to different track type."}).then()

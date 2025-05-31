@@ -146,7 +146,7 @@ export class RegionMoveModifier implements RegionModifyStrategies {
         if (!adapters.every(adapter => {
             const trackIndex = adapter.trackBoxAdapter.unwrap().listIndex + this.#deltaIndex
             const trackAdapter = this.#manager.getByIndex(trackIndex).unwrap().trackBoxAdapter
-            return trackAdapter.acceptsRegion(adapter)
+            return trackAdapter.accepts(adapter)
         })) {
             this.cancel()
             showInfoDialog({message: "Cannot move region to different track type."}).then()

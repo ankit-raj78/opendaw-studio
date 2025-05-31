@@ -136,7 +136,9 @@ export class ParameterFieldAdapter<T extends PrimitiveValues = any> implements P
         const optTrack = this.#trackBoxAdapter
         if (optTrack.nonEmpty()) {
             const track = optTrack.unwrap()
-            if (track.enabled) {return this.valueMapping.y(track.valueAt(position, this.getUnitValue()))}
+            if (track.enabled) {
+                return this.valueMapping.y(track.valueAt(position, this.getUnitValue()))
+            }
         }
         return this.getValue()
     }

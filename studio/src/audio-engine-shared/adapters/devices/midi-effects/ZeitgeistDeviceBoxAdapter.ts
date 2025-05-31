@@ -17,6 +17,8 @@ export class ZeitgeistDeviceBoxAdapter implements MidiEffectDeviceAdapter {
     constructor(context: BoxAdaptersContext, box: ZeitgeistDeviceBox) {
         this.#context = context
         this.#box = box
+
+        this.groove() // force creation of GrooveAdapter
     }
 
     get box(): ZeitgeistDeviceBox {return this.#box}

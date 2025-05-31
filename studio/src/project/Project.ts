@@ -164,8 +164,8 @@ export class Project implements BoxAdaptersContext, Terminable, TerminableOwner 
 
         this.editing = new Editing(this.boxGraph)
         this.selection = new VertexSelection(this.editing, this.boxGraph)
-        this.boxAdapters = this.#terminator.own(new BoxAdapters(this))
         this.parameterFieldAdapters = new ParameterFieldAdapters()
+        this.boxAdapters = this.#terminator.own(new BoxAdapters(this))
         this.userEditingManager = new UserEditingManager(this.editing)
         this.userEditingManager.follow(this.userInterfaceBox)
         this.selection.switch(this.userInterfaceBox.selection)

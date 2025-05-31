@@ -1,7 +1,11 @@
 # openDAW Studio
 
-**openDAW** is a next-generation web-based Digital Audio Workstation (DAW) designed to democratize music production. Our
-mission is to make high-quality music creation accessible to everyone, regardless of their background or resources.
+**openDAW** is a next-generation web-based Digital Audio Workstation (DAW) designed to democratize music production and
+to resurface the process of making music. Our mission is to make high-quality music creation accessible to everyone,
+regardless of their background or resources.
+
+By focusing on the creative process itself, openDAW encourages exploration, learning, and a deeper understanding of how
+music is made. Each step becomes an opportunity to grow and develop musical ideas.
 
 ![image](studio/public/images/meta.jpg)
 
@@ -25,8 +29,26 @@ openDAW.
 
 ## Tech Stack
 
-[Click here for the manual page](studio/public/manuals/tech-stack.md). The library has its
-own [README](https://github.com/andremichelle/opendaw-lib).
+**openDAW tries to avoid external libraries and frameworks.**
+
+Following is a list of the internal core libraries and their dependencies.
+
+| Library       | Dependencies                        |
+|---------------|-------------------------------------|
+| **std**       | none                                |
+| **dsp**       | std                                 |
+| **dom**       | std                                 |
+| **jsx**       | std, dom                            |
+| **runtime**   | std                                 |
+| **box**       | std, dom, runtime                   |
+| **box-forge** | std, dom, box                       |
+| **fusion**    | std, dom, box, runtime (all peered) |
+
+This is a list of the external libraries we currently use in the web studio:
+
+* jszip (for openDAW project bundle file)
+* markdown-it & markdown-it-table (for help pages)
+* rollbar (for runtime error reporting in development mode)
 
 ### Prerequisites
 
@@ -78,7 +100,7 @@ Before starting, ensure you have the following installed on your system:
 openDAW is deliberately **environment-agnostic**.
 
 The codebase must run either as a self-contained desktop application or from any standard web server; cloud features are
-optional and only activate when the user supplies their own credentials.
+optional and only activate when the user asked for it and supplies their own credentials.
 
 All project data should be storable either on the local file system or in whatever cloud service the user chooses; no
 single storage backend is assumed. Because nothing about the surrounding platform can be taken for granted, every
@@ -87,6 +109,7 @@ on even modest hardware.
 
 ### Things to know before diving in
 
+* Do not panic!
 * Methods that contain only trivial getters or setters are kept on a single line to minimize scrolling through
   low-signal code.
 * Crucial functionality is implemented at a lower level with well-tested classes, while the UI layer is primarily

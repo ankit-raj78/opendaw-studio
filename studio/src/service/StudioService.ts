@@ -98,7 +98,7 @@ export class StudioService {
     readonly panelLayout = new PanelContents(createPanelFactory(this))
     readonly spotlightDataSupplier = new SpotlightDataSupplier()
     readonly samplePlayback: SamplePlayback
-    readonly shortcuts = new Shortcuts(this) // TODO reference will be used later in configurator
+    readonly shortcuts = new Shortcuts(this) // TODO reference will be used later in key-mapping configurator
     readonly engine = new EngineFacade()
     readonly #signals = new Notifier<StudioSignal>()
 
@@ -219,8 +219,6 @@ export class StudioService {
         this.errorHandler.restoreSession(this).then(optSession => {
             if (optSession.nonEmpty()) {
                 this.sessionService.setValue(optSession)
-            } else if (Browser.isLocalHost()) {
-                // this.cleanSlate()
             }
         }, EmptyExec)
     }
@@ -262,7 +260,7 @@ export class StudioService {
     async importZip() {return this.sessionService.importZip()}
     async deleteProject(uuid: UUID.Format, meta: ProjectMeta): Promise<void> {
         if (this.sessionService.getValue().ifSome(session => UUID.equals(session.uuid, uuid)) === true) {
-            this.closeProject()
+            await this.closeProject()
         }
         const {status} = await Promises.tryCatch(Projects.deleteProject(uuid))
         if (status === "resolved") {
@@ -275,7 +273,7 @@ export class StudioService {
             .ifSome(async ({project, meta}) => {
                 await this.context.suspend()
                 await EngineOfflineRenderer.start(project, meta, Option.None)
-                this.context.resume()
+                this.context.resume().then()
             })
     }
 
@@ -354,10 +352,6 @@ export class StudioService {
     get project(): Project {return this.session.project}
     get session(): ProjectSession {return this.sessionService.getValue().unwrap("No session available")}
     get hasProjectSession(): boolean {return this.sessionService.getValue().nonEmpty()}
-
-    subscribeSignals(observer: Observer<StudioSignal>): Subscription {
-        return this.#signals.subscribe(observer)
-    }
 
     subscribeSignal<T extends StudioSignal["type"]>(
         observer: Observer<Extract<StudioSignal, { type: T }>>, type: T): Subscription {
