@@ -12,7 +12,7 @@ import {Project} from "@/project/Project"
 import {
     StereoToolDeviceBoxAdapter
 } from "@/audio-engine-shared/adapters/devices/audio-effects/StereoToolDeviceBoxAdapter"
-import {Interval} from "runtime"
+import {Runtime} from "runtime"
 
 const className = Html.adoptStyleSheet(css, "AutoGainButton")
 
@@ -65,7 +65,7 @@ export const AutoGainButton = ({lifecycle, project: {editing, liveStreamReceiver
                 Events.subscribe(autoGainButton, "pointerup", () => {
                     const duration = Date.now() - startTime
                     if (duration < minDuration) {
-                        probing.own(Interval.scheduleTimeout(stopProbing, minDuration - duration))
+                        probing.own(Runtime.scheduleTimeout(stopProbing, minDuration - duration))
                     } else {
                         stopProbing()
                     }

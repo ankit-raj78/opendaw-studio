@@ -125,13 +125,13 @@ export class Surface implements TerminableOwner {
     get flyout(): DomElement {
         const toRemove = Array.from(this.#flyout.children)
         /**
-         * We need to postpone this due to an unexpected browser behaviour.
+         * We need to postpone this due to an unexpected browser behavior.
          * For some unknown reason <code>Html.empty(this.#flyout)</code> will lead to:
          *
          * NotFoundError: Failed to execute 'remove' on 'Element':
          * The node to be removed is no longer a child of this node. Perhaps it was moved in a 'blur' event handler?
          *
-         * If anybody can explain why this safe code threwn an error, I owe you a beer.
+         * If anybody can explain why this code thrown an error, I owe you a beer.
          * The intention of this code is to allow only one flyout.
          */
         AnimationFrame.once(() => toRemove.forEach(element => {
@@ -216,6 +216,8 @@ export class Surface implements TerminableOwner {
         // Workaround for not receiving outside pointer-up events
         // If you click inside the browser window, move outside, add another (mouse) button
         // and release both, no pointerup is fired.
+        // TODO I see that way too often on Windows machines in error reports.
+        //  There is still something off.
         let pointerDown: Option<EventTarget> = Option.None
         const document = this.#owner.document
         this.#terminator.ownAll(
@@ -265,7 +267,7 @@ export class Surface implements TerminableOwner {
                     }
                 }
             }),
-            // Seems to reset custom cursor faithfully when leaving and re-entering Axis (blur did not)
+            // Seems to reset the custom cursor faithfully when leaving and re-entering Axis (blur did not)
             Events.subscribe(this.#owner, "focus", () => AnimationFrame.once(() => CssUtils.setCursor("auto"))),
             // Ctrl + scroll on Linux can affect web UI elements because it typically triggers zoom in most browsers.
             Events.subscribe(this.#owner, "wheel", (event) => {

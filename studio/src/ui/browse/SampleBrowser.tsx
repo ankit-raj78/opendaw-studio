@@ -15,7 +15,7 @@ import {SampleLocation} from "@/ui/browse/SampleLocation"
 import {HTMLSelection} from "@/ui/HTMLSelection"
 import {SampleService} from "@/ui/browse/SampleService"
 import {Events, Html, Keyboard} from "dom"
-import {Interval} from "runtime"
+import {Runtime} from "runtime"
 
 const className = Html.adoptStyleSheet(css, "Samples")
 
@@ -96,7 +96,7 @@ export const SampleBrowser = ({lifecycle, service}: Construct) => {
                             }
                             lifecycle.own(filter.catchupAndSubscribe(update))
                             lifecycle.own(service.subscribeSignal(() => {
-                                Interval.postpone(() => {
+                                Runtime.debounce(() => {
                                     location.setValue(SampleLocation.Local)
                                     reload.get().update()
                                 }, 500)

@@ -5,7 +5,7 @@ import {StudioService} from "@/service/StudioService"
 import {ProjectMeta} from "@/project/ProjectMeta"
 import {Surface} from "@/ui/surface/Surface"
 import {Events, Html} from "dom"
-import {Interval} from "runtime"
+import {Runtime} from "runtime"
 import {FooterLabel} from "@/service/FooterLabel"
 
 const className = Html.adoptStyleSheet(css, "footer")
@@ -49,7 +49,7 @@ export const Footer = ({lifecycle, service}: Construct) => {
     }))
     const lastBuildTime = TimeSpan.millis(new Date(service.buildInfo.date).getTime() - new Date().getTime()).toUnitString()
     const labelLatency: HTMLElement = (<div title="Latency">N/A</div>)
-    lifecycle.own(Interval.scheduleInterval(() => {
+    lifecycle.own(Runtime.scheduleInterval(() => {
         const outputLatency = service.context.outputLatency
         if (outputLatency > 0.0) {
             labelLatency.textContent = `${(outputLatency * 1000.0).toFixed(1)}ms`

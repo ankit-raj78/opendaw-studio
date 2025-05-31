@@ -3,7 +3,7 @@ import {Events, Html} from "dom"
 import {int, Lifecycle, MutableObservableValue, ObservableValue, Terminable} from "std"
 import {createElement} from "jsx"
 import {SlotState} from "@/ui/devices/instruments/PlayfieldDeviceEditor/SlotState"
-import {Interval} from "runtime"
+import {Runtime} from "runtime"
 import {SlotUtils} from "@/ui/devices/instruments/PlayfieldDeviceEditor/SlotUtils"
 
 const className = Html.adoptStyleSheet(css, "OctaveSelector")
@@ -61,7 +61,7 @@ export const OctaveSelector = ({lifecycle, states, octave, octaveIndex}: Constru
         Events.subscribe(element, "click", () => octave.setValue(octaveIndex)),
         Events.subscribe(element, "dragenter", () => {
             element.classList.add("drag-over")
-            dragSwitch = Interval.scheduleTimeout(() => {
+            dragSwitch = Runtime.scheduleTimeout(() => {
                 element.classList.remove("drag-over")
                 octave.setValue(octaveIndex)
             }, 1000)
