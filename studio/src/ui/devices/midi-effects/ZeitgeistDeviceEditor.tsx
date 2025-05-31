@@ -24,7 +24,8 @@ type Construct = {
 }
 
 export const ZeitgeistDeviceEditor = ({lifecycle, project, adapter, deviceHost}: Construct) => {
-    const {amount, duration} = (adapter.groove() as GrooveShuffleBoxAdapter).namedParameter // TODO
+    const grooveAdapter = adapter.groove() as GrooveShuffleBoxAdapter
+    const {amount, duration} = grooveAdapter.namedParameter
     const {editing, midiDevices} = project
     return (
         <DeviceEditor lifecycle={lifecycle}

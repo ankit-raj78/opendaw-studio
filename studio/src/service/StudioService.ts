@@ -54,6 +54,7 @@ import {ExportStemsConfiguration} from "@/audio-engine-shared/EngineProcessorOpt
 import {ProjectDialogs} from "@/project/ProjectDialogs"
 import {AudioImporter} from "@/audio/AudioImport"
 import {AudioWorklets} from "@/audio-engine/AudioWorklets"
+import {Address} from "box"
 
 /**
  * I am just piling stuff after stuff in here to boot the environment.
@@ -167,6 +168,14 @@ export class StudioService {
 
         ConsoleCommands.exportAccessor("box.graph.boxes",
             () => this.runIfProject(project => project.boxGraph.debugBoxes()))
+        ConsoleCommands.exportMethod("box.graph.lookup",
+            (address: string) => this.runIfProject(({boxGraph}) =>
+                boxGraph.findVertex(Address.decode(address))
+                    .match({
+                        none: () => "not found",
+                        some: vertex => vertex.toString()
+                    }))
+                .match({none: () => "no project", some: value => value}))
         ConsoleCommands.exportAccessor("box.graph.dependencies",
             () => this.runIfProject(project => project.boxGraph.debugDependencies()))
 

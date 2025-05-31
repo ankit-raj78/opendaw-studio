@@ -1,4 +1,4 @@
-import {SortedSet, Terminable} from "std"
+import {Option, SortedSet, Terminable} from "std"
 import {Address} from "box"
 import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
 
@@ -15,4 +15,5 @@ export class ParameterFieldAdapters {
     }
 
     get(address: Address): ParameterFieldAdapter {return this.#set.get(address)}
+    opt(address: Address): Option<ParameterFieldAdapter> {return this.#set.opt(address)}
 }

@@ -102,10 +102,10 @@ export class TrackBoxAdapter implements BoxAdapter {
             case TrackType.Value: {
                 const target = this.#box.target.targetVertex.unwrap()
                 if (target.isBox()) {
-                    // I cannot think of a scenario where this target is a box, but at least the UI shows the box' name
+                    // I cannot think of a scenario where this target is a box, but at least the UI shows the box's name
                     observer(Option.wrap(target.name))
                 } else if (target.isField()) {
-                    observer(Option.wrap(this.#context.parameterFieldAdapters.get(target.address).name))
+                    observer(this.#context.parameterFieldAdapters.opt(target.address).map(vertex => vertex.name))
                 } else {
                     return panic("Illegal State. Vertex is not a field nor box.")
                 }
