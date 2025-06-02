@@ -104,7 +104,7 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
                         "🚀 **openDAW** has been deployed to <https://opendaw.studio>.",
                         "",
                         ...commits
-                    ].join("\n")
+                    ].join("\n").substring(0, 1024)
                 })
             })
             console.debug(response)
