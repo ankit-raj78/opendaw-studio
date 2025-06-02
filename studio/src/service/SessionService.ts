@@ -50,11 +50,12 @@ export class SessionService implements MutableObservableValue<Option<ProjectSess
         const {status, value} = await Promises.tryCatch(ProjectDialogs.showBrowseDialog(this.#service))
         if (status === "resolved") {
             const [uuid, meta] = value
-            this.loadExisting(uuid, meta)
+            await this.loadExisting(uuid, meta)
         }
     }
 
     async loadExisting(uuid: UUID.Format, meta: ProjectMeta) {
+        console.debug(UUID.toString(uuid))
         const project = await Projects.loadProject(this.#service, uuid)
         const cover = await Projects.loadCover(uuid)
         this.#setSession(uuid, project, meta, cover, true)
@@ -137,17 +138,12 @@ export class SessionService implements MutableObservableValue<Option<ProjectSess
             this.#setSession(UUID.generate(), project, ProjectMeta.init(file.name), Option.None)
         } catch (error) {
             if (!Errors.isAbort(error)) {
-                showInfoDialog({headline: "Could not load project", message: String(error)})
+                showInfoDialog({headline: "Could not load project", message: String(error)}).then()
             }
         }
     }
 
     fromProject(project: Project, name: string): void {
-        this.#setSession(UUID.generate(), project, ProjectMeta.init(name), Option.None)
-    }
-
-    loadArrayBuffer(arrayBuffer: ArrayBuffer, name: string): void {
-        const project = Project.load(this.#service, arrayBuffer)
         this.#setSession(UUID.generate(), project, ProjectMeta.init(name), Option.None)
     }
 

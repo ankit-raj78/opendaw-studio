@@ -116,7 +116,8 @@ export class StudioService {
         const lifeTime = new Terminator()
         const observer = (optSession: Option<ProjectSession>) => {
             errorHandler.optSession = optSession
-            this.layout.screen.setValue(null)
+            const root = RouteLocation.get().path === "/"
+            if (root) {this.layout.screen.setValue(null)}
             lifeTime.terminate()
             if (optSession.nonEmpty()) {
                 const session = optSession.unwrap()
@@ -157,7 +158,7 @@ export class StudioService {
                     this.timeline.clips.visible.setValue(false)
                 }
                 this.#startAudioWorklet(lifeTime, project)
-                this.switchScreen("default")
+                if (root) {this.switchScreen("default")}
             } else {
                 range.maxUnits = PPQN.fromSignature(128, 1)
                 range.showUnitInterval(0, PPQN.fromSignature(16, 1))

@@ -31,7 +31,7 @@ export namespace MidiImport {
         }
         const formatResult = tryCatch(() => MidiFile.decoder(fileResult.value).decode())
         if (formatResult.status === "failure") {
-            showInfoDialog({message: String(formatResult.error)})
+            showInfoDialog({message: String(formatResult.error)}).then()
             return
         }
         const {value: format} = formatResult
