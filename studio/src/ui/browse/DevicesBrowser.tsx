@@ -87,7 +87,7 @@ const createEffectList = <
     R extends Record<string, Effects.Entry>,
     T extends DragDevice["type"]>(lifecycle: Lifecycle, project: Project, records: R, type: T): HTMLUListElement => (
     <ul>{
-        Object.entries(records).map(([key, value]) => {
+        Object.entries(records).map(([key, entry]) => {
             const element = (
                 <li onclick={() => {
                     const {boxAdapters, editing, userEditingManager} = project
@@ -100,13 +100,13 @@ const createEffectList = <
                             type === "audio-effect" ? deviceHost.audioEffects.field()
                                 : type === "midi-effect" ? deviceHost.midiEffects.field()
                                     : panic(`Unknown ${type}`)
-                        editing.modify(() => value.create(project, effectField, effectField.pointerHub.incoming().length))
+                        editing.modify(() => entry.create(project, effectField, effectField.pointerHub.incoming().length))
                     })
                 }}>
                     <div className="icon">
-                        <Icon symbol={value.icon}/>
+                        <Icon symbol={entry.icon}/>
                     </div>
-                    {value.name}
+                    {entry.name}
                 </li>
             )
             lifecycle.ownAll(
@@ -117,7 +117,7 @@ const createEffectList = <
                 } satisfies DragDevice)),
                 TextTooltip.simple(element, () => {
                     const {bottom, left} = element.getBoundingClientRect()
-                    return {clientX: left, clientY: bottom + 12, text: value.description}
+                    return {clientX: left, clientY: bottom + 12, text: entry.description}
                 })
             )
             return element

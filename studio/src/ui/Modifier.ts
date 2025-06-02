@@ -1,6 +1,5 @@
-import {Inject} from "jsx"
-import {assert, EmptyExec, int, Lifecycle, MutableObservableValue, ObservableValue, Option, panic, UUID} from "std"
-import {Editing, Field} from "box"
+import {assert, int, Option, panic, UUID} from "std"
+import {Field} from "box"
 import {Project} from "@/project/Project.ts"
 import {
     AudioBusBox,
@@ -15,7 +14,7 @@ import {
 } from "@/data/boxes"
 import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter.ts"
 import {Effects} from "@/service/Effects.ts"
-import {DeviceHost, Devices, EffectDeviceBoxAdapter, EffectPointerType} from "@/audio-engine-shared/adapters/devices.ts"
+import {DeviceHost, EffectDeviceBoxAdapter, EffectPointerType} from "@/audio-engine-shared/adapters/devices.ts"
 import {enumToName, IconSymbol} from "@/IconSymbol.ts"
 import {AnyClipBox} from "@/data/unions.ts"
 import {TrackType} from "@/audio-engine-shared/adapters/timeline/TrackType.ts"
@@ -34,25 +33,6 @@ export namespace Modifier {
         [AudioUnitType.Bus]: 2,
         [AudioUnitType.Output]: 3
     } as const
-
-    export const createStringFieldInjector = (lifecycle: Lifecycle,
-                                              editing: Editing,
-                                              label: MutableObservableValue<string>) => {
-        const injector: Inject.Value<string> = lifecycle.own(Inject.value(label.getValue()))
-        lifecycle.own(label.subscribe((owner: ObservableValue<string>) => {injector.value = owner.getValue()}))
-        return {
-            injector, resolversFactory: (): PromiseWithResolvers<string> => {
-                const resolvers = Promise.withResolvers<string>()
-                resolvers.promise.then(value => {
-                    const newValue = value.trim()
-                    if (newValue.length > 0) {
-                        editing.modify(() => label.setValue(newValue))
-                    }
-                }, EmptyExec)
-                return resolvers
-            }
-        }
-    }
 
     export const createAudioUnit =
         ({boxGraph, rootBox, rootBoxAdapter, masterBusBox}: Project, type: AudioUnitType, index?: int) => {
@@ -118,20 +98,20 @@ export namespace Modifier {
         return audioBusBox
     }
 
-    export const createEffect = (project: Project, host: DeviceHost, factory: Effects.Entry, newIndex: int) => {
+    export const createEffect = (project: Project, host: DeviceHost, entry: Effects.Entry, newIndex: int) => {
         let chain: ReadonlyArray<EffectDeviceBoxAdapter>
         let field: Field<EffectPointerType>
-        if (factory.type === "audio") {
+        if (entry.type === "audio") {
             chain = host.audioEffects.adapters()
             field = host.audioEffects.field()
-        } else if (factory.type === "midi") {
+        } else if (entry.type === "midi") {
             chain = host.midiEffects.adapters()
             field = host.midiEffects.field()
         } else {
-            return panic(`Unknown factory type: ${factory.type}`)
+            return panic(`Unknown factory type: ${entry.type}`)
         }
         project.editing.modify(() => {
-            project.boxAdapters.adapterFor(factory.create(project, field, newIndex), Devices.isEffect)
+            entry.create(project, field, newIndex)
             for (let index = newIndex; index < chain.length; index++) {
                 chain[index].indexField.setValue(index + 1)
             }
@@ -173,7 +153,7 @@ export namespace Modifier {
                 }))
             }
             case TrackType.Audio: {
-                showInfoDialog({message: "Please drag and drop samples from the sample editor."})
+                showInfoDialog({message: "Please drag and drop samples from the sample editor."}).then()
             }
         }
         return Option.None
@@ -212,7 +192,7 @@ export namespace Modifier {
                 }))
             }
             case TrackType.Audio: {
-                showInfoDialog({message: "Please drag and drop samples from the sample browser."})
+                showInfoDialog({message: "Please drag and drop samples from the sample browser."}).then()
             }
         }
         return Option.None

@@ -50,7 +50,7 @@ export class NoteSequencer implements NoteEventSource, Terminable {
         this.#adapter = adapter
 
         this.#noteBroadcaster = this.#terminator.own(new NoteBroadcaster(context.broadcaster, adapter.address))
-        this.#random = new Random(0xFFFF123)
+        this.#random = Random.create(0xFFFF123)
         this.#externalNotes = new Set<ExternalNote>()
         this.#retainer = new EventSpanRetainer<Id<NoteEvent>>()
 

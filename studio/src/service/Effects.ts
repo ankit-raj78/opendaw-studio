@@ -62,6 +62,7 @@ export namespace Effects {
             separatorBefore: false,
             type: "midi",
             create: ({boxGraph, rootBoxAdapter}, unit, index) => {
+                console.debug("CREATE ZEITGEIST")
                 const useGlobal = false // TODO First Zeitgeist should be true
                 const shuffleBox = useGlobal
                     ? rootBoxAdapter.groove.box
@@ -194,7 +195,6 @@ export namespace Effects {
     export const AudioList: ReadonlyArray<Readonly<Entry>> = Object.values(AudioNamed)
     export const MergedNamed = {...MidiNamed, ...AudioNamed}
 
-    export type EffectKeys = keyof typeof MergedNamed
     export type MidiEffectKeys = keyof typeof MidiNamed
     export type AudioEffectKeys = keyof typeof AudioNamed
 }
