@@ -1,7 +1,6 @@
 import SftpClient from "ssh2-sftp-client"
 import * as fs from "fs"
 import * as path from "path"
-import {execSync} from "child_process"
 
 const config = {
     host: process.env.SFTP_HOST,
@@ -30,26 +29,6 @@ if (DRY_RUN) {
 }
 const sftp = new SftpClient()
 const staticFolders = ["/viscious-speed"]
-const readLastDeployTime = (): string => {
-    try {
-        return new Date(
-            JSON.parse(
-                fs.readFileSync("public/build-info.json", "utf-8")
-            ).date
-        ).toISOString()
-    } catch {
-        return "1970-01-01"
-    }
-}
-const readCommitsSinceLastDeploy = (): string[] =>
-    execSync(`git log --since=${readLastDeployTime()} --pretty=format:"%s"`)
-        .toString()
-        .trim()
-        .split(/\r?\n/)
-        .filter(Boolean)
-        .reverse()
-        .map(s => `• ${s}`)
-// ---------------------------------------------------------------------------
 
 async function deleteDirectory(remoteDir: string) {
     const items = await sftp.list(remoteDir)
@@ -82,32 +61,23 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
 
 // --------------------- main -------------------------------------------------
 (async () => {
-    const commits = readCommitsSinceLastDeploy()
     console.log(`⏩ upload…`)
     await sftp.connect(config)
     await deleteDirectory("/")
     await uploadDirectory("./studio/dist", "/")
     await sftp.end()
-    console.log(`✅ deploy complete (${commits.length} commits)`)
     const webhookUrl = process.env.DISCORD_WEBHOOK
     if (webhookUrl) {
         console.log(`posting to discord with webhookUrl: '${webhookUrl}'`)
-        console.log("discord payload:", JSON.stringify({
-            content: [...commits].join("\n")
-        }, null, 2))
         try {
             const response = await fetch(webhookUrl, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({
-                    content: [
-                        "🚀 **openDAW** has been deployed to <https://opendaw.studio>.",
-                        "",
-                        ...commits
-                    ].join("\n").substring(0, 1024)
+                    content: `🚀 **openDAW** has been deployed to <https://opendaw.studio> at ${new Date().toISOString()}.`
                 })
             })
-            console.debug(response)
+            console.log(response)
         } catch (error) {
             console.warn(error)
         }
