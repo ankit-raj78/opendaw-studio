@@ -98,6 +98,10 @@ requestAnimationFrame(async () => {
             const sourceCss = document.querySelector<HTMLLinkElement>("link[rel='stylesheet']")?.href ?? ""
             const sourceCode = document.querySelector<HTMLScriptElement>("script[src]")?.src ?? ""
             if (!sourceCss.includes(uuid) || !sourceCode.includes(uuid)) {
+                console.debug("Cache issue:")
+                console.debug("uuid", uuid)
+                console.debug("sourceCss", sourceCss)
+                console.debug("sourceCode", sourceCode)
                 showCacheDialog()
                 return
             }
@@ -119,7 +123,7 @@ requestAnimationFrame(async () => {
                     console.warn("A new version is online.")
                     clearInterval(checkUpdates)
                 }
-            }, 60_000)
+            }, 5_000)
         } else {
             console.debug("No production checks (build version & updates).")
         }
