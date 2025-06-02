@@ -92,8 +92,11 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
     const webhookUrl = process.env.DISCORD_WEBHOOK
     if (webhookUrl) {
         console.log(`posting to discord with webhookUrl: '${webhookUrl}'`)
+        console.log("discord payload:", JSON.stringify({
+            content: [...commits].join("\n")
+        }, null, 2))
         try {
-            await fetch(webhookUrl, {
+            const response = await fetch(webhookUrl, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({
@@ -104,7 +107,7 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
                     ].join("\n")
                 })
             })
-            console.debug("sent to discord")
+            console.debug(response)
         } catch (error) {
             console.warn(error)
         }
