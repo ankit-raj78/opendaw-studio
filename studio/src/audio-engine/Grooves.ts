@@ -2,7 +2,7 @@ import {AutomatableParameter} from "@/worklet/AutomatableParameter"
 import {GrooveShuffleBoxAdapter} from "@/audio-engine-shared/adapters/grooves/GrooveShuffleBoxAdapter"
 import {AbstractProcessor} from "@/worklet/AbstractProcessor"
 import {Groove, GroovePattern, GroovePatternFunction, PPQN, ppqn} from "dsp"
-import {asDefined, meCurve, Terminable, Terminator} from "std"
+import {asDefined, moebiusEase, squashUnit, Terminable, Terminator} from "std"
 import {BoxVisitor, GrooveShuffleBox} from "@/data/boxes"
 import {BoxAdapters} from "@/audio-engine-shared/BoxAdapters"
 import {Box} from "box"
@@ -28,8 +28,8 @@ class GrooveShuffleEngineAdapter implements GrooveEngineAdapter {
 
     readonly #groove: GroovePattern = new GroovePattern({
         duration: (): ppqn => this.#duration,
-        fx: x => meCurve(x, this.#amount),
-        fy: y => meCurve(y, -this.#amount)
+        fx: x => moebiusEase(x, this.#amount),
+        fy: y => moebiusEase(y, 1.0 - this.#amount)
     } satisfies GroovePatternFunction)
 
     #amount: number = 0.0
@@ -44,7 +44,7 @@ class GrooveShuffleEngineAdapter implements GrooveEngineAdapter {
 
     parameterChanged(parameter: AutomatableParameter): void {
         if (parameter === this.#amountParameter) {
-            this.#amount = (this.#amountParameter.getValue() - 0.5) * 1.99
+            this.#amount = squashUnit(this.#amountParameter.getValue(), 0.01)
         } else if (parameter === this.#durationParameter) {
             this.#duration = this.#durationParameter.getValue()
         }

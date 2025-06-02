@@ -11,6 +11,7 @@ import {ManualPage} from "@/ui/pages/ManualPage"
 import {ColorsPage} from "@/ui/pages/ColorsPage"
 import {Header} from "@/ui/header/Header"
 import {AudioInputDevicesPage} from "./pages/AudioInputDevicesPage"
+import {MidiFallPage} from "./pages/MidiFallPage"
 
 export const App = (service: StudioService) => {
     const terminator = new Terminator()
@@ -27,12 +28,14 @@ export const App = (service: StudioService) => {
                 )}
                 routes={[
                     {path: "/", factory: WorkspacePage},
+                    {path: "/manuals/*", factory: ManualPage},
+                    // from here these are all debugging and developing pages
                     {path: "/icons", factory: IconsPage},
                     {path: "/components", factory: ComponentsPage},
                     {path: "/automation", factory: AutomationPage},
-                    {path: "/manuals/*", factory: ManualPage},
                     {path: "/upload", factory: SampleUploadPage},
                     {path: "/colors", factory: ColorsPage},
+                    {path: "/midi-fall", factory: MidiFallPage},
                     {path: "/audio-input", factory: AudioInputDevicesPage}
                 ]}
             />

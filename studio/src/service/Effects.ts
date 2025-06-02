@@ -62,7 +62,6 @@ export namespace Effects {
             separatorBefore: false,
             type: "midi",
             create: ({boxGraph, rootBoxAdapter}, unit, index) => {
-                console.debug("CREATE ZEITGEIST")
                 const useGlobal = false // TODO First Zeitgeist should be true
                 const shuffleBox = useGlobal
                     ? rootBoxAdapter.groove.box
