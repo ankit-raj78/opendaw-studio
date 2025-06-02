@@ -68,14 +68,14 @@ async function uploadDirectory(localDir: string, remoteDir: string) {
     await sftp.end()
     const webhookUrl = process.env.DISCORD_WEBHOOK
     if (webhookUrl) {
-        console.log(`posting to discord with webhookUrl: '${webhookUrl}'`)
+        console.log("posting to discord...")
+        const now = Math.floor(Date.now() / 1000) // in seconds
+        const content = `🚀 **openDAW** has been deployed to <https://opendaw.studio> <t:${now}:R>.`
         try {
             const response = await fetch(webhookUrl, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    content: `🚀 **openDAW** has been deployed to <https://opendaw.studio> at ${new Date().toISOString()}.`
-                })
+                body: JSON.stringify({content})
             })
             console.log(response)
         } catch (error) {
