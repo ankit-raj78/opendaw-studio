@@ -277,6 +277,9 @@ export const showCacheDialog = (): void => {
                 error>
             <div style={{padding: "1em 0", maxWidth: "50vw"}}>
                 <p>Caching Issue detected. Please clear browser cache and reload!</p>
+                {document.scripts.length > 1 &&
+                    <p style={{color: Colors.red, fontWeight: "bolder"}}>Browser extensions detected! Please disable
+                        before reload!</p>}
             </div>
         </Dialog>
     )

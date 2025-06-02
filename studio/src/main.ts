@@ -98,10 +98,10 @@ requestAnimationFrame(async () => {
             const sourceCss = document.querySelector<HTMLLinkElement>("link[rel='stylesheet']")?.href ?? ""
             const sourceCode = document.querySelector<HTMLScriptElement>("script[src]")?.src ?? ""
             if (!sourceCss.includes(uuid) || !sourceCode.includes(uuid)) {
-                console.debug("Cache issue:")
-                console.debug("uuid", uuid)
-                console.debug("sourceCss", sourceCss)
-                console.debug("sourceCode", sourceCode)
+                console.warn("Cache issue:")
+                console.warn("expected uuid", uuid)
+                console.warn("sourceCss", sourceCss)
+                console.warn("sourceCode", sourceCode)
                 showCacheDialog()
                 return
             }
