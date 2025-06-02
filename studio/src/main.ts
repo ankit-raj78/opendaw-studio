@@ -4,7 +4,7 @@ import {Option, panic, Procedure, unitValue, UUID} from "std"
 import {StudioService} from "@/service/StudioService"
 import {UIAudioManager} from "@/project/UIAudioManager"
 import {AudioData} from "@/audio/AudioData"
-import {showCacheDialog, showErrorDialog} from "@/ui/components/dialogs.tsx"
+import {showCacheDialog, showErrorDialog, showInfoDialog} from "@/ui/components/dialogs.tsx"
 import {installCursors} from "@/ui/Cursors.ts"
 import {BuildInfo} from "./BuildInfo"
 import {Surface} from "@/ui/surface/Surface.tsx"
@@ -101,6 +101,16 @@ requestAnimationFrame(async () => {
                 showCacheDialog()
                 return
             }
+            const checkExtensions = setInterval(() => {
+                if (document.scripts.length > 1) {
+                    showInfoDialog({
+                        headline: "Warning",
+                        message: "Please disable extensions to avoid undefined behavior.",
+                        okText: "Ignore"
+                    }).then()
+                    clearInterval(checkExtensions)
+                }
+            }, 5_000)
             const checkUpdates = setInterval(async () => {
                 if (!navigator.onLine) {return}
                 const {status, value} = await Promises.tryCatch(loadBuildInfo())

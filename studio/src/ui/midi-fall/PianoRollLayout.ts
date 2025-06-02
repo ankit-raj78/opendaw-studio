@@ -18,14 +18,18 @@ export class PianoRollLayout {
 
     readonly #whiteKeysX: Array<KeyProperties>
     readonly #blackKeysX: Array<KeyProperties>
-    readonly #equalized: Array<number>
+    readonly #octaveSplits: Array<number>
+    readonly #centered: Array<number>
 
-    constructor(min: int = 21, max: int = 120) {
+    // default is A1 to C7
+    constructor(min: int = 21, max: int = 108) {
         this.#min = PianoRollLayout.#moveToNextWhiteKey(min, -1)
         this.#max = PianoRollLayout.#moveToNextWhiteKey(max, 1)
+        console.debug(MidiKeys.toFullString(this.#min), MidiKeys.toFullString(this.#max))
         this.#whiteKeysX = []
         this.#blackKeysX = []
-        this.#equalized = Arrays.create(() => 0, 128)
+        this.#octaveSplits = []
+        this.#centered = Arrays.create(() => 0, 128)
         this.#initialize()
     }
 
@@ -34,27 +38,29 @@ export class PianoRollLayout {
     get count(): int {return this.#max - this.#min + 1}
     get whiteKeys(): ReadonlyArray<KeyProperties> {return this.#whiteKeysX}
     get blackKeys(): ReadonlyArray<KeyProperties> {return this.#blackKeysX}
+    get octaveSplits(): ReadonlyArray<number> {return this.#octaveSplits}
 
-    getEqualizedX(index: int): number {
-        return this.#equalized[index]
-    }
+    getCenteredX(index: int): number {return this.#centered[index]}
 
     #initialize(): void {
         const {WhiteKey, BlackKey, BlackKeyOffsets} = PianoRollLayout
         let whiteIndex = 0
         for (let key = this.#min | 0; key <= this.#max; key++) {
+            const localNote = key % 12
             if (MidiKeys.isBlackKey(key)) {
-                const offset = asDefined(BlackKeyOffsets[key % 12], "black index not found")
+                const offset = asDefined(BlackKeyOffsets[localNote], "black index not found")
                 const x = (whiteIndex - offset) * WhiteKey.width + (WhiteKey.width - BlackKey.width) / 2.0
                 this.#blackKeysX.push({key, x})
-                this.#equalized[key] = whiteIndex + 0.5 - offset
+                this.#centered[key] = whiteIndex - offset + 0.5
             } else {
                 const x = whiteIndex * WhiteKey.width
                 this.#whiteKeysX.push({key, x})
-                this.#equalized[key] = whiteIndex + 0.5
+                this.#centered[key] = whiteIndex + 0.5
+                if (localNote === 0 || localNote === 5) this.#octaveSplits.push(whiteIndex)
                 whiteIndex++
             }
         }
-        this.#equalized.forEach((x, index, array) => array[index] = x / whiteIndex)
+        this.#octaveSplits.forEach((x, index, array) => array[index] = x / whiteIndex)
+        this.#centered.forEach((x, index, array) => array[index] = x / whiteIndex)
     }
 }

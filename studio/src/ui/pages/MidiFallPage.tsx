@@ -10,6 +10,19 @@ import {UUID} from "std"
 
 const className = Html.adoptStyleSheet(css, "MidiFallPage")
 
+// TODO
+//  labels on falling notes
+//  control to adjust visible time range
+//  active piano colors
+//  dialog to map note tracks to colors
+//  store mapping in the project
+//  different keyboard layouts https://familypiano.com/blog/piano-keys-faq/
+//  Allow 90degrees rotation
+//  [X] time signature / octave (C, F) grid
+//  Show timeline navigation
+//  Open MidiFall view (or Piano Tutorial Mode?)
+//  Go back to timeline view
+
 export const MidiFallPage: PageFactory<StudioService> = ({lifecycle, service}: PageContext<StudioService>) => {
     // TODO WORK IN PROGRESS
     // Projects.loadProject(service, UUID.parse("f9904790-66be-486c-b667-8d4810d7c68c"))
