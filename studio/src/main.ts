@@ -113,8 +113,8 @@ requestAnimationFrame(async () => {
             }, 5_000)
             const checkUpdates = setInterval(async () => {
                 if (!navigator.onLine) {return}
-                const {status, value} = await Promises.tryCatch(loadBuildInfo())
-                if (status === "resolved" && value.uuid !== buildInfo.uuid) {
+                const {status, value: newBuildInfo} = await Promises.tryCatch(loadBuildInfo())
+                if (status === "resolved" && newBuildInfo.uuid !== undefined && newBuildInfo.uuid !== buildInfo.uuid) {
                     document.body.prepend(UpdateMessage())
                     console.warn("A new version is online.")
                     clearInterval(checkUpdates)
