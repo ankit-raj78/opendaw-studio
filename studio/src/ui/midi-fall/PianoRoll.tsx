@@ -2,7 +2,7 @@ import css from "./PianoRoll.sass?inline"
 import {Html} from "dom"
 import {createElement} from "jsx"
 import {PianoRollLayout} from "@/ui/midi-fall/PianoRollLayout.ts"
-import {isInstanceOf, Lifecycle} from "std"
+import {isDefined, isInstanceOf, Lifecycle} from "std"
 import {StudioService} from "@/service/StudioService.ts"
 import {LoopableRegion, ppqn} from "dsp"
 import {NoteRegionBoxAdapter} from "@/audio-engine-shared/adapters/timeline/region/NoteRegionBoxAdapter.ts"
@@ -34,14 +34,20 @@ export const PianoRoll = ({lifecycle, layout, service}: Construct) => {
     )
 
     const update = (position: ppqn) => {
-        svg.querySelectorAll(".active").forEach(e => e.classList.remove("active"))
+        svg.querySelectorAll<SVGRectElement>("rect.playing").forEach(rect => {
+            rect.style.removeProperty("fill")
+            rect.classList.remove("playing")
+        })
         if (!service.hasProjectSession) {return}
         const {project} = service
         project.rootBoxAdapter.audioUnits.adapters().forEach(adapter => {
             const trackBoxAdapters = adapter.tracks.values()
-            trackBoxAdapters.slice(0, 2).forEach((trackAdapter) => {
+            trackBoxAdapters.forEach((trackAdapter, index) => {
+                const hue = index / trackBoxAdapters.length * 360
                 const region = trackAdapter.regions.collection.lowerEqual(position)
-                if (region === null || !isInstanceOf(region, NoteRegionBoxAdapter) || position >= region.complete) return
+                if (region === null || !isInstanceOf(region, NoteRegionBoxAdapter) || position >= region.complete) {
+                    return
+                }
                 const collection = region.optCollection.unwrap()
                 const events = collection.events
                 for (const {
@@ -53,7 +59,11 @@ export const PianoRoll = ({lifecycle, layout, service}: Construct) => {
                     const searchEnd = Math.floor(resultEnd - rawStart)
                     for (const note of events.iterateRange(searchStart - collection.maxDuration, searchEnd)) {
                         if (note.position + rawStart <= position && position < note.complete + rawStart) {
-                            svg.querySelector(`[data-key="${note.pitch}"]`)?.classList.add("active")
+                            const rect = svg.querySelector<SVGRectElement>(`[data-key="${note.pitch}"]`)
+                            if (isDefined(rect)) {
+                                rect.style.fill = layout.getFillStyle(hue, true)
+                                rect.classList.add("playing")
+                            }
                         }
                     }
                 }

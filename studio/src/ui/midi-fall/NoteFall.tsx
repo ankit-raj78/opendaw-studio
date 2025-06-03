@@ -4,10 +4,12 @@ import {Arrays, isInstanceOf, Lifecycle} from "std"
 import {createElement} from "jsx"
 import {CanvasPainter} from "@/ui/canvas/painter.ts"
 import {PianoRollLayout} from "@/ui/midi-fall/PianoRollLayout.ts"
-import {LoopableRegion, PPQN, ppqn} from "dsp"
+import {LoopableRegion, MidiKeys, PPQN, ppqn} from "dsp"
 import {StudioService} from "@/service/StudioService.ts"
 import {NoteRegionBoxAdapter} from "@/audio-engine-shared/adapters/timeline/region/NoteRegionBoxAdapter.ts"
 import {Fragmentor} from "@/worklet/Fragmentor.ts"
+import {Fonts} from "@/ui/Fonts.ts"
+import {Colors} from "@/ui/Colors.ts"
 
 const className = Html.adoptStyleSheet(css, "NoteFall")
 
@@ -19,6 +21,8 @@ type Construct = {
 
 export const NoteFall = ({lifecycle, layout, service}: Construct) => {
     const VISIBLE_PPQN = PPQN.Bar * 2
+    const labelEnabled = true
+    const NoteWidthScale = 1.5
     const enginePosition = service.engine.position()
     const canvas: HTMLCanvasElement = <canvas/>
     const painter = new CanvasPainter(canvas, painter => {
@@ -35,6 +39,7 @@ export const NoteFall = ({lifecycle, layout, service}: Construct) => {
             context.moveTo(x, 0.0)
             context.lineTo(x, actualHeight)
         }
+        // TODO get project time signature, default to 4/4
         for (const position of Fragmentor.iterate(min, max, PPQN.fromSignature(3, 4))) {
             const y = Math.floor(positionToY(position))
             context.moveTo(0.0, y)
@@ -42,14 +47,16 @@ export const NoteFall = ({lifecycle, layout, service}: Construct) => {
         }
         context.stroke()
         if (!service.hasProjectSession) {return}
-        context.strokeStyle = "black"
-        context.lineWidth = 2.0 * devicePixelRatio
         context.setLineDash(Arrays.empty())
+        context.textAlign = "center"
+        context.textBaseline = "bottom"
         const {project} = service
-        const noteWidth = actualWidth / layout.count
+        const noteWidth = actualWidth / layout.count * NoteWidthScale
+        context.font = `${noteWidth * devicePixelRatio * 0.55}px ${Fonts.Rubik["font-family"]}`
         project.rootBoxAdapter.audioUnits.adapters().forEach(adapter => {
             const trackBoxAdapters = adapter.tracks.values()
-            trackBoxAdapters.slice(0, 2).forEach((trackAdapter, index) => {
+            trackBoxAdapters.forEach((trackAdapter, index) => {
+                const hue = index / trackBoxAdapters.length * 360
                 for (const region of trackAdapter.regions.collection.iterateRange(min, max)) {
                     if (!isInstanceOf(region, NoteRegionBoxAdapter)) {continue}
                     const collection = region.optCollection.unwrap()
@@ -63,11 +70,22 @@ export const NoteFall = ({lifecycle, layout, service}: Construct) => {
                             const y0 = positionToY(note.complete + rawStart)
                             const y1 = positionToY(note.position + rawStart)
                             const isPlaying = y1 >= actualHeight
-                            context.fillStyle = `hsl(${index / trackBoxAdapters.length * 360}, ${isPlaying ? 50 : 20}%, ${isPlaying ? 70 : 50}%)`
+                            const fillStyle = layout.getFillStyle(hue, isPlaying)
+                            context.lineWidth = 1.5 * devicePixelRatio
+                            context.fillStyle = fillStyle
+                            context.strokeStyle = Colors.black
                             context.beginPath()
                             context.roundRect(x - noteWidth / 2, y0, noteWidth, y1 - y0, 3 * devicePixelRatio)
                             context.fill()
                             context.stroke()
+                            if (labelEnabled) {
+                                context.lineWidth = devicePixelRatio
+                                context.fillStyle = Colors.black
+                                MidiKeys.Names[note.pitch % 12]
+                                    .split("")
+                                    .forEach((letter, index) => context
+                                        .fillText(letter, x, y1 - index * noteWidth * 0.4 * devicePixelRatio))
+                            }
                         }
                     }
                 }

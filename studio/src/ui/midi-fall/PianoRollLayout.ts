@@ -41,6 +41,11 @@ export class PianoRollLayout {
     get octaveSplits(): ReadonlyArray<number> {return this.#octaveSplits}
 
     getCenteredX(index: int): number {return this.#centered[index]}
+    getFillStyle(hue: number, isPlaying: boolean): string {
+        const saturation = isPlaying ? 80 : 30
+        const lightness = isPlaying ? 80 : 50
+        return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+    }
 
     #initialize(): void {
         const {WhiteKey, BlackKey, BlackKeyOffsets} = PianoRollLayout
