@@ -15,7 +15,7 @@ export const TrackBox: BoxSchema<Pointers> = {
             20: {type: "boolean", name: "enabled", value: true},
             30: { // TODO Or better pointing to a box?
                 type: "object",
-                name: "piano-mode",
+                name: "piano-panel",
                 class: {
                     name: "PianoAppearance",
                     fields: {

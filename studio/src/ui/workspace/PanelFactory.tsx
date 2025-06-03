@@ -14,7 +14,7 @@ import {BrowserPanel} from "@/ui/browse/BrowserPanel.tsx"
 import {NotePadPanel} from "@/ui/NotePadPanel"
 import {FlexSpace} from "./FlexSpace"
 import {VUMeterPanel} from "@/ui/meter/VUMeterPanel"
-import {MidiFall} from "@/ui/midi-fall/MidiFall.tsx"
+import {PianoModePanel} from "@/ui/piano-panel/PianoModePanel.tsx"
 
 export const createPanelFactory = (service: StudioService): PanelContentFactory => ({
     create: (lifecycle: Lifecycle, type: PanelType): JsxValue => {
@@ -40,7 +40,7 @@ export const createPanelFactory = (service: StudioService): PanelContentFactory 
             case PanelType.ProjectInfo:
                 return (<ProjectInfo lifecycle={lifecycle} service={service}/>)
             case PanelType.MidiFall:
-                return (<MidiFall lifecycle={lifecycle} service={service}/>)
+                return (<PianoModePanel lifecycle={lifecycle} service={service}/>)
             case PanelType.EmptyFlexSpace:
                 return (<FlexSpace/>)
             default:

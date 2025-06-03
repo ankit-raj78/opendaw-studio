@@ -24,7 +24,7 @@ import {Colors} from "@/ui/Colors"
 import {Editing} from "box"
 import {ContextMenu} from "@/ui/ContextMenu"
 import {MenuItem} from "@/ui/model/menu-item"
-import {Wrapper} from "@/ui/wrapper/Wrapper.ts"
+import {EditWrapper} from "@/ui/wrapper/EditWrapper.ts"
 import {SlotDragAndDrop} from "@/ui/devices/instruments/PlayfieldDeviceEditor/SlotDragAndDrop"
 import {NoteLabel} from "@/ui/devices/instruments/PlayfieldDeviceEditor/NoteLabel"
 import {DebugMenus} from "@/ui/menu/debug"
@@ -65,9 +65,9 @@ export const BusySlot = ({
         </header>
     )
     const {mute, solo, exclude} = sample.namedParameter
-    const muteWrapper = Wrapper.makeParameterEditable(editing, mute)
-    const soloWrapper = Wrapper.makeParameterEditable(editing, solo)
-    const excludeWrapper = Wrapper.makeParameterEditable(editing, exclude)
+    const muteWrapper = EditWrapper.forAutomatableParameter(editing, mute)
+    const soloWrapper = EditWrapper.forAutomatableParameter(editing, solo)
+    const excludeWrapper = EditWrapper.forAutomatableParameter(editing, exclude)
     const exclusionGroup: HTMLElement = (
         <div className="checkboxes">
             <Checkbox lifecycle={lifecycle}

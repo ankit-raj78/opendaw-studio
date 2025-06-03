@@ -2,8 +2,8 @@ import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/A
 import {Editing, PrimitiveValues} from "box"
 import {MutableObservableValue, ObservableValue, Observer, Subscription} from "std"
 
-export namespace Wrapper {
-    export const makeEditable = <T extends PrimitiveValues>(
+export namespace EditWrapper {
+    export const forValue = <T extends PrimitiveValues>(
         editing: Editing, owner: MutableObservableValue<T>): MutableObservableValue<T> =>
         new class implements MutableObservableValue<T> {
             getValue(): T {return owner.getValue()}
@@ -16,13 +16,11 @@ export namespace Wrapper {
             }
         }
 
-    export const makeParameterEditable = <T extends PrimitiveValues>(
+    export const forAutomatableParameter = <T extends PrimitiveValues>(
         editing: Editing,
         adapter: AutomatableParameterFieldAdapter<T>): MutableObservableValue<T> =>
         new class implements MutableObservableValue<T> {
-            getValue(): T {
-                return adapter.getControlledValue()
-            }
+            getValue(): T {return adapter.getControlledValue()}
             setValue(value: T) {
                 if (editing.canModify()) {
                     editing.modify(() => adapter.setValue(value))

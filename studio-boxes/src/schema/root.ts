@@ -32,7 +32,7 @@ export const RootBox: BoxSchema<Pointers> = {
             },
             40: {
                 type: "object",
-                name: "piano-mode",
+                name: "piano-panel",
                 class: {
                     name: "PianoMode",
                     fields: {

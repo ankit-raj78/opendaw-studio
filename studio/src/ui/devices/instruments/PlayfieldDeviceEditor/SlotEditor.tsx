@@ -6,7 +6,7 @@ import {StudioService} from "@/service/StudioService.ts"
 import {Icon} from "@/ui/components/Icon"
 import {IconSymbol} from "@/IconSymbol"
 import {CanvasPainter} from "@/ui/canvas/painter"
-import {Wrapper} from "@/ui/wrapper/Wrapper.ts"
+import {EditWrapper} from "@/ui/wrapper/EditWrapper.ts"
 import {Colors} from "@/ui/Colors"
 import {Checkbox} from "@/ui/components/Checkbox"
 import {ControlIndicator} from "@/ui/components/ControlIndicator"
@@ -130,14 +130,14 @@ export const SlotEditor = ({lifecycle, service, adapter}: Construct) => {
                         <div>
                             <ControlIndicator lifecycle={lifecycle} parameter={mute}>
                                 <Checkbox lifecycle={lifecycle}
-                                          model={Wrapper.makeParameterEditable(editing, mute)}
+                                          model={EditWrapper.forAutomatableParameter(editing, mute)}
                                           appearance={{activeColor: Colors.red, framed: true}}>
                                     <Icon symbol={IconSymbol.Mute}/>
                                 </Checkbox>
                             </ControlIndicator>
                             <ControlIndicator lifecycle={lifecycle} parameter={solo}>
                                 <Checkbox lifecycle={lifecycle}
-                                          model={Wrapper.makeParameterEditable(editing, solo)}
+                                          model={EditWrapper.forAutomatableParameter(editing, solo)}
                                           appearance={{activeColor: Colors.yellow, framed: true}}>
                                     <Icon symbol={IconSymbol.Solo}/>
                                 </Checkbox>
@@ -145,7 +145,7 @@ export const SlotEditor = ({lifecycle, service, adapter}: Construct) => {
                         </div>
                         <ControlIndicator lifecycle={lifecycle} parameter={exclude}>
                             <Checkbox lifecycle={lifecycle}
-                                      model={Wrapper.makeParameterEditable(editing, exclude)}
+                                      model={EditWrapper.forAutomatableParameter(editing, exclude)}
                                       className="exclude"
                                       appearance={{activeColor: Colors.orange, framed: true}}>
                                 <span style={{fontSize: "0.5em"}}>Excl.</span>
@@ -156,7 +156,7 @@ export const SlotEditor = ({lifecycle, service, adapter}: Construct) => {
                 <div className="column">
                     <div className="label">Gate</div>
                     <RadioGroup lifecycle={lifecycle}
-                                model={Wrapper.makeParameterEditable(editing, gate)}
+                                model={EditWrapper.forAutomatableParameter(editing, gate)}
                                 className="radio-group"
                                 elements={[
                                     {value: Gate.Off, element: (<span>Off</span>)},
@@ -168,7 +168,7 @@ export const SlotEditor = ({lifecycle, service, adapter}: Construct) => {
                 <div className="column">
                     <div className="label">Voice</div>
                     <RadioGroup lifecycle={lifecycle}
-                                model={Wrapper.makeParameterEditable(editing, polyphone)}
+                                model={EditWrapper.forAutomatableParameter(editing, polyphone)}
                                 className="radio-group"
                                 elements={[
                                     {value: false, element: (<span>Mono</span>)},

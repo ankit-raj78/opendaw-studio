@@ -1,7 +1,7 @@
 import css from "./PianoRoll.sass?inline"
 import {Html} from "dom"
 import {createElement, Group} from "jsx"
-import {PianoRollLayout} from "@/ui/midi-fall/PianoRollLayout.ts"
+import {PianoRollLayout} from "@/ui/piano-panel/PianoRollLayout.ts"
 import {isDefined, isInstanceOf, Lifecycle} from "std"
 import {LoopableRegion, ppqn} from "dsp"
 import {NoteRegionBoxAdapter} from "@/audio-engine-shared/adapters/timeline/region/NoteRegionBoxAdapter.ts"

@@ -8,7 +8,7 @@ import {Checkbox} from "@/ui/components/Checkbox.tsx"
 import {Icon} from "@/ui/components/Icon.tsx"
 import {createElement} from "jsx"
 import {Editing} from "box"
-import {Wrapper} from "@/ui/wrapper/Wrapper.ts"
+import {EditWrapper} from "@/ui/wrapper/EditWrapper.ts"
 import {IconSymbol} from "@/IconSymbol.ts"
 import {attachParameterContextMenu} from "@/ui/menu/automation.ts"
 import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter.ts"
@@ -50,7 +50,7 @@ export const AudioUnitChannelControls = ({lifecycle, editing, midiDevices, adapt
     const muteControl = (
         <ControlIndicator lifecycle={lifecycle} parameter={mute}>
             <Checkbox lifecycle={lifecycle}
-                      model={Wrapper.makeParameterEditable(editing, mute)}
+                      model={EditWrapper.forAutomatableParameter(editing, mute)}
                       appearance={{activeColor: Colors.red, framed: true}}>
                 <Icon symbol={IconSymbol.Mute}/>
             </Checkbox>
@@ -59,7 +59,7 @@ export const AudioUnitChannelControls = ({lifecycle, editing, midiDevices, adapt
     const soloControl = (
         <ControlIndicator lifecycle={lifecycle} parameter={solo}>
             <Checkbox lifecycle={lifecycle}
-                      model={Wrapper.makeParameterEditable(editing, solo)}
+                      model={EditWrapper.forAutomatableParameter(editing, solo)}
                       appearance={{activeColor: Colors.yellow, framed: true}}>
                 <Icon symbol={IconSymbol.Solo}/>
             </Checkbox>

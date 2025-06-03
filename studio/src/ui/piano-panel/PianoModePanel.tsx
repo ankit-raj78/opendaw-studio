@@ -1,26 +1,27 @@
-import css from "./MidiFall.sass?inline"
+import css from "./PianoModePanel.sass?inline"
 import {createElement, Group} from "jsx"
 import {StudioService} from "@/service/StudioService.ts"
 import {Html} from "dom"
-import {PianoRoll} from "@/ui/midi-fall/PianoRoll.tsx"
-import {NoteFall} from "@/ui/midi-fall/NoteFall.tsx"
+import {PianoRoll} from "@/ui/piano-panel/PianoRoll.tsx"
+import {NoteFall} from "@/ui/piano-panel/NoteFall.tsx"
 import {Lifecycle} from "std"
 import {NumberInput} from "@/ui/components/NumberInput.tsx"
 import {Checkbox} from "@/ui/components/Checkbox.tsx"
 import {Icon} from "@/ui/components/Icon.tsx"
 import {IconSymbol} from "@/IconSymbol.ts"
 import {RadioGroup} from "@/ui/components/RadioGroup.tsx"
-import {Wrapper} from "@/ui/wrapper/Wrapper.ts"
+import {EditWrapper} from "@/ui/wrapper/EditWrapper.ts"
 
-const className = Html.adoptStyleSheet(css, "MidiFall")
+const className = Html.adoptStyleSheet(css, "PianoModePanel")
 
 // TODO
 //  [ ] Allow 90degrees rotation
-//  [ ] Rename to PianoModePanel
 //  [ ] Show timeline navigation
 //  [ ] dialog? to map note tracks to colors
 //  [ ] Different note labels for different countries
+//  [ ] Control to show and edit signature
 //  [ ] Playfield: Samples appear louder when polyphone
+//  [X] Rename to PianoModePanel
 //  [X] Transpose
 //  [X] Go back to timeline view
 //  [X] Open MidiFall view (or Piano Tutorial Mode?)
@@ -35,7 +36,7 @@ type Construct = {
     service: StudioService
 }
 
-export const MidiFall = ({lifecycle, service}: Construct) => {
+export const PianoModePanel = ({lifecycle, service}: Construct) => {
     if (!service.hasProjectSession) {return "No session."}
     const {project} = service
     const {rootBoxAdapter, editing} = project
@@ -49,7 +50,7 @@ export const MidiFall = ({lifecycle, service}: Construct) => {
                 <Group>
                     <span>Keyboard</span>
                     <RadioGroup lifecycle={lifecycle}
-                                model={Wrapper.makeEditable(editing, keyboard)}
+                                model={EditWrapper.forValue(editing, keyboard)}
                                 elements={[
                                     {element: <span>88</span>, value: 0},
                                     {element: <span>76</span>, value: 1},
@@ -58,18 +59,18 @@ export const MidiFall = ({lifecycle, service}: Construct) => {
                                 ]}/>
                     <span>Time Scale</span>
                     <NumberInput lifecycle={lifecycle}
-                                 model={Wrapper.makeEditable(editing, timeRangeInQuarters)}/>
+                                 model={EditWrapper.forValue(editing, timeRangeInQuarters)}/>
                     <span>Note Width</span>
                     <NumberInput lifecycle={lifecycle}
-                                 model={Wrapper.makeEditable(editing, noteScale)} step={0.1}
+                                 model={EditWrapper.forValue(editing, noteScale)} step={0.1}
                                  mapper={noteScale.stringMapping}/>
                     <span>Transpose</span>
                     <NumberInput lifecycle={lifecycle}
-                                 model={Wrapper.makeEditable(editing, transpose)} step={1}
+                                 model={EditWrapper.forValue(editing, transpose)} step={1}
                                  mapper={transpose.stringMapping}/>
                     <span>Note Labels</span>
                     <Checkbox lifecycle={lifecycle}
-                              model={Wrapper.makeEditable(editing, noteLabels)}>
+                              model={EditWrapper.forValue(editing, noteLabels)}>
                         <Icon symbol={IconSymbol.Checkbox}/>
                     </Checkbox>
                 </Group>

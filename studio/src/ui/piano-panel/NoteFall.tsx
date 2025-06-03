@@ -3,7 +3,7 @@ import {Html} from "dom"
 import {Arrays, int, isInstanceOf, Lifecycle} from "std"
 import {createElement} from "jsx"
 import {CanvasPainter} from "@/ui/canvas/painter.ts"
-import {PianoRollLayout} from "@/ui/midi-fall/PianoRollLayout.ts"
+import {PianoRollLayout} from "@/ui/piano-panel/PianoRollLayout.ts"
 import {LoopableRegion, MidiKeys, PPQN, ppqn} from "dsp"
 import {NoteRegionBoxAdapter} from "@/audio-engine-shared/adapters/timeline/region/NoteRegionBoxAdapter.ts"
 import {Fragmentor} from "@/worklet/Fragmentor.ts"
@@ -89,13 +89,14 @@ export const NoteFall = (
                 }
             })
         })
+        // shadow pass
         context.fillStyle = "rgba(0, 0, 0, 0.25)"
         context.beginPath()
         renderCalls.forEach(({x, y0, y1}) => {
             context.roundRect(x - noteWidth / 2, y0 + devicePixelRatio * 4, noteWidth, y1 - y0, 3 * devicePixelRatio)
         })
         context.fill()
-
+        // solid pass
         context.lineWidth = devicePixelRatio
         context.strokeStyle = "rgba(0, 0, 0, 0.5)"
         renderCalls.forEach(({pitch, x, y0, y1, hue}) => {
