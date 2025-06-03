@@ -1,6 +1,6 @@
 import css from "./NoteFall.sass?inline"
 import {Html} from "dom"
-import {Arrays, isInstanceOf, Lifecycle} from "std"
+import {Arrays, isInstanceOf, Lifecycle, ObservableValue} from "std"
 import {createElement} from "jsx"
 import {CanvasPainter} from "@/ui/canvas/painter.ts"
 import {PianoRollLayout} from "@/ui/midi-fall/PianoRollLayout.ts"
@@ -15,25 +15,29 @@ const className = Html.adoptStyleSheet(css, "NoteFall")
 
 type Construct = {
     lifecycle: Lifecycle
-    layout: PianoRollLayout
     service: StudioService
+    pianoLayoutOwner: ObservableValue<PianoRollLayout>
+    timeScaleOwner: ObservableValue<number>
+    noteScaleOwner: ObservableValue<number>
+    noteLabelsOwner: ObservableValue<boolean>
 }
 
-export const NoteFall = ({lifecycle, layout, service}: Construct) => {
-    const VISIBLE_PPQN = PPQN.Bar * 2
-    const labelEnabled = true
-    const NoteWidthScale = 1.5
+export const NoteFall = (
+    {lifecycle, service, pianoLayoutOwner, timeScaleOwner, noteScaleOwner, noteLabelsOwner}: Construct) => {
     const enginePosition = service.engine.position()
     const canvas: HTMLCanvasElement = <canvas/>
     const painter = new CanvasPainter(canvas, painter => {
         const {context, actualWidth, actualHeight} = painter
+        const visibleQuarter = PPQN.Quarter * timeScaleOwner.getValue()
+        const labelEnabled = noteLabelsOwner.getValue()
         const min = enginePosition.getValue()
-        const max = min + VISIBLE_PPQN
-        const positionToY = (position: ppqn) => (1.0 - (position - min) / VISIBLE_PPQN) * actualHeight
+        const max = min + visibleQuarter
+        const positionToY = (position: ppqn) => (1.0 - (position - min) / visibleQuarter) * actualHeight
         context.clearRect(0, 0, actualWidth, actualHeight)
         context.strokeStyle = "rgba(255, 255, 255, 0.2)"
         context.setLineDash([4, 4])
         context.beginPath()
+        const layout = pianoLayoutOwner.getValue()
         for (const position of layout.octaveSplits) {
             const x = Math.floor(position * actualWidth)
             context.moveTo(x, 0.0)
@@ -51,7 +55,7 @@ export const NoteFall = ({lifecycle, layout, service}: Construct) => {
         context.textAlign = "center"
         context.textBaseline = "bottom"
         const {project} = service
-        const noteWidth = actualWidth / layout.count * NoteWidthScale
+        const noteWidth = actualWidth / layout.count * (noteScaleOwner.getValue() / 100.0)
         context.font = `${noteWidth * devicePixelRatio * 0.55}px ${Fonts.Rubik["font-family"]}`
         project.rootBoxAdapter.audioUnits.adapters().forEach(adapter => {
             const trackBoxAdapters = adapter.tracks.values()
@@ -74,18 +78,20 @@ export const NoteFall = ({lifecycle, layout, service}: Construct) => {
                             context.lineWidth = 1.5 * devicePixelRatio
                             context.fillStyle = fillStyle
                             context.strokeStyle = Colors.black
+                            context.save()
                             context.beginPath()
                             context.roundRect(x - noteWidth / 2, y0, noteWidth, y1 - y0, 3 * devicePixelRatio)
                             context.fill()
                             context.stroke()
+                            context.clip()
                             if (labelEnabled) {
-                                context.lineWidth = devicePixelRatio
                                 context.fillStyle = Colors.black
                                 MidiKeys.Names[note.pitch % 12]
                                     .split("")
                                     .forEach((letter, index) => context
                                         .fillText(letter, x, y1 - index * noteWidth * 0.4 * devicePixelRatio))
                             }
+                            context.restore()
                         }
                     }
                 }
@@ -97,7 +103,11 @@ export const NoteFall = ({lifecycle, layout, service}: Construct) => {
         painter,
         enginePosition.subscribe(painter.requestUpdate),
         Html.watchResize(element, painter.requestUpdate),
-        service.sessionService.subscribe(painter.requestUpdate)
+        service.sessionService.subscribe(painter.requestUpdate),
+        pianoLayoutOwner.subscribe(painter.requestUpdate),
+        timeScaleOwner.subscribe(painter.requestUpdate),
+        noteScaleOwner.subscribe(painter.requestUpdate),
+        noteLabelsOwner.subscribe(painter.requestUpdate)
     )
     return element
 }

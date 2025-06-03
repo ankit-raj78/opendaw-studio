@@ -6,11 +6,27 @@ component
   display: flex
   flex-direction: column
   row-gap: 1px
+  position: relative
   @include colors.panel-background
 
-  > *
-    &:first-child
-      flex: 1 0 0
+  > .controls
+    top: 1rem
+    right: 0
+    position: absolute
+    padding: 1rem
+    border-radius: 1rem 0 0 1rem
+    display: grid
+    grid-template-columns: 100px auto
+    align-items: center
+    @include colors.panel-background-dark
+    box-shadow: 0 1em 1em 0 rgba(black, 0.25)
+    font-size: 0.875em
 
-    &:last-child
-      flex: 0 0 auto
+    span
+      font-size: 0.875em
+
+  > *
+    flex: 0 0 auto
+
+    &:nth-child(1)
+      flex: 1 0 0

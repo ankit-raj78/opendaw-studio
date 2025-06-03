@@ -1,9 +1,19 @@
 import {MidiKeys} from "dsp"
-import {Arrays, asDefined, int, Size} from "std"
+import {Arrays, asDefined, int, Lazy, Size} from "std"
 
 export type KeyProperties = { key: int, x: number }
 
 export class PianoRollLayout {
+    @Lazy
+    static Defaults() {
+        return {
+            88: new PianoRollLayout(21, 108),
+            76: new PianoRollLayout(28, 103),
+            61: new PianoRollLayout(36, 96),
+            49: new PianoRollLayout(36, 84)
+        }
+    }
+
     static readonly WhiteKey: Size = {width: 20, height: 100}
     static readonly BlackKey: Size = {width: 12, height: 60}
     static readonly BlackKeyOffsets: Record<int, number> = {1: 0.55, 3: 0.45, 6: 0.55, 8: 0.50, 10: 0.45} as const
@@ -25,7 +35,7 @@ export class PianoRollLayout {
     constructor(min: int = 21, max: int = 108) {
         this.#min = PianoRollLayout.#moveToNextWhiteKey(min, -1)
         this.#max = PianoRollLayout.#moveToNextWhiteKey(max, 1)
-        console.debug(MidiKeys.toFullString(this.#min), MidiKeys.toFullString(this.#max))
+        console.debug(MidiKeys.toFullString(this.#min), MidiKeys.toFullString(this.#max), this.count)
         this.#whiteKeysX = []
         this.#blackKeysX = []
         this.#octaveSplits = []
