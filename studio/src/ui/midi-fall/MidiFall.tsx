@@ -16,12 +16,12 @@ const className = Html.adoptStyleSheet(css, "MidiFall")
 
 // TODO
 //  [ ] Allow 90degrees rotation
+//  [ ] Rename to PianoModePanel
 //  [ ] Show timeline navigation
-//  [ ] dialog to map note tracks to colors
-//  [ ] store mapping in the project
-//  [ ] add octave shift
+//  [ ] dialog? to map note tracks to colors
 //  [ ] Different note labels for different countries
 //  [ ] Playfield: Samples appear louder when polyphone
+//  [X] Transpose
 //  [X] Go back to timeline view
 //  [X] Open MidiFall view (or Piano Tutorial Mode?)
 //  [X] labels on falling notes (~~Hide when note is too short~~ clip)

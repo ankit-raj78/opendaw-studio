@@ -16,13 +16,14 @@ type Construct = {
 }
 
 export const ScaleSelector = ({lifecycle, scale}: Construct) => {
-    const labelName = Inject.value(MidiKeys.Names[scale.key])
-    lifecycle.own(scale.subscribe(() => {labelName.value = MidiKeys.Names[scale.key]}))
+    const labels = MidiKeys.Names.English
+    const labelName = Inject.value(labels[scale.key])
+    lifecycle.own(scale.subscribe(() => {labelName.value = labels[scale.key]}))
     return (
         <div className={className}>
             <MenuButton root={MenuItem.root().setRuntimeChildrenProcedure((parent: MenuItem) => {
                 parent.addMenuItem(...Arrays.create(key => MenuItem.default({
-                    label: MidiKeys.Names[key],
+                    label: labels[key],
                     checked: key === scale.key
                 }).setTriggerProcedure(() => scale.key = key), 12))
             })} appearance={{framed: true, color: Colors.dark, activeColor: Colors.gray}}>
