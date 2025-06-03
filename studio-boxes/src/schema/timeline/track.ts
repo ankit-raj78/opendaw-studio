@@ -13,6 +13,7 @@ export const TrackBox: BoxSchema<Pointers> = {
 			10: { type: "int32", name: "index" },
 			11: { type: "int32", name: "type" },
 			20: { type: "boolean", name: "enabled", value: true }
+            // TODO Add piano-mode object (hue, octave-shift) > subscription?
 		}
 	}, pointerRules: { accepts: [Pointers.Selection], mandatory: false }
 }

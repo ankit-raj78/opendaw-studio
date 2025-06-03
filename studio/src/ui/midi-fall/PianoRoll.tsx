@@ -16,7 +16,7 @@ type Construct = {
 
 export const PianoRoll = ({lifecycle, project}: Construct) => {
     const {WhiteKey, BlackKey} = PianoRollLayout
-    const {service: {engine}, rootBoxAdapter: {pianoMode: {keyboard, octaveShift}}} = project
+    const {service: {engine}, rootBoxAdapter: {pianoMode: {keyboard, transpose}}} = project
     const enginePosition = engine.position()
     const getPianoLayout = () => PianoRollLayout.Defaults()[keyboard.getValue()]
     const createSVG = (pianoLayout: PianoRollLayout): SVGSVGElement => (
@@ -53,16 +53,13 @@ export const PianoRoll = ({lifecycle, project}: Construct) => {
                 }
                 const collection = region.optCollection.unwrap()
                 const events = collection.events
-                for (const {
-                    resultStart,
-                    resultEnd,
-                    rawStart
-                } of LoopableRegion.locateLoops(region, position, position)) {
+                const loopIterator = LoopableRegion.locateLoops(region, position, position)
+                for (const {resultStart, resultEnd, rawStart} of loopIterator) {
                     const searchStart = Math.floor(resultStart - rawStart)
                     const searchEnd = Math.floor(resultEnd - rawStart)
                     for (const note of events.iterateRange(searchStart - collection.maxDuration, searchEnd)) {
                         if (note.position + rawStart <= position && position < note.complete + rawStart) {
-                            const pitch = note.pitch + octaveShift.getValue() * 12
+                            const pitch = note.pitch + transpose.getValue()
                             const rect = svg.querySelector<SVGRectElement>(`[data-key="${pitch}"]`)
                             if (isDefined(rect)) {
                                 rect.style.fill = pianoLayout.getFillStyle(hue, true)

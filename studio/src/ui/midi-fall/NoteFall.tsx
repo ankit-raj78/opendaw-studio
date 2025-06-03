@@ -21,7 +21,7 @@ export const NoteFall = (
     {lifecycle, project}: Construct) => {
     const enginePosition = project.service.engine.position()
     const pianoMode = project.rootBoxAdapter.pianoMode
-    const {keyboard, timeRangeInQuarters, noteScale, noteLabels, octaveShift} = pianoMode
+    const {keyboard, timeRangeInQuarters, noteScale, noteLabels, transpose} = pianoMode
     const canvas: HTMLCanvasElement = <canvas/>
     const painter = new CanvasPainter(canvas, painter => {
         const {context, actualWidth, actualHeight} = painter
@@ -65,7 +65,7 @@ export const NoteFall = (
                         const searchStart = Math.floor(resultStart - rawStart)
                         const searchEnd = Math.floor(resultEnd - rawStart)
                         for (const note of events.iterateRange(searchStart - collection.maxDuration, searchEnd)) {
-                            const pitch = note.pitch + octaveShift.getValue() * 12
+                            const pitch = note.pitch + transpose.getValue()
                             const x = pianoLayout.getCenteredX(pitch) * actualWidth
                             // inverses the y-axis
                             const y0 = positionToY(note.complete + rawStart)

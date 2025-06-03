@@ -10,7 +10,7 @@ export class PianoModeAdapter {
     readonly #timeRangeInQuarters: FieldAdapter<float>
     readonly #noteScale: FieldAdapter<float>
     readonly #noteLabels: FieldAdapter<boolean>
-    readonly #octaveShift: FieldAdapter<int>
+    readonly #transpose: FieldAdapter<int>
 
     constructor(object: PianoMode) {
         this.#object = object
@@ -22,7 +22,7 @@ export class PianoModeAdapter {
 
         this.#timeRangeInQuarters = new FieldAdapter(
             this.#object.timeRangeInQuarters,
-            ValueMapping.exponential(1, 16),
+            ValueMapping.exponential(1, 64),
             StringMapping.numeric({fractionDigits: 1}), "Time-Range")
 
         this.#noteScale = new FieldAdapter(
@@ -33,10 +33,10 @@ export class PianoModeAdapter {
         this.#noteLabels = new FieldAdapter(
             this.#object.noteLabels, ValueMapping.bool, StringMapping.bool, "Note Labels")
 
-        this.#octaveShift = new FieldAdapter(
-            this.#object.octaveShift,
-            ValueMapping.linearInteger(-3, 3),
-            StringMapping.numeric({fractionDigits: 0}), "Octave Shift")
+        this.#transpose = new FieldAdapter(
+            this.#object.transpose,
+            ValueMapping.linearInteger(-48, 48),
+            StringMapping.numeric({fractionDigits: 0}), "Transpose")
     }
 
     subscribe(observer: Observer<this>): Subscription {
@@ -49,5 +49,5 @@ export class PianoModeAdapter {
     get timeRangeInQuarters(): FieldAdapter<float> {return this.#timeRangeInQuarters}
     get noteScale(): FieldAdapter<float> {return this.#noteScale}
     get noteLabels(): FieldAdapter<boolean> {return this.#noteLabels}
-    get octaveShift(): FieldAdapter<int> {return this.#octaveShift}
+    get transpose(): FieldAdapter<int> {return this.#transpose}
 }

@@ -20,6 +20,8 @@ const className = Html.adoptStyleSheet(css, "MidiFall")
 //  [ ] dialog to map note tracks to colors
 //  [ ] store mapping in the project
 //  [ ] add octave shift
+//  [ ] Different note labels for different countries
+//  [ ] Playfield: Samples appear louder when polyphone
 //  [X] Go back to timeline view
 //  [X] Open MidiFall view (or Piano Tutorial Mode?)
 //  [X] labels on falling notes (~~Hide when note is too short~~ clip)
@@ -27,7 +29,6 @@ const className = Html.adoptStyleSheet(css, "MidiFall")
 //  [X] active piano colors
 //  [X] different keyboard layouts https://familypiano.com/blog/piano-keys-faq/
 //  [X] time signature / octave (C, F) grid
-//  [ ] Playfield: Samples appear louder when polyphone
 
 type Construct = {
     lifecycle: Lifecycle
@@ -39,7 +40,7 @@ export const MidiFall = ({lifecycle, service}: Construct) => {
     const {project} = service
     const {rootBoxAdapter, editing} = project
     const pianoMode = rootBoxAdapter.pianoMode
-    const {keyboard, timeRangeInQuarters, noteScale, noteLabels, octaveShift} = pianoMode
+    const {keyboard, timeRangeInQuarters, noteScale, noteLabels, transpose} = pianoMode
     const element: HTMLElement = (
         <div className={className}>
             <NoteFall lifecycle={lifecycle} project={project}/>
@@ -62,10 +63,10 @@ export const MidiFall = ({lifecycle, service}: Construct) => {
                     <NumberInput lifecycle={lifecycle}
                                  model={Wrapper.makeEditable(editing, noteScale)} step={0.1}
                                  mapper={noteScale.stringMapping}/>
-                    <span>Octave Shift</span>
+                    <span>Transpose</span>
                     <NumberInput lifecycle={lifecycle}
-                                 model={Wrapper.makeEditable(editing, octaveShift)} step={1}
-                                 mapper={octaveShift.stringMapping}/>
+                                 model={Wrapper.makeEditable(editing, transpose)} step={1}
+                                 mapper={transpose.stringMapping}/>
                     <span>Note Labels</span>
                     <Checkbox lifecycle={lifecycle}
                               model={Wrapper.makeEditable(editing, noteLabels)}>
