@@ -24,12 +24,12 @@ import {
     ValueEventCollectionBoxAdapter
 } from "@/audio-engine-shared/adapters/timeline/collection/ValueEventCollectionBoxAdapter.ts"
 import {ValueEventOwnerReader} from "@/ui/timeline/editors/EventOwnerReader.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {Dragging} from "dom"
 
 type Construct = Readonly<{
     element: Element
-    parameter: ParameterFieldAdapter
+    parameter: AutomatableParameterFieldAdapter
     selection: Selection<ValueEventBoxAdapter>
     valueAxis: ValueAxis
     snapping: Snapping
@@ -50,7 +50,7 @@ export class ValueMoveModifier implements ValueModifier {
     static create(construct: Construct): ValueMoveModifier {return new ValueMoveModifier(construct)}
 
     readonly #element: Element
-    readonly #parameter: ParameterFieldAdapter
+    readonly #parameter: AutomatableParameterFieldAdapter
     readonly #selection: Selection<ValueEventBoxAdapter>
     readonly #valueAxis: ValueAxis
     readonly #snapping: Snapping

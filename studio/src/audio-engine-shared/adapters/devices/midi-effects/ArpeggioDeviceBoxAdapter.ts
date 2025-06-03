@@ -5,7 +5,7 @@ import {Pointers} from "@/data/pointers.ts"
 import {Address, BooleanField, FieldKeys, Int32Field, PointerField, StringField} from "box"
 import {Fraction} from "dsp"
 import {StringMapping, UUID, ValueMapping} from "std"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter"
 import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 
@@ -44,7 +44,7 @@ export class ArpeggioDeviceBoxAdapter implements MidiEffectDeviceAdapter {
     get minimizedField(): BooleanField {return this.#box.minimized}
     get host(): PointerField<Pointers.MidiEffectHost> {return this.#box.host}
 
-    parameterAt(fieldIndices: FieldKeys): ParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
+    parameterAt(fieldIndices: FieldKeys): AutomatableParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
 
     deviceHost(): DeviceHost {
         return this.#context.boxAdapters

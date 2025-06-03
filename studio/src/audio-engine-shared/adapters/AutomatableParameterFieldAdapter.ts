@@ -32,7 +32,7 @@ const ExternalControlTypes = [
     Pointers.MidiControl,
     Pointers.ParameterController] as const
 
-export class ParameterFieldAdapter<T extends PrimitiveValues = any> implements Parameter<T>, Terminable {
+export class AutomatableParameterFieldAdapter<T extends PrimitiveValues = any> implements Parameter<T>, Terminable {
     readonly #context: BoxAdaptersContext
     readonly #field: PrimitiveField<T, Pointers.Automation>
     readonly #valueMapping: ValueMapping<T>
@@ -143,9 +143,9 @@ export class ParameterFieldAdapter<T extends PrimitiveValues = any> implements P
         return this.getValue()
     }
 
-    subscribe(observer: Observer<ParameterFieldAdapter<T>>): Subscription {return this.#valueChangeNotifier.subscribe(observer)}
+    subscribe(observer: Observer<AutomatableParameterFieldAdapter<T>>): Subscription {return this.#valueChangeNotifier.subscribe(observer)}
 
-    catchupAndSubscribe(observer: Observer<ParameterFieldAdapter<T>>): Subscription {
+    catchupAndSubscribe(observer: Observer<AutomatableParameterFieldAdapter<T>>): Subscription {
         observer(this)
         return this.subscribe(observer)
     }

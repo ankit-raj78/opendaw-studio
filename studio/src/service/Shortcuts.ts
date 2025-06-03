@@ -45,9 +45,13 @@ export class Shortcuts {
                     }
                 } else if (code === "Digit4") {
                     if (service.hasProjectSession) {
-                        service.switchScreen("project")
+                        service.switchScreen("piano")
                     }
                 } else if (code === "Digit5") {
+                    if (service.hasProjectSession) {
+                        service.switchScreen("project")
+                    }
+                } else if (code === "Digit6") {
                     if (service.hasProjectSession) {
                         service.switchScreen("meter")
                     }

@@ -6,12 +6,12 @@ export type KeyProperties = { key: int, x: number }
 export class PianoRollLayout {
     @Lazy
     static Defaults() {
-        return {
-            88: new PianoRollLayout(21, 108),
-            76: new PianoRollLayout(28, 103),
-            61: new PianoRollLayout(36, 96),
-            49: new PianoRollLayout(36, 84)
-        }
+        return [
+            new PianoRollLayout(21, 108), // 88
+            new PianoRollLayout(28, 103), // 76
+            new PianoRollLayout(36, 96), // 61
+            new PianoRollLayout(36, 84) // 49
+        ]
     }
 
     static readonly WhiteKey: Size = {width: 20, height: 100}
@@ -31,8 +31,7 @@ export class PianoRollLayout {
     readonly #octaveSplits: Array<number>
     readonly #centered: Array<number>
 
-    // default is A1 to C7
-    constructor(min: int = 21, max: int = 108) {
+    constructor(min: int, max: int) {
         this.#min = PianoRollLayout.#moveToNextWhiteKey(min, -1)
         this.#max = PianoRollLayout.#moveToNextWhiteKey(max, 1)
         console.debug(MidiKeys.toFullString(this.#min), MidiKeys.toFullString(this.#max), this.count)

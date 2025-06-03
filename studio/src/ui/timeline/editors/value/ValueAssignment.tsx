@@ -1,7 +1,7 @@
 import {DeviceBoxAdapter} from "@/audio-engine-shared/adapters/devices.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 
 export type ValueAssignment = {
     device?: DeviceBoxAdapter
-    adapter: ParameterFieldAdapter
+    adapter: AutomatableParameterFieldAdapter
 }

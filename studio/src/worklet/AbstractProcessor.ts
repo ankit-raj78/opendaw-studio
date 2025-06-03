@@ -5,7 +5,7 @@ import {Pointers} from "@/data/pointers"
 import {ProcessInfo, Processor} from "./processing"
 import {EngineContext} from "./EngineContext"
 import {EventBuffer} from "./EventBuffer"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 
 export abstract class AbstractProcessor implements Processor, TerminableOwner, Terminable {
     readonly #terminator = new Terminator()
@@ -33,7 +33,7 @@ export abstract class AbstractProcessor implements Processor, TerminableOwner, T
     get context(): EngineContext {return this.#context}
     get eventInput(): EventBuffer {return this.#eventInput}
 
-    bindParameter<T extends PrimitiveValues>(adapter: ParameterFieldAdapter<T>): AutomatableParameter<T> {
+    bindParameter<T extends PrimitiveValues>(adapter: AutomatableParameterFieldAdapter<T>): AutomatableParameter<T> {
         const parameter = new AutomatableParameter<T>(this.#context, adapter)
         parameter.ownAll(
             adapter.field.pointerHub.catchupAndSubscribeTransactual({

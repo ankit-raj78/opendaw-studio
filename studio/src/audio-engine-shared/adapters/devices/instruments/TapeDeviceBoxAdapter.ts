@@ -5,7 +5,7 @@ import {Address, BooleanField, FieldKeys, StringField} from "box"
 import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter.ts"
 import {ParameterAdapterSet} from "@/audio-engine-shared/adapters/ParameterAdapterSet.ts"
 import {TrackType} from "@/audio-engine-shared/adapters/timeline/TrackType.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 
 export class TapeDeviceBoxAdapter implements InstrumentDeviceBoxAdapter {
@@ -42,7 +42,7 @@ export class TapeDeviceBoxAdapter implements InstrumentDeviceBoxAdapter {
 
     audioUnitBoxAdapter(): AudioUnitBoxAdapter {return this.deviceHost().audioUnitBoxAdapter()}
 
-    parameterAt(fieldIndices: FieldKeys): ParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
+    parameterAt(fieldIndices: FieldKeys): AutomatableParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
 
     terminate(): void {this.#parametric.terminate()}
 

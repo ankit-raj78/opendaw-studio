@@ -15,7 +15,7 @@ import {LKR} from "@/ui/devices/constants"
 import {Colors} from "@/ui/Colors"
 import {Column} from "@/ui/devices/Column"
 import {Checkbox} from "@/ui/components/Checkbox"
-import {ParameterWrapper} from "@/ui/wrapper/ParameterWrapper"
+import {Wrapper} from "@/ui/wrapper/Wrapper.ts"
 import {Icon} from "@/ui/components/Icon"
 import {IconSymbol} from "@/IconSymbol"
 import {ControlIndicator} from "@/ui/components/ControlIndicator"
@@ -85,7 +85,7 @@ export const StereoToolDeviceEditor = ({lifecycle, project, adapter, deviceHost}
                                       <h5>L-</h5>
                                       <ControlIndicator lifecycle={lifecycle} parameter={invertL}>
                                           <Checkbox lifecycle={lifecycle}
-                                                    model={ParameterWrapper.makeEditable(editing, invertL)}
+                                                    model={Wrapper.makeParameterEditable(editing, invertL)}
                                                     appearance={{
                                                         color: Colors.cream,
                                                         activeColor: Colors.red,
@@ -100,7 +100,7 @@ export const StereoToolDeviceEditor = ({lifecycle, project, adapter, deviceHost}
                                       <h5>R-</h5>
                                       <ControlIndicator lifecycle={lifecycle} parameter={invertR}>
                                           <Checkbox lifecycle={lifecycle}
-                                                    model={ParameterWrapper.makeEditable(editing, invertR)}
+                                                    model={Wrapper.makeParameterEditable(editing, invertR)}
                                                     appearance={{
                                                         color: Colors.cream,
                                                         activeColor: Colors.red,
@@ -115,7 +115,7 @@ export const StereoToolDeviceEditor = ({lifecycle, project, adapter, deviceHost}
                                       <h5>LR</h5>
                                       <ControlIndicator lifecycle={lifecycle} parameter={swap}>
                                           <Checkbox lifecycle={lifecycle}
-                                                    model={ParameterWrapper.makeEditable(editing, swap)}
+                                                    model={Wrapper.makeParameterEditable(editing, swap)}
                                                     appearance={{
                                                         color: Colors.cream,
                                                         activeColor: Colors.blue,

@@ -1,19 +1,19 @@
 import {Option, SortedSet, Terminable} from "std"
 import {Address} from "box"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 
 export class ParameterFieldAdapters {
-    readonly #set: SortedSet<Address, ParameterFieldAdapter>
+    readonly #set: SortedSet<Address, AutomatableParameterFieldAdapter>
 
     constructor() {
-        this.#set = Address.newSet<ParameterFieldAdapter>(adapter => adapter.field.address)
+        this.#set = Address.newSet<AutomatableParameterFieldAdapter>(adapter => adapter.field.address)
     }
 
-    register(adapter: ParameterFieldAdapter): Terminable {
+    register(adapter: AutomatableParameterFieldAdapter): Terminable {
         this.#set.add(adapter)
         return {terminate: () => this.#set.removeByValue(adapter)}
     }
 
-    get(address: Address): ParameterFieldAdapter {return this.#set.get(address)}
-    opt(address: Address): Option<ParameterFieldAdapter> {return this.#set.opt(address)}
+    get(address: Address): AutomatableParameterFieldAdapter {return this.#set.get(address)}
+    opt(address: Address): Option<AutomatableParameterFieldAdapter> {return this.#set.opt(address)}
 }

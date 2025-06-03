@@ -3,7 +3,7 @@ import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 import {GrooveShuffleBox} from "@/data/boxes"
 import {int, StringMapping, UUID, ValueMapping} from "std"
 import {ParameterAdapterSet} from "@/audio-engine-shared/adapters/ParameterAdapterSet"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {GrooveAdapter} from "@/audio-engine-shared/adapters/grooves/GrooveBoxAdapter"
 import {PPQN} from "dsp"
 
@@ -37,7 +37,7 @@ export class GrooveShuffleBoxAdapter implements GrooveAdapter {
     get uuid(): UUID.Format {return this.#box.address.uuid}
     get address(): Address {return this.#box.address}
 
-    parameterAt(fieldIndices: FieldKeys): ParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
+    parameterAt(fieldIndices: FieldKeys): AutomatableParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
 
     terminate(): void {this.#parametric.terminate()}
 

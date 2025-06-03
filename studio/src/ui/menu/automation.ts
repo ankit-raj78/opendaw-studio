@@ -4,12 +4,12 @@ import {TrackType} from "@/audio-engine-shared/adapters/timeline/TrackType.ts"
 import {Editing, PrimitiveValues} from "box"
 import {AudioUnitTracks} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitTracks.ts"
 import {MidiDevices} from "@/midi/devices/MidiDevices"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 
 export const attachParameterContextMenu = <T extends PrimitiveValues>(editing: Editing,
                                                                       midiDevices: MidiDevices,
                                                                       tracks: AudioUnitTracks,
-                                                                      parameter: ParameterFieldAdapter<T>,
+                                                                      parameter: AutomatableParameterFieldAdapter<T>,
                                                                       element: Element) =>
     ContextMenu.subscribe(element, collector => {
         const field = parameter.field

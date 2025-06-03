@@ -2,7 +2,7 @@ import {Lifecycle, unitValue} from "std"
 import {Knob} from "@/ui/components/Knob.tsx"
 import {ParameterLabel} from "@/ui/components/ParameterLabel.tsx"
 import {createElement} from "jsx"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {DeviceBoxAdapter} from "@/audio-engine-shared/adapters/devices.ts"
 import {Editing} from "box"
 import {MidiDevices} from "@/midi/devices/MidiDevices"
@@ -12,7 +12,7 @@ type Construct = {
     editing: Editing
     midiDevices: MidiDevices,
     adapter: DeviceBoxAdapter
-    parameter: ParameterFieldAdapter
+    parameter: AutomatableParameterFieldAdapter
     anchor: unitValue
 }
 

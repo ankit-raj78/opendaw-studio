@@ -11,7 +11,7 @@ import {ModularEnvironment} from "@/ui/modular/ModularEnvironment.ts"
 import {Direction, ModuleConnectorAdapter} from "@/audio-engine-shared/adapters/modular/connector"
 import {PrimitiveType} from "box"
 import {Checkbox} from "@/ui/components/Checkbox.tsx"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {ParameterLabel} from "@/ui/components/ParameterLabel.tsx"
 import {RelativeUnitValueDragging} from "@/ui/wrapper/RelativeUnitValueDragging.tsx"
 import {ContextMenu} from "@/ui/ContextMenu.ts"
@@ -85,7 +85,7 @@ export const GenericModuleView = ({lifecycle, environment, adapter}: Construct) 
                 }
             </div>
             <div className="surface">
-                {adapter.parameters.parameters().map((parameterAdapter: ParameterFieldAdapter) => {
+                {adapter.parameters.parameters().map((parameterAdapter: AutomatableParameterFieldAdapter) => {
                     switch (parameterAdapter.type) {
                         case PrimitiveType.Int32:
                         case PrimitiveType.Float32:
@@ -124,7 +124,7 @@ export const GenericModuleView = ({lifecycle, environment, adapter}: Construct) 
                         case PrimitiveType.Boolean:
                             return (
                                 <Checkbox lifecycle={lifecycle}
-                                          model={parameterAdapter as ParameterFieldAdapter<boolean>}
+                                          model={parameterAdapter as AutomatableParameterFieldAdapter<boolean>}
                                           appearance={{activeColor: Colors.blue}}
                                           style={{fontSize: "0.75em", placeSelf: "start", marginLeft: "1px"}}>
                                     <Icon symbol={IconSymbol.Checkbox}/>

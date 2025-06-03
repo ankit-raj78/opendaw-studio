@@ -4,7 +4,7 @@ import {ParameterAdapterSet} from "../../ParameterAdapterSet.ts"
 import {RevampPass} from "@/data/boxes/RevampPass.ts"
 import {RevampShelf} from "@/data/boxes/RevampShelf.ts"
 import {RevampBell} from "@/data/boxes/RevampBell.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {Address, BooleanField, FieldKeys, Int32Field, PointerField, StringField} from "box"
 import {AudioEffectDeviceBoxAdapter, DeviceHost, Devices} from "@/audio-engine-shared/adapters/devices.ts"
 import {Pointers} from "@/data/pointers.ts"
@@ -45,7 +45,7 @@ export class RevampDeviceBoxAdapter implements AudioEffectDeviceBoxAdapter {
 
     audioUnitBoxAdapter(): AudioUnitBoxAdapter {return this.deviceHost().audioUnitBoxAdapter()}
 
-    parameterAt(fieldIndices: FieldKeys): ParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
+    parameterAt(fieldIndices: FieldKeys): AutomatableParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
 
     terminate(): void {this.#parametric.terminate()}
 
@@ -63,22 +63,22 @@ export class RevampDeviceBoxAdapter implements AudioEffectDeviceBoxAdapter {
 }
 
 export type Parameters = {
-    enabled: ParameterFieldAdapter<boolean>
-    frequency: ParameterFieldAdapter<number>
+    enabled: AutomatableParameterFieldAdapter<boolean>
+    frequency: AutomatableParameterFieldAdapter<number>
 }
 
 export type PassParameters = Parameters & {
-    order: ParameterFieldAdapter<int>
-    q: ParameterFieldAdapter<number>
+    order: AutomatableParameterFieldAdapter<int>
+    q: AutomatableParameterFieldAdapter<number>
 }
 
 export type ShelfParameters = Parameters & {
-    gain: ParameterFieldAdapter<number>
+    gain: AutomatableParameterFieldAdapter<number>
 }
 
 export type BellParameters = Parameters & {
-    q: ParameterFieldAdapter<number>
-    gain: ParameterFieldAdapter<number>
+    q: AutomatableParameterFieldAdapter<number>
+    gain: AutomatableParameterFieldAdapter<number>
 }
 
 const FrequencyMapping = ValueMapping.exponential(20.0, 20_000.0)

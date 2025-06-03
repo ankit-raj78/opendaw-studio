@@ -6,7 +6,7 @@ import {StudioService} from "@/service/StudioService.ts"
 import {Icon} from "@/ui/components/Icon"
 import {IconSymbol} from "@/IconSymbol"
 import {CanvasPainter} from "@/ui/canvas/painter"
-import {ParameterWrapper} from "@/ui/wrapper/ParameterWrapper"
+import {Wrapper} from "@/ui/wrapper/Wrapper.ts"
 import {Colors} from "@/ui/Colors"
 import {Checkbox} from "@/ui/components/Checkbox"
 import {ControlIndicator} from "@/ui/components/ControlIndicator"
@@ -15,7 +15,7 @@ import {SlotUtils} from "@/ui/devices/instruments/PlayfieldDeviceEditor/SlotUtil
 import {RadioGroup} from "@/ui/components/RadioGroup"
 import {ParameterLabel} from "@/ui/components/ParameterLabel"
 import {RelativeUnitValueDragging} from "@/ui/wrapper/RelativeUnitValueDragging"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {Gate} from "@/audio-engine-shared/adapters/devices/instruments/Playfield/Gate"
 import {
     PlayfieldSampleBoxAdapter
@@ -44,7 +44,7 @@ export const SlotEditor = ({lifecycle, service, adapter}: Construct) => {
     const playbackContext: CanvasRenderingContext2D = asDefined(playbackCanvas.getContext("2d"))
     const waveformPainter = new CanvasPainter(waveformCanvas, painter =>
         SlotUtils.waveform(painter, adapter, adapter.indexField.getValue() % 12, true))
-    const createParameterLabel = (parameter: ParameterFieldAdapter) => (
+    const createParameterLabel = (parameter: AutomatableParameterFieldAdapter) => (
         <div className="parameter-label">
             <div className="label">{parameter.name}</div>
             <RelativeUnitValueDragging lifecycle={lifecycle}
@@ -130,14 +130,14 @@ export const SlotEditor = ({lifecycle, service, adapter}: Construct) => {
                         <div>
                             <ControlIndicator lifecycle={lifecycle} parameter={mute}>
                                 <Checkbox lifecycle={lifecycle}
-                                          model={ParameterWrapper.makeEditable(editing, mute)}
+                                          model={Wrapper.makeParameterEditable(editing, mute)}
                                           appearance={{activeColor: Colors.red, framed: true}}>
                                     <Icon symbol={IconSymbol.Mute}/>
                                 </Checkbox>
                             </ControlIndicator>
                             <ControlIndicator lifecycle={lifecycle} parameter={solo}>
                                 <Checkbox lifecycle={lifecycle}
-                                          model={ParameterWrapper.makeEditable(editing, solo)}
+                                          model={Wrapper.makeParameterEditable(editing, solo)}
                                           appearance={{activeColor: Colors.yellow, framed: true}}>
                                     <Icon symbol={IconSymbol.Solo}/>
                                 </Checkbox>
@@ -145,7 +145,7 @@ export const SlotEditor = ({lifecycle, service, adapter}: Construct) => {
                         </div>
                         <ControlIndicator lifecycle={lifecycle} parameter={exclude}>
                             <Checkbox lifecycle={lifecycle}
-                                      model={ParameterWrapper.makeEditable(editing, exclude)}
+                                      model={Wrapper.makeParameterEditable(editing, exclude)}
                                       className="exclude"
                                       appearance={{activeColor: Colors.orange, framed: true}}>
                                 <span style={{fontSize: "0.5em"}}>Excl.</span>
@@ -156,7 +156,7 @@ export const SlotEditor = ({lifecycle, service, adapter}: Construct) => {
                 <div className="column">
                     <div className="label">Gate</div>
                     <RadioGroup lifecycle={lifecycle}
-                                model={ParameterWrapper.makeEditable(editing, gate)}
+                                model={Wrapper.makeParameterEditable(editing, gate)}
                                 className="radio-group"
                                 elements={[
                                     {value: Gate.Off, element: (<span>Off</span>)},
@@ -168,7 +168,7 @@ export const SlotEditor = ({lifecycle, service, adapter}: Construct) => {
                 <div className="column">
                     <div className="label">Voice</div>
                     <RadioGroup lifecycle={lifecycle}
-                                model={ParameterWrapper.makeEditable(editing, polyphone)}
+                                model={Wrapper.makeParameterEditable(editing, polyphone)}
                                 className="radio-group"
                                 elements={[
                                     {value: false, element: (<span>Mono</span>)},

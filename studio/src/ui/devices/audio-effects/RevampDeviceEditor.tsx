@@ -25,7 +25,7 @@ import {
 import {RelativeUnitValueDragging} from "@/ui/wrapper/RelativeUnitValueDragging.tsx"
 import {MenuItems} from "@/ui/devices/menu-items.ts"
 import {Project} from "@/project/Project.ts"
-import {ParameterWrapper} from "@/ui/wrapper/ParameterWrapper.ts"
+import {Wrapper} from "@/ui/wrapper/Wrapper.ts"
 import {LinearScale} from "@/ui/canvas/scale.ts"
 import {DevicePeakMeter} from "@/ui/devices/panel/DevicePeakMeter.tsx"
 import {ControlIndicator} from "@/ui/components/ControlIndicator"
@@ -74,7 +74,7 @@ export const RevampDeviceEditor = ({adapter, project, lifecycle, deviceHost}: Co
                                               const checkbox: Element = (
                                                   <ControlIndicator lifecycle={lifecycle} parameter={enabled}>
                                                       <Checkbox lifecycle={lifecycle}
-                                                                model={ParameterWrapper.makeEditable(editing, enabled)}
+                                                                model={Wrapper.makeParameterEditable(editing, enabled)}
                                                                 appearance={{activeColor: ColorSets[index].full}}>
                                                           <Icon symbol={symbols[index]}/>
                                                       </Checkbox>

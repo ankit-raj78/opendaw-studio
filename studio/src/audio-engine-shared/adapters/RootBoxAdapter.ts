@@ -11,6 +11,7 @@ import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 import {BoxAdapter} from "@/audio-engine-shared/BoxAdapter"
 import {TimelineBoxAdapter} from "@/audio-engine-shared/adapters/timeline/TimelineBoxAdapter"
 import {GrooveShuffleBoxAdapter} from "@/audio-engine-shared/adapters/grooves/GrooveShuffleBoxAdapter"
+import {PianoModeAdapter} from "@/audio-engine-shared/adapters/PianoModeAdapter.ts"
 
 export class RootBoxAdapter implements BoxAdapter {
     readonly #context: BoxAdaptersContext
@@ -18,6 +19,7 @@ export class RootBoxAdapter implements BoxAdapter {
 
     readonly #audioUnits: SortedBoxAdapterCollection<AudioUnitBoxAdapter, Pointers.AudioUnits>
     readonly #audioBusses: BoxAdapterCollection<AudioBusBoxAdapter>
+    readonly #pianoMode: PianoModeAdapter
 
     constructor(context: BoxAdaptersContext, box: RootBox) {
         this.#context = context
@@ -28,6 +30,8 @@ export class RootBoxAdapter implements BoxAdapter {
 
         this.#audioBusses = new BoxAdapterCollection<AudioBusBoxAdapter>(this.#box.audioBusses.pointerHub, box =>
             this.#context.boxAdapters.adapterFor(box, AudioBusBoxAdapter), Pointers.AudioBusses)
+
+        this.#pianoMode = new PianoModeAdapter(this.#box.pianoMode)
     }
 
     get uuid(): UUID.Format {return this.#box.address.uuid}
@@ -48,6 +52,7 @@ export class RootBoxAdapter implements BoxAdapter {
         return this.#context.boxAdapters
             .adapterFor(this.#box.timeline.targetVertex.unwrap("no timeline").box, TimelineBoxAdapter)
     }
+    get pianoMode(): PianoModeAdapter {return this.#pianoMode}
     get created(): Date {return new Date(this.#box.created.getValue())}
 
     terminate(): void {this.#audioUnits.terminate()}

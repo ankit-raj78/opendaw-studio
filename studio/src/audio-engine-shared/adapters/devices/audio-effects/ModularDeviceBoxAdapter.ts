@@ -6,7 +6,7 @@ import {DeviceInterfaceKnobAdapter} from "@/audio-engine-shared/adapters/modular
 import {AudioEffectDeviceBoxAdapter, DeviceHost, Devices} from "@/audio-engine-shared/adapters/devices.ts"
 import {Pointers} from "@/data/pointers.ts"
 
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter"
 import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 
@@ -31,7 +31,7 @@ export class ModularDeviceBoxAdapter implements AudioEffectDeviceBoxAdapter {
     get minimizedField(): BooleanField {return this.#box.minimized}
     get host(): PointerField<Pointers.AudioEffectHost> {return this.#box.host}
 
-    parameterAt(_fieldIndices: FieldKeys): ParameterFieldAdapter {return panic("Not yet implemented")}
+    parameterAt(_fieldIndices: FieldKeys): AutomatableParameterFieldAdapter {return panic("Not yet implemented")}
 
     deviceHost(): DeviceHost {
         return this.#context.boxAdapters

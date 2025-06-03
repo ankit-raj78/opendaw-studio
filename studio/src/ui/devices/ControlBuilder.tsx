@@ -1,5 +1,5 @@
 import {DeviceBoxAdapter} from "@/audio-engine-shared/adapters/devices.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {Column} from "@/ui/devices/Column.tsx"
 import {createElement} from "jsx"
 import {LKR} from "@/ui/devices/constants.ts"
@@ -14,7 +14,7 @@ type Creation<T extends PrimitiveValues> = {
     editing: Editing
     midiDevices: MidiDevices
     adapter: DeviceBoxAdapter
-    parameter: ParameterFieldAdapter<T>
+    parameter: AutomatableParameterFieldAdapter<T>
     options?: ValueGuide.Options
     anchor?: number
     color?: string

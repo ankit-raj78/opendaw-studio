@@ -2,22 +2,23 @@ import css from "./PianoRoll.sass?inline"
 import {Html} from "dom"
 import {createElement, Group} from "jsx"
 import {PianoRollLayout} from "@/ui/midi-fall/PianoRollLayout.ts"
-import {isDefined, isInstanceOf, Lifecycle, ObservableValue} from "std"
-import {StudioService} from "@/service/StudioService.ts"
+import {isDefined, isInstanceOf, Lifecycle} from "std"
 import {LoopableRegion, ppqn} from "dsp"
 import {NoteRegionBoxAdapter} from "@/audio-engine-shared/adapters/timeline/region/NoteRegionBoxAdapter.ts"
+import {Project} from "@/project/Project.ts"
 
 const className = Html.adoptStyleSheet(css, "PianoRoll")
 
 type Construct = {
     lifecycle: Lifecycle
-    service: StudioService
-    pianoLayoutOwner: ObservableValue<PianoRollLayout>
+    project: Project
 }
 
-export const PianoRoll = ({lifecycle, service, pianoLayoutOwner}: Construct) => {
+export const PianoRoll = ({lifecycle, project}: Construct) => {
     const {WhiteKey, BlackKey} = PianoRollLayout
-    const enginePosition = service.engine.position()
+    const {service: {engine}, rootBoxAdapter: {pianoMode: {keyboard}}} = project
+    const enginePosition = engine.position()
+    const getPianoLayout = () => PianoRollLayout.Defaults()[keyboard.getValue()]
     const createSVG = (pianoLayout: PianoRollLayout): SVGSVGElement => (
         <svg classList={className}
              viewBox={`0.5 0 ${pianoLayout.whiteKeys.length * WhiteKey.width - 1} ${(WhiteKey.height)}`}
@@ -33,7 +34,7 @@ export const PianoRoll = ({lifecycle, service, pianoLayoutOwner}: Construct) => 
         </svg>
     )
 
-    let svg = createSVG(pianoLayoutOwner.getValue())
+    let svg = createSVG(getPianoLayout())
 
     const update = (position: ppqn) => {
         svg.querySelectorAll<SVGRectElement>("rect.playing")
@@ -41,9 +42,7 @@ export const PianoRoll = ({lifecycle, service, pianoLayoutOwner}: Construct) => 
                 rect.style.removeProperty("fill")
                 rect.classList.remove("playing")
             })
-        if (!service.hasProjectSession) {return}
-        const pianoLayout = pianoLayoutOwner.getValue()
-        const {project} = service
+        const pianoLayout = getPianoLayout()
         project.rootBoxAdapter.audioUnits.adapters().forEach(adapter => {
             const trackBoxAdapters = adapter.tracks.values()
             trackBoxAdapters.forEach((trackAdapter, index) => {
@@ -77,9 +76,9 @@ export const PianoRoll = ({lifecycle, service, pianoLayoutOwner}: Construct) => 
     const placeholder: Element = <Group>{svg}</Group>
     lifecycle.ownAll(
         enginePosition.subscribe(owner => update(owner.getValue())),
-        pianoLayoutOwner.subscribe(owner => {
+        keyboard.subscribe(() => {
             svg.remove()
-            svg = createSVG(owner.getValue())
+            svg = createSVG(getPianoLayout())
             placeholder.appendChild(svg)
         })
     )

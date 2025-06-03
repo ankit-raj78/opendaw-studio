@@ -8,6 +8,7 @@ export enum PanelType {
     Mixer,
     ModularSystem,
     VUMeter,
+    MidiFall,
     ProjectInfo,
     EmptyFlexSpace
 }

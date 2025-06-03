@@ -11,7 +11,6 @@ import {ManualPage} from "@/ui/pages/ManualPage"
 import {ColorsPage} from "@/ui/pages/ColorsPage"
 import {Header} from "@/ui/header/Header"
 import {AudioInputDevicesPage} from "./pages/AudioInputDevicesPage"
-import {MidiFallPage} from "./pages/MidiFallPage"
 
 export const App = (service: StudioService) => {
     const terminator = new Terminator()
@@ -35,7 +34,6 @@ export const App = (service: StudioService) => {
                     {path: "/automation", factory: AutomationPage},
                     {path: "/upload", factory: SampleUploadPage},
                     {path: "/colors", factory: ColorsPage},
-                    {path: "/midi-fall", factory: MidiFallPage},
                     {path: "/audio-input", factory: AudioInputDevicesPage}
                 ]}
             />

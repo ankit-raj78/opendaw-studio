@@ -1,12 +1,12 @@
 import {FieldKeys, PointerTypes, PrimitiveField, PrimitiveValues} from "box"
 import {assert, NumberArrayComparator, SortedSet, StringMapping, Terminable, unitValue, ValueMapping} from "std"
-import {ParameterFieldAdapter} from "./ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "./AutomatableParameterFieldAdapter.ts"
 
 import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 
 export class ParameterAdapterSet implements Terminable {
     readonly #context: BoxAdaptersContext
-    readonly #parameters: SortedSet<FieldKeys, ParameterFieldAdapter>
+    readonly #parameters: SortedSet<FieldKeys, AutomatableParameterFieldAdapter>
 
     constructor(context: BoxAdaptersContext) {
         this.#context = context
@@ -18,8 +18,8 @@ export class ParameterAdapterSet implements Terminable {
         this.#parameters.clear()
     }
 
-    parameters(): ReadonlyArray<ParameterFieldAdapter> {return this.#parameters.values()}
-    parameterAt(fieldIndices: FieldKeys): ParameterFieldAdapter {
+    parameters(): ReadonlyArray<AutomatableParameterFieldAdapter> {return this.#parameters.values()}
+    parameterAt(fieldIndices: FieldKeys): AutomatableParameterFieldAdapter {
         return this.#parameters.getOrThrow(fieldIndices,
             () => new Error(`No ParameterAdapter found at [${fieldIndices}]`))
     }
@@ -29,14 +29,14 @@ export class ParameterAdapterSet implements Terminable {
         valueMapping: ValueMapping<T>,
         stringMapping: StringMapping<T>,
         name: string,
-        anchor?: unitValue): ParameterFieldAdapter<T> {
-        const adapter = new ParameterFieldAdapter<T>(this.#context, field, valueMapping, stringMapping, name, anchor)
+        anchor?: unitValue): AutomatableParameterFieldAdapter<T> {
+        const adapter = new AutomatableParameterFieldAdapter<T>(this.#context, field, valueMapping, stringMapping, name, anchor)
         const added = this.#parameters.add(adapter)
         assert(added, `Could not add adapter for ${field}`)
         return adapter
     }
 
-    removeParameter<T extends PrimitiveValues>(parameter: ParameterFieldAdapter<T>): void {
+    removeParameter<T extends PrimitiveValues>(parameter: AutomatableParameterFieldAdapter<T>): void {
         this.#parameters.removeByValue(parameter)
     }
 }

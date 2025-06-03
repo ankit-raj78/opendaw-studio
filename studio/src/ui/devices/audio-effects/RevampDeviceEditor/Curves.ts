@@ -6,7 +6,7 @@ import {
     PassParameters,
     ShelfParameters
 } from "@/audio-engine-shared/adapters/devices/audio-effects/RevampDeviceBoxAdapter.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {biquad} from "@/ui/devices/audio-effects/RevampDeviceEditor/constants.ts"
 import {gainToDb} from "dsp"
 
@@ -88,7 +88,7 @@ export abstract class CurveRenderer<PARAMETERS extends Parameters = Parameters> 
         this.#subscriptions.terminate()
     }
 
-    protected abstract listenParameters(observer: Observer<ParameterFieldAdapter>): Subscription
+    protected abstract listenParameters(observer: Observer<AutomatableParameterFieldAdapter>): Subscription
 
     protected abstract getOrCreateCurve(painter: CanvasUnitPainter,
                                         frequencies: Float32Array,
@@ -133,7 +133,7 @@ export class LowPass extends CurveRenderer<PassParameters> {
         return new Curve(magResponse, strokePath, fillPath)
     }
 
-    protected listenParameters(observer: Observer<ParameterFieldAdapter>): Subscription {
+    protected listenParameters(observer: Observer<AutomatableParameterFieldAdapter>): Subscription {
         const {enabled, frequency, order, q} = this.parameters
         return Notifier.subscribeMany(observer, enabled, frequency, order, q)
     }
@@ -160,7 +160,7 @@ export class HighPass extends CurveRenderer<PassParameters> {
         return new Curve(magResponse, strokePath, fillPath)
     }
 
-    protected listenParameters(observer: Observer<ParameterFieldAdapter>): Subscription {
+    protected listenParameters(observer: Observer<AutomatableParameterFieldAdapter>): Subscription {
         const {enabled, frequency, order, q} = this.parameters
         return Notifier.subscribeMany(observer, enabled, frequency, order, q)
     }
@@ -185,7 +185,7 @@ export class LowShelf extends CurveRenderer<ShelfParameters> {
         return new Curve(magResponse, strokePath, fillPath)
     }
 
-    protected listenParameters(observer: Observer<ParameterFieldAdapter>): Subscription {
+    protected listenParameters(observer: Observer<AutomatableParameterFieldAdapter>): Subscription {
         const {enabled, frequency, gain} = this.parameters
         return Notifier.subscribeMany(observer, enabled, frequency, gain)
     }
@@ -210,7 +210,7 @@ export class HighShelf extends CurveRenderer<ShelfParameters> {
         return new Curve(magResponse, strokePath, fillPath)
     }
 
-    protected listenParameters(observer: Observer<ParameterFieldAdapter>): Subscription {
+    protected listenParameters(observer: Observer<AutomatableParameterFieldAdapter>): Subscription {
         const {enabled, frequency, gain} = this.parameters
         return Notifier.subscribeMany(observer, enabled, frequency, gain)
     }
@@ -237,7 +237,7 @@ export class Bell extends CurveRenderer<BellParameters> {
         return new Curve(magResponse, strokePath, fillPath)
     }
 
-    protected listenParameters(observer: Observer<ParameterFieldAdapter>): Subscription {
+    protected listenParameters(observer: Observer<AutomatableParameterFieldAdapter>): Subscription {
         const {enabled, frequency, q, gain} = this.parameters
         return Notifier.subscribeMany(observer, enabled, frequency, q, gain)
     }

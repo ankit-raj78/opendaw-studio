@@ -1,61 +1,57 @@
 import css from "./NoteFall.sass?inline"
 import {Html} from "dom"
-import {Arrays, isInstanceOf, Lifecycle, ObservableValue} from "std"
+import {Arrays, isInstanceOf, Lifecycle} from "std"
 import {createElement} from "jsx"
 import {CanvasPainter} from "@/ui/canvas/painter.ts"
 import {PianoRollLayout} from "@/ui/midi-fall/PianoRollLayout.ts"
 import {LoopableRegion, MidiKeys, PPQN, ppqn} from "dsp"
-import {StudioService} from "@/service/StudioService.ts"
 import {NoteRegionBoxAdapter} from "@/audio-engine-shared/adapters/timeline/region/NoteRegionBoxAdapter.ts"
 import {Fragmentor} from "@/worklet/Fragmentor.ts"
 import {Fonts} from "@/ui/Fonts.ts"
-import {Colors} from "@/ui/Colors.ts"
+import {Project} from "@/project/Project.ts"
 
 const className = Html.adoptStyleSheet(css, "NoteFall")
 
 type Construct = {
     lifecycle: Lifecycle
-    service: StudioService
-    pianoLayoutOwner: ObservableValue<PianoRollLayout>
-    timeScaleOwner: ObservableValue<number>
-    noteScaleOwner: ObservableValue<number>
-    noteLabelsOwner: ObservableValue<boolean>
+    project: Project
 }
 
 export const NoteFall = (
-    {lifecycle, service, pianoLayoutOwner, timeScaleOwner, noteScaleOwner, noteLabelsOwner}: Construct) => {
-    const enginePosition = service.engine.position()
+    {lifecycle, project}: Construct) => {
+    const enginePosition = project.service.engine.position()
+    const pianoMode = project.rootBoxAdapter.pianoMode
+    const {keyboard, timeRangeInQuarters, noteScale, noteLabels} = pianoMode
     const canvas: HTMLCanvasElement = <canvas/>
     const painter = new CanvasPainter(canvas, painter => {
         const {context, actualWidth, actualHeight} = painter
-        const visibleQuarter = PPQN.Quarter * timeScaleOwner.getValue()
-        const labelEnabled = noteLabelsOwner.getValue()
+        const timeRange = PPQN.Quarter * timeRangeInQuarters.getValue()
+        const labelEnabled = noteLabels.getValue()
         const min = enginePosition.getValue()
-        const max = min + visibleQuarter
-        const positionToY = (position: ppqn) => (1.0 - (position - min) / visibleQuarter) * actualHeight
+        const max = min + timeRange
+        const positionToY = (position: ppqn) => (1.0 - (position - min) / timeRange) * actualHeight
         context.clearRect(0, 0, actualWidth, actualHeight)
         context.strokeStyle = "rgba(255, 255, 255, 0.2)"
         context.setLineDash([4, 4])
         context.beginPath()
-        const layout = pianoLayoutOwner.getValue()
-        for (const position of layout.octaveSplits) {
+        const pianoLayout = PianoRollLayout.Defaults()[keyboard.getValue()]
+        for (const position of pianoLayout.octaveSplits) {
             const x = Math.floor(position * actualWidth)
             context.moveTo(x, 0.0)
             context.lineTo(x, actualHeight)
         }
-        // TODO get project time signature, default to 4/4
-        for (const position of Fragmentor.iterate(min, max, PPQN.fromSignature(3, 4))) {
+        const {nominator, denominator} = project.timelineBoxAdapter.box.signature
+        const stepSize = PPQN.fromSignature(nominator.getValue(), denominator.getValue())
+        for (const position of Fragmentor.iterate(min, max, stepSize)) {
             const y = Math.floor(positionToY(position))
             context.moveTo(0.0, y)
             context.lineTo(actualWidth, y)
         }
         context.stroke()
-        if (!service.hasProjectSession) {return}
         context.setLineDash(Arrays.empty())
         context.textAlign = "center"
         context.textBaseline = "bottom"
-        const {project} = service
-        const noteWidth = actualWidth / layout.count * (noteScaleOwner.getValue() / 100.0)
+        const noteWidth = actualWidth / pianoLayout.count * noteScale.getValue()
         context.font = `${noteWidth * devicePixelRatio * 0.55}px ${Fonts.Rubik["font-family"]}`
         project.rootBoxAdapter.audioUnits.adapters().forEach(audioUnitAdapter => {
             const trackBoxAdapters = audioUnitAdapter.tracks.values()
@@ -69,12 +65,12 @@ export const NoteFall = (
                         const searchStart = Math.floor(resultStart - rawStart)
                         const searchEnd = Math.floor(resultEnd - rawStart)
                         for (const note of events.iterateRange(searchStart - collection.maxDuration, searchEnd)) {
-                            const x = layout.getCenteredX(note.pitch) * actualWidth
+                            const x = pianoLayout.getCenteredX(note.pitch) * actualWidth
                             // inverses the y-axis
                             const y0 = positionToY(note.complete + rawStart)
                             const y1 = positionToY(note.position + rawStart)
                             const isPlaying = y1 >= actualHeight
-                            const fillStyle = layout.getFillStyle(hue, isPlaying)
+                            const fillStyle = pianoLayout.getFillStyle(hue, isPlaying)
                             context.lineWidth = 1.5 * devicePixelRatio
                             context.fillStyle = fillStyle
                             context.strokeStyle = "rgba(0, 0, 0, 0.66)"
@@ -103,11 +99,7 @@ export const NoteFall = (
         painter,
         enginePosition.subscribe(painter.requestUpdate),
         Html.watchResize(element, painter.requestUpdate),
-        service.sessionService.subscribe(painter.requestUpdate),
-        pianoLayoutOwner.subscribe(painter.requestUpdate),
-        timeScaleOwner.subscribe(painter.requestUpdate),
-        noteScaleOwner.subscribe(painter.requestUpdate),
-        noteLabelsOwner.subscribe(painter.requestUpdate)
+        pianoMode.subscribe(painter.requestUpdate)
     )
     return element
 }

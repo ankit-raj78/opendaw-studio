@@ -5,7 +5,7 @@ import {AudioEffectDeviceBoxAdapter, DeviceHost, Devices} from "@/audio-engine-s
 import {Address, BooleanField, FieldKeys, Int32Field, PointerField, StringField} from "box"
 import {Pointers} from "@/data/pointers.ts"
 
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter"
 import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 
@@ -41,7 +41,7 @@ export class ReverbDeviceBoxAdapter implements AudioEffectDeviceBoxAdapter {
 
     audioUnitBoxAdapter(): AudioUnitBoxAdapter {return this.deviceHost().audioUnitBoxAdapter()}
 
-    parameterAt(fieldIndices: FieldKeys): ParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
+    parameterAt(fieldIndices: FieldKeys): AutomatableParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
 
     terminate(): void {this.#parametric.terminate()}
 

@@ -20,7 +20,7 @@ import {MidiDialogs} from "@/midi/devices/MidiDialogs"
 import {Engine} from "@/audio-engine/Engine"
 import {Address, AddressJSON, PrimitiveField, PrimitiveValues} from "box"
 import {Pointers} from "@/data/pointers"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 
 export type MidiConnectionJSON = (
     | {
@@ -72,7 +72,7 @@ const createMidiKeysObserver = (engine: Engine, adapter: AudioUnitBoxAdapter): M
     }
 }
 
-const createMidiControlObserver = (project: Project, adapter: ParameterFieldAdapter, controlId: byte): MidiObserver => {
+const createMidiControlObserver = (project: Project, adapter: AutomatableParameterFieldAdapter, controlId: byte): MidiObserver => {
     const registration = adapter.registerMidiControl()
     return {
         observer: (event: MIDIMessageEvent) => {

@@ -13,7 +13,7 @@ import {
 } from "std"
 import {AudioBusBox, AuxSendBox, BoxVisitor} from "@/data/boxes"
 import {AudioBusBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioBusBoxAdapter.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 import {BoxAdapter} from "@/audio-engine-shared/BoxAdapter"
 
@@ -24,8 +24,8 @@ export class AuxSendBoxAdapter implements BoxAdapter {
     readonly #terminator: Terminator
     readonly #busChangeNotifier: Notifier<Option<AudioBusBoxAdapter>>
 
-    readonly #sendPan: ParameterFieldAdapter<float>
-    readonly #sendGain: ParameterFieldAdapter<float>
+    readonly #sendPan: AutomatableParameterFieldAdapter<float>
+    readonly #sendGain: AutomatableParameterFieldAdapter<float>
 
     #subscription: Subscription = Terminable.Empty
 
@@ -47,11 +47,11 @@ export class AuxSendBoxAdapter implements BoxAdapter {
             })
         }))
 
-        this.#sendPan = this.#terminator.own(new ParameterFieldAdapter<float>(this.#context, this.#box.sendPan,
+        this.#sendPan = this.#terminator.own(new AutomatableParameterFieldAdapter<float>(this.#context, this.#box.sendPan,
             ValueMapping.bipolar(),
             StringMapping.percent({unit: "%", fractionDigits: 0}), "panning"))
 
-        this.#sendGain = this.#terminator.own(new ParameterFieldAdapter<float>(this.#context, this.#box.sendGain, ValueMapping.DefaultDecibel,
+        this.#sendGain = this.#terminator.own(new AutomatableParameterFieldAdapter<float>(this.#context, this.#box.sendGain, ValueMapping.DefaultDecibel,
             StringMapping.numeric({
                 unit: "dB",
                 fractionDigits: 1
@@ -67,8 +67,8 @@ export class AuxSendBoxAdapter implements BoxAdapter {
     get address(): Address {return this.#box.address}
     get box(): Box {return this.#box}
     get indexField(): Int32Field {return this.#box.index}
-    get sendPan(): ParameterFieldAdapter<float> {return this.#sendPan}
-    get sendGain(): ParameterFieldAdapter<float> {return this.#sendGain}
+    get sendPan(): AutomatableParameterFieldAdapter<float> {return this.#sendPan}
+    get sendGain(): AutomatableParameterFieldAdapter<float> {return this.#sendGain}
     get targetBus(): AudioBusBoxAdapter {
         return this.#context.boxAdapters
             .adapterFor(this.#box.targetBus.targetVertex.unwrap("no audioUnit").box, AudioBusBoxAdapter)

@@ -3,7 +3,7 @@ import {DeviceHost, Devices, InstrumentDeviceBoxAdapter} from "@/audio-engine-sh
 import {Address, BooleanField, FieldKeys, StringField} from "box"
 import {ParameterAdapterSet} from "@/audio-engine-shared/adapters/ParameterAdapterSet.ts"
 import {TrackType} from "@/audio-engine-shared/adapters/timeline/TrackType.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {SortedBoxAdapterCollection} from "@/audio-engine-shared/adapters/SortedBoxAdapterCollection"
 import {Pointers} from "@/data/pointers"
 import {UUID} from "std"
@@ -54,7 +54,7 @@ export class PlayfieldDeviceBoxAdapter implements InstrumentDeviceBoxAdapter {
 
     audioUnitBoxAdapter(): AudioUnitBoxAdapter {return this.deviceHost().audioUnitBoxAdapter()}
 
-    parameterAt(fieldIndices: FieldKeys): ParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
+    parameterAt(fieldIndices: FieldKeys): AutomatableParameterFieldAdapter {return this.#parametric.parameterAt(fieldIndices)}
 
     terminate(): void {this.#parametric.terminate()}
 }

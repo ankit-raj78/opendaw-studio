@@ -1,5 +1,5 @@
 import {PrimitiveValues} from "box"
-import {ParameterFieldAdapter} from "../audio-engine-shared/adapters/ParameterFieldAdapter"
+import {AutomatableParameterFieldAdapter} from "../audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {assert, Notifier, Observer, Option, Subscription, Terminable, TerminableOwner, Terminator, unitValue} from "std"
 import {ppqn} from "dsp"
 import {EngineContext} from "@/worklet/EngineContext"
@@ -8,14 +8,14 @@ export class AutomatableParameter<T extends PrimitiveValues = any> implements Te
     readonly #terminator = new Terminator()
 
     readonly #context: EngineContext
-    readonly #adapter: ParameterFieldAdapter<T>
+    readonly #adapter: AutomatableParameterFieldAdapter<T>
     readonly #notifier: Notifier<this>
 
     #broadcasting: Option<Subscription> = Option.None
 
     #value: T
 
-    constructor(context: EngineContext, adapter: ParameterFieldAdapter<T>) {
+    constructor(context: EngineContext, adapter: AutomatableParameterFieldAdapter<T>) {
         this.#context = context
         this.#adapter = adapter
         this.#notifier = new Notifier<this>()

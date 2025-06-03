@@ -150,6 +150,17 @@ export const DefaultWorkspace = Object.freeze({
             constrains: {type: "flex", minSize: 20, flex: 1}
         }
     },
+    "piano": {
+        name: "Piano Tutorial Mode",
+        icon: IconSymbol.Piano,
+        content: PanelState.create({
+            type: "panel",
+            name: "Piano",
+            icon: IconSymbol.Piano,
+            panelType: PanelType.MidiFall,
+            constrains: {type: "flex", minSize: 0, flex: 1}
+        })
+    },
     "project": {
         name: "Project Info",
         icon: IconSymbol.NotePad,

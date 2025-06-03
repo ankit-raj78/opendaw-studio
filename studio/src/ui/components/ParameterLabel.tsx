@@ -2,7 +2,7 @@ import css from "./ParameterLabel.sass?inline"
 import {ControlSource, Lifecycle, Terminable} from "std"
 import {createElement} from "jsx"
 import {attachParameterContextMenu} from "@/ui/menu/automation.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {DeviceBoxAdapter} from "@/audio-engine-shared/adapters/devices.ts"
 import {Editing} from "box"
 import {Html} from "dom"
@@ -15,7 +15,7 @@ type Construct = {
     editing: Editing
     midiDevices: MidiDevices
     adapter: DeviceBoxAdapter
-    parameter: ParameterFieldAdapter
+    parameter: AutomatableParameterFieldAdapter
     framed?: boolean
     standalone?: boolean
 }
@@ -25,7 +25,7 @@ export const ParameterLabel = (
     const element: HTMLLabelElement = (
         <label className={Html.buildClassList(className, framed && "framed")}/>
     )
-    const onValueChange = (adapter: ParameterFieldAdapter) => {
+    const onValueChange = (adapter: AutomatableParameterFieldAdapter) => {
         const printValue = adapter.stringMapping.x(adapter.valueMapping.y(adapter.getControlledUnitValue()))
         element.textContent = printValue.value
         element.setAttribute("unit", printValue.unit)

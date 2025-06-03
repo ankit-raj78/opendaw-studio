@@ -17,7 +17,7 @@ import {DblClckTextInput} from "@/ui/wrapper/DblClckTextInput.tsx"
 import {AudioUnitType} from "@/data/enums"
 import {ContextMenu} from "@/ui/ContextMenu"
 import {ChannelOutputSelector} from "@/ui/mixer/ChannelOutputSelector.tsx"
-import {ParameterWrapper} from "@/ui/wrapper/ParameterWrapper.ts"
+import {Wrapper} from "@/ui/wrapper/Wrapper.ts"
 import {IconSymbol} from "@/IconSymbol.ts"
 import {gainToDb} from "dsp"
 import {attachParameterContextMenu} from "@/ui/menu/automation.ts"
@@ -78,8 +78,8 @@ export const ChannelStrip = ({lifecycle, service, adapter, compact}: Construct) 
             </RelativeUnitValueDragging>
         </ControlIndicator>
     )
-    const muteModel = ParameterWrapper.makeEditable(editing, mute)
-    const soloModel = ParameterWrapper.makeEditable(editing, solo)
+    const muteModel = Wrapper.makeParameterEditable(editing, mute)
+    const soloModel = Wrapper.makeParameterEditable(editing, solo)
     const muteControl = (
         <ControlIndicator lifecycle={lifecycle} parameter={mute}>
             <Checkbox lifecycle={lifecycle}

@@ -1,13 +1,13 @@
 import {DeviceInterfaceKnobBox} from "@/data/boxes"
 import {ModuleAdapter, Modules} from "@/audio-engine-shared/adapters/modular/module.ts"
-import {ParameterFieldAdapter} from "@/audio-engine-shared/adapters/ParameterFieldAdapter.ts"
+import {AutomatableParameterFieldAdapter} from "@/audio-engine-shared/adapters/AutomatableParameterFieldAdapter.ts"
 import {Address, Box, PointerTypes, PrimitiveField} from "box"
 import {BoxAdaptersContext} from "@/audio-engine-shared/BoxAdaptersContext"
 import {BoxAdapter} from "@/audio-engine-shared/BoxAdapter"
 
 export interface DeviceInterfaceElementAdapter extends BoxAdapter {
     get moduleAdapter(): ModuleAdapter
-    get parameterAdapter(): ParameterFieldAdapter
+    get parameterAdapter(): AutomatableParameterFieldAdapter
 }
 
 export class DeviceInterfaceKnobAdapter implements DeviceInterfaceElementAdapter {
@@ -27,7 +27,7 @@ export class DeviceInterfaceKnobAdapter implements DeviceInterfaceElementAdapter
         return Modules.adapterFor(this.#context.boxAdapters, this.#parameterTarget.box)
     }
 
-    get parameterAdapter(): ParameterFieldAdapter {
+    get parameterAdapter(): AutomatableParameterFieldAdapter {
         return this.moduleAdapter.parameters.parameterAt(this.#parameterTarget.address.fieldKeys)
     }
 
