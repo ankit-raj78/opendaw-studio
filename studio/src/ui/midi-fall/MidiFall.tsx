@@ -19,6 +19,7 @@ const className = Html.adoptStyleSheet(css, "MidiFall")
 //  [ ] Show timeline navigation
 //  [ ] dialog to map note tracks to colors
 //  [ ] store mapping in the project
+//  [ ] add octave shift
 //  [X] Go back to timeline view
 //  [X] Open MidiFall view (or Piano Tutorial Mode?)
 //  [X] labels on falling notes (~~Hide when note is too short~~ clip)
@@ -38,7 +39,7 @@ export const MidiFall = ({lifecycle, service}: Construct) => {
     const {project} = service
     const {rootBoxAdapter, editing} = project
     const pianoMode = rootBoxAdapter.pianoMode
-    const {keyboard, timeRangeInQuarters, noteScale, noteLabels} = pianoMode
+    const {keyboard, timeRangeInQuarters, noteScale, noteLabels, octaveShift} = pianoMode
     const element: HTMLElement = (
         <div className={className}>
             <NoteFall lifecycle={lifecycle} project={project}/>
@@ -61,6 +62,10 @@ export const MidiFall = ({lifecycle, service}: Construct) => {
                     <NumberInput lifecycle={lifecycle}
                                  model={Wrapper.makeEditable(editing, noteScale)} step={0.1}
                                  mapper={noteScale.stringMapping}/>
+                    <span>Octave Shift</span>
+                    <NumberInput lifecycle={lifecycle}
+                                 model={Wrapper.makeEditable(editing, octaveShift)} step={1}
+                                 mapper={octaveShift.stringMapping}/>
                     <span>Note Labels</span>
                     <Checkbox lifecycle={lifecycle}
                               model={Wrapper.makeEditable(editing, noteLabels)}>

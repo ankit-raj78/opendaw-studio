@@ -39,7 +39,8 @@ export const RootBox: BoxSchema<Pointers> = {
                         1: {type: "int32", name: "keyboard", value: 0},
                         2: {type: "float32", name: "time-range-in-quarters", value: 8},
                         3: {type: "float32", name: "note-scale", value: 1.5},
-                        4: {type: "boolean", name: "note-labels", value: true}
+                        4: {type: "boolean", name: "note-labels", value: true},
+                        5: {type: "int32", name: "octave-shift", value: 0},
                     }
                 }
             },

@@ -21,7 +21,7 @@ export const NoteFall = (
     {lifecycle, project}: Construct) => {
     const enginePosition = project.service.engine.position()
     const pianoMode = project.rootBoxAdapter.pianoMode
-    const {keyboard, timeRangeInQuarters, noteScale, noteLabels} = pianoMode
+    const {keyboard, timeRangeInQuarters, noteScale, noteLabels, octaveShift} = pianoMode
     const canvas: HTMLCanvasElement = <canvas/>
     const painter = new CanvasPainter(canvas, painter => {
         const {context, actualWidth, actualHeight} = painter
@@ -65,7 +65,8 @@ export const NoteFall = (
                         const searchStart = Math.floor(resultStart - rawStart)
                         const searchEnd = Math.floor(resultEnd - rawStart)
                         for (const note of events.iterateRange(searchStart - collection.maxDuration, searchEnd)) {
-                            const x = pianoLayout.getCenteredX(note.pitch) * actualWidth
+                            const pitch = note.pitch + octaveShift.getValue() * 12
+                            const x = pianoLayout.getCenteredX(pitch) * actualWidth
                             // inverses the y-axis
                             const y0 = positionToY(note.complete + rawStart)
                             const y1 = positionToY(note.position + rawStart)
@@ -82,7 +83,7 @@ export const NoteFall = (
                             context.clip()
                             if (labelEnabled) {
                                 context.fillStyle = "rgba(0, 0, 0, 0.66)"
-                                MidiKeys.Names[note.pitch % 12]
+                                MidiKeys.Names[pitch % 12]
                                     .split("")
                                     .forEach((letter, index) => context
                                         .fillText(letter, x, y1 - index * noteWidth * 0.4 * devicePixelRatio))
