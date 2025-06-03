@@ -52,8 +52,8 @@ export class PianoRollLayout {
 
     getCenteredX(index: int): number {return this.#centered[index]}
     getFillStyle(hue: number, isPlaying: boolean): string {
-        const saturation = isPlaying ? 80 : 30
-        const lightness = isPlaying ? 80 : 50
+        const saturation = isPlaying ? 100 : 40
+        const lightness = isPlaying ? 80 : 60
         return `hsl(${hue}, ${saturation}%, ${lightness}%)`
     }
 

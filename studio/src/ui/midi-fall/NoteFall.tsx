@@ -57,8 +57,8 @@ export const NoteFall = (
         const {project} = service
         const noteWidth = actualWidth / layout.count * (noteScaleOwner.getValue() / 100.0)
         context.font = `${noteWidth * devicePixelRatio * 0.55}px ${Fonts.Rubik["font-family"]}`
-        project.rootBoxAdapter.audioUnits.adapters().forEach(adapter => {
-            const trackBoxAdapters = adapter.tracks.values()
+        project.rootBoxAdapter.audioUnits.adapters().forEach(audioUnitAdapter => {
+            const trackBoxAdapters = audioUnitAdapter.tracks.values()
             trackBoxAdapters.forEach((trackAdapter, index) => {
                 const hue = index / trackBoxAdapters.length * 360
                 for (const region of trackAdapter.regions.collection.iterateRange(min, max)) {
@@ -77,7 +77,7 @@ export const NoteFall = (
                             const fillStyle = layout.getFillStyle(hue, isPlaying)
                             context.lineWidth = 1.5 * devicePixelRatio
                             context.fillStyle = fillStyle
-                            context.strokeStyle = Colors.black
+                            context.strokeStyle = "rgba(0, 0, 0, 0.66)"
                             context.save()
                             context.beginPath()
                             context.roundRect(x - noteWidth / 2, y0, noteWidth, y1 - y0, 3 * devicePixelRatio)
@@ -85,7 +85,7 @@ export const NoteFall = (
                             context.stroke()
                             context.clip()
                             if (labelEnabled) {
-                                context.fillStyle = Colors.black
+                                context.fillStyle = "rgba(0, 0, 0, 0.66)"
                                 MidiKeys.Names[note.pitch % 12]
                                     .split("")
                                     .forEach((letter, index) => context
