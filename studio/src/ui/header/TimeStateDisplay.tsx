@@ -97,6 +97,10 @@ export const TimeStateDisplay = ({lifecycle, service}: Construct) => {
     const element: HTMLElement = (
         <div className={className}>
             {timeUnitElements}
+            <div className="number-display hidden">
+                <div>4/4</div>
+                <div>METER</div>
+            </div>
             <DblClckTextInput resolversFactory={() => {
                 const resolvers = Promise.withResolvers<string>()
                 resolvers.promise.then((value: string) => {
@@ -116,7 +120,8 @@ export const TimeStateDisplay = ({lifecycle, service}: Construct) => {
                     const amount = parseFloat(value)
                     if (isNaN(amount)) {return}
                     sessionService.getValue().ifSome(({project}) =>
-                        project.editing.modify(() => project.rootBoxAdapter.groove.box.amount.setValue(clamp(amount / 100.0, 0.0, 1.0))))
+                        project.editing.modify(() => project.rootBoxAdapter.groove.box.amount
+                            .setValue(clamp(amount / 100.0, 0.0, 1.0))))
                 }, EmptyExec)
                 return resolvers
             }} provider={() => ({unit: "shuffle", value: shuffleDigit.value})}>

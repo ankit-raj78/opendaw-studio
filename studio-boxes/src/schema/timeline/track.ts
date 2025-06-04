@@ -17,15 +17,12 @@ export const TrackBox: BoxSchema<Pointers> = {
     }, pointerRules: {accepts: [Pointers.Selection, Pointers.PianoMode], mandatory: false}
 }
 
-export const TrackPianoModeBox: BoxSchema<Pointers> = {
+export const TrackIgnorePianoModeBox: BoxSchema<Pointers> = {
     type: "box",
     class: {
-        name: "TrackPianoModeBox",
+        name: "TrackIgnorePianoModeBox",
         fields: {
-            1: {type: "pointer", name: "track", pointerType: Pointers.PianoMode, mandatory: true},
-            2: {type: "boolean", name: "enabled", value: true},
-            3: {type: "float32", name: "hue", value: 0},
-            4: {type: "int32", name: "transpose", value: 0}
+            1: {type: "pointer", name: "track", pointerType: Pointers.PianoMode, mandatory: true}
         }
     }
 }

@@ -4,8 +4,8 @@
 to resurface the process of making music. Our mission is to make high-quality music creation accessible to everyone,
 regardless of their background or resources.
 
-By focusing on the creative process itself, openDAW encourages exploration, learning, and a deeper understanding of how
-music is made. Each step becomes an opportunity to grow and develop musical ideas.
+By focusing on the creative process itself, openDAW wants to encourage exploration, learning, and a deeper understanding of how
+digital music is made.
 
 ![image](studio/public/images/meta.jpg)
 
@@ -16,18 +16,62 @@ supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [k
 ## Goals
 
 - **Web-Based Platform**: Create and edit music directly from your browser.
-- **User-Friendly Interface**: Intuitive design for both beginners and professionals.
-- **Collaborative Tools**: Work seamlessly with others in real-time, building a community of shared creativity.
-- **Modular Systems**: Create your own devices and tools to extend the built-in feature-set.
+- **Offline Version**: A downloadable version that you own.
 - **Educational Resources**: Access tutorials and guides to enhance your music production skills.
+- **Best Data-Protection**: Store your data locally, on your server or a service you trust. 
+- **Modular Systems**: Create and share your own devices and tools to extend the built-in feature-set.
+- **Collaborative Tools**: Work seamlessly with others in real-time.
+- **User-Friendly Interface**: Intuitive design for both beginners and professionals alike.
 
-## Getting up and running
+## Links
 
-Developed and tested on a Macbook Air and [Jetbrain Webstorm](https://www.jetbrains.com/webstorm/). Please file
-an [issue](https://github.com/andremichelle/opendaw-studio/issues) if you encounter any problem installing and launching
-openDAW.
+* [Discuss openDAW on Discord](https://discord.gg/B3C664wn)
+* [Support openDAW on Patreon](https://www.patreon.com/join/openDAW)
+* [Support openDAW on ko-fi](https://ko-fi.com/opendaw)
+* [More information on opendaw.org (website)](https://opendaw.org)
+* [Test the latest official built on opendaw.studio (prototype)](https://opendaw.studio)
 
-## Tech Stack
+## Code Philosophy
+
+### Introduction:
+
+openDAW is deliberately **environment-agnostic**.
+
+The codebase must run either as a self-contained desktop application or from any standard web server; cloud features are
+optional and only activate when the user asked for it and supplies their own credentials.
+
+All project data should be storable either on the local file system or in whatever cloud service the user chooses; no
+single storage backend is assumed. Because nothing about the surrounding platform can be taken for granted, every
+component is built to be maximally independent, lazy-loaded only when first needed, and capable of launching in seconds
+on even modest hardware.
+
+### Checklist:
+
+* Do not panic!
+* Methods that contain only trivial getters or setters are kept on a single line to minimize scrolling through
+  low-signal code.
+* Crucial functionality is implemented at a lower level with well-tested classes, while the UI layer is primarily
+  scripted.
+* Excessive abstraction can harm both readability and scalability, so layers are added only when they clearly pay for
+  themselves.
+* Rule of thumb: when a method requires more than three parameters, bundle them into a dedicated argument object.
+* Always write self-documenting code if possible.
+
+### What We Are Looking For:
+
+1. **Offline desktop build (e.g., via Tauri) or a standalone installable PWA** — offer offline capability either through
+   a packaged desktop version, a Progressive Web App, or both.
+2. **Cloud-agnostic project storage** — a facade layer that lets users plug in different cloud services (e.g., Drive,
+   S3, Dropbox) for projects and sample libraries.
+3. **Live remote collaboration** — real-time session sharing and sync so multiple users can edit the same project
+   concurrently.
+4. **AI manual assistant** — an embedded agent that answers context-aware questions and guides users through features as
+   they work.
+5. **AI-powered stem splitting** — integrated source-separation to extract vocals, drums, and other stems directly
+   inside the DAW.
+6. **Import and Export** - Contribute every possible file format IO
+
+### Libraries:
 
 **openDAW tries to avoid external libraries and frameworks.**
 
@@ -47,10 +91,10 @@ Following is a list of the internal core libraries and their dependencies.
 This is a list of the external libraries we currently use in the web studio:
 
 * jszip (for openDAW project bundle file)
-* markdown-it & markdown-it-table (for help pages)
+* markdown-it + markdown-it-table (for help pages)
 * rollbar (for runtime error reporting in development mode)
 
-### Prerequisites
+### Prepare, Clone, Install and Run
 
 Before starting, ensure you have the following installed on your system:
 
@@ -77,77 +121,21 @@ Before starting, ensure you have the following installed on your system:
      npm install -g typescript
 ```
 
-### Clone (once)
+#### Clone (once)
 
 `git clone --recurse-submodules https://github.com/andremichelle/opendaw-studio.git && cd opendaw-studio`
 
-### Generate local certificates (once)
+#### Generate local certificates (once)
 
 `npm run cert`
 
-### Clean & Install & Rebuild the entire project (once)
+#### Clean & Install & Rebuild the entire project (once)
 
 `npm run build`
 
-### Start the development server
+#### Start the development server
 
 `npm run web` – open the printed URL `https://localhost:8080`
-
-## Code Philosophy
-
-### Introduction
-
-openDAW is deliberately **environment-agnostic**.
-
-The codebase must run either as a self-contained desktop application or from any standard web server; cloud features are
-optional and only activate when the user asked for it and supplies their own credentials.
-
-All project data should be storable either on the local file system or in whatever cloud service the user chooses; no
-single storage backend is assumed. Because nothing about the surrounding platform can be taken for granted, every
-component is built to be maximally independent, lazy-loaded only when first needed, and capable of launching in seconds
-on even modest hardware.
-
-### Things to know before diving in
-
-* Do not panic!
-* Methods that contain only trivial getters or setters are kept on a single line to minimize scrolling through
-  low-signal code.
-* Crucial functionality is implemented at a lower level with well-tested classes, while the UI layer is primarily
-  scripted.
-* Excessive abstraction can harm both readability and scalability, so layers are added only when they clearly pay for
-  themselves.
-* Rule of thumb: when a method requires more than three parameters, bundle them into a dedicated argument object.
-* Always write self-documenting code if possible.
-
-### What we are looking for
-
-1. **Offline desktop build (e.g., via Tauri) or a standalone installable PWA** — offer offline capability either through
-   a packaged desktop version, a Progressive Web App, or both.
-2. **Cloud-agnostic project storage** — a facade layer that lets users plug in different cloud services (e.g., Drive,
-   S3, Dropbox) for projects and sample libraries.
-3. **Live remote collaboration** — real-time session sharing and sync so multiple users can edit the same project
-   concurrently.
-4. **AI manual assistant** — an embedded agent that answers context-aware questions and guides users through features as
-   they work.
-5. **AI-powered stem splitting** — integrated source-separation to extract vocals, drums, and other stems directly
-   inside the DAW.
-
-### What openDAW is working on already
-
-For current progress and technical notes, see the continuously
-updated: [developer log](studio/public/manuals/dev-log.md).
-
-## Links
-
-* [openDAW on Discord](https://discord.gg/B3C664wn)
-* [openDAW on Patreon](https://www.patreon.com/join/openDAW)
-* [openDAW on ko-fi](https://ko-fi.com/opendaw)
-* [opendaw.org (website)](https://opendaw.org)
-* [opendaw.studio (prototype)](https://opendaw.studio)
-
-## License
-
-[GPL v3](https://www.gnu.org/licenses/gpl-3.0.txt) © 2025 André Michelle
 
 ## Dual-Licensing Model
 
@@ -162,3 +150,7 @@ openDAW is available **under two alternative license terms**:
 > Email `andre.michelle@opendaw.org` with your company name, product description, and expected distribution volume.
 
 If you redistribute openDAW or a derivative work **without** a commercial license, the GPL v3 terms apply automatically.
+
+## License
+
+[GPL v3](https://www.gnu.org/licenses/gpl-3.0.txt) © 2025 André Michelle

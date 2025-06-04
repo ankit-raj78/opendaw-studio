@@ -16,7 +16,7 @@ const className = Html.adoptStyleSheet(css, "PianoModePanel")
 
 // TODO
 //  [ ] Show timeline navigation
-//  [ ] dialog? to map note tracks to colors
+//  [ ] dialog? to disable note tracks
 //  [ ] Different note labels for different countries (Global Switch)
 //  [ ] Control to show and edit signature
 //  [ ] Playfield: Samples appear louder when polyphone

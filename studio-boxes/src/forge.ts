@@ -12,7 +12,7 @@ import {ModuleDefinitions} from "./schema/modular"
 import {NoteClipBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox} from "./schema/timeline/notes"
 import {AudioClipBox, AudioRegionBox} from "./schema/timeline/audio"
 import {ValueClipBox, ValueEventBox, ValueEventCollectionBox, ValueRegionBox} from "./schema/timeline/value"
-import {TrackBox, TrackPianoModeBox} from "./schema/timeline/track"
+import {TrackBox, TrackIgnorePianoModeBox} from "./schema/timeline/track"
 import {MarkerBox} from "./schema/timeline/marker"
 import {GrooveShuffleBox} from "./schema/grooves"
 
@@ -25,7 +25,7 @@ BoxForge.gen<Pointers>({
     },
     boxes: [
         RootBox, SelectionBox, UserInterfaceBox,
-        TimelineBox, TrackBox, TrackPianoModeBox,
+        TimelineBox, TrackBox, TrackIgnorePianoModeBox,
         NoteEventBox, NoteEventCollectionBox, NoteRegionBox, NoteClipBox,
         ValueEventBox, ValueEventCollectionBox, ValueRegionBox, ValueClipBox,
         AudioRegionBox, AudioClipBox,
