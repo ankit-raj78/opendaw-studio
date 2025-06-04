@@ -19,23 +19,24 @@ export const PianoRoll = ({lifecycle, project}: Construct) => {
     const {service: {engine}, rootBoxAdapter: {pianoMode: {keyboard, transpose}}} = project
     const enginePosition = engine.position()
     const getPianoLayout = () => PianoRollLayout.Defaults()[keyboard.getValue()]
-    const createSVG = (pianoLayout: PianoRollLayout): SVGSVGElement => (
-        <svg classList={className}
-             viewBox={`0.5 0 ${pianoLayout.whiteKeys.length * WhiteKey.width - 1} ${(WhiteKey.height)}`}
-             width="100%">
-            {pianoLayout.whiteKeys.map(({key, x}) => (
-                <rect classList="white" data-key={key} x={x + 0.5} y={0}
-                      width={WhiteKey.width - 1} height={WhiteKey.height}/>
-            ))}
-            {pianoLayout.blackKeys.map(({key, x}) => (
-                <rect classList="black" data-key={key} x={x} y={0}
-                      width={BlackKey.width} height={BlackKey.height}/>
-            ))}
-        </svg>
-    )
-
-    let svg = createSVG(getPianoLayout())
-
+    const createSVG = (): SVGSVGElement => {
+        const pianoLayout = getPianoLayout()
+        return (
+            <svg classList={className}
+                 viewBox={`0.5 0 ${pianoLayout.whiteKeys.length * WhiteKey.width - 1} ${(WhiteKey.height)}`}
+                 width="100%">
+                {pianoLayout.whiteKeys.map(({key, x}) => (
+                    <rect classList="white" data-key={key} x={x + 0.5} y={0}
+                          width={WhiteKey.width - 1} height={WhiteKey.height}/>
+                ))}
+                {pianoLayout.blackKeys.map(({key, x}) => (
+                    <rect classList="black" data-key={key} x={x} y={0}
+                          width={BlackKey.width} height={BlackKey.height}/>
+                ))}
+            </svg>
+        )
+    }
+    let svg: SVGSVGElement = createSVG()
     const update = (position: ppqn) => {
         svg.querySelectorAll<SVGRectElement>("rect.playing")
             .forEach(rect => {
@@ -76,7 +77,7 @@ export const PianoRoll = ({lifecycle, project}: Construct) => {
         enginePosition.subscribe(owner => update(owner.getValue())),
         keyboard.subscribe(() => {
             svg.remove()
-            svg = createSVG(getPianoLayout())
+            svg = createSVG()
             placeholder.appendChild(svg)
         })
     )
