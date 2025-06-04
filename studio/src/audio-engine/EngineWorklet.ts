@@ -174,7 +174,7 @@ export class EngineWorklet extends AudioWorkletNode implements Engine {
     isPlaying(): MutableObservableValue<boolean> {return this.#isPlaying}
     isRecording(): MutableObservableValue<boolean> {return this.#isRecording}
     playbackTimestamp(): DefaultObservableValue<number> {return this.#playbackTimestamp}
-    position(): MutableObservableValue<number> {return this.#position}
+    position(): MutableObservableValue<ppqn> {return this.#position}
     metronomeEnabled(): DefaultObservableValue<boolean> {return this.#metronomeEnabled}
     isReady(): Promise<void> {return this.#isReady}
     queryLoadingComplete(): Promise<boolean> {return this.#commands.queryLoadingComplete()}
@@ -190,7 +190,7 @@ export class EngineWorklet extends AudioWorkletNode implements Engine {
     }
     requestPosition(position: ppqn): void {
         this.#playbackTimestamp.setValue(position)
-        this.#position.setValue(position)
+        this.#commands.setPosition(position)
     }
     subscribeClipNotification(observer: Observer<ClipNotification>): Subscription {
         observer({

@@ -1,5 +1,5 @@
 import css from "./NoteFall.sass?inline"
-import {Html} from "dom"
+import {Events, Html} from "dom"
 import {Arrays, int, isInstanceOf, Lifecycle} from "std"
 import {createElement} from "jsx"
 import {CanvasPainter} from "@/ui/canvas/painter.ts"
@@ -123,7 +123,11 @@ export const NoteFall = (
         painter,
         enginePosition.subscribe(painter.requestUpdate),
         Html.watchResize(element, painter.requestUpdate),
-        pianoMode.subscribe(painter.requestUpdate)
+        pianoMode.subscribe(painter.requestUpdate),
+        Events.subscribe(canvas, "wheel", event => {
+            event.preventDefault()
+            project.service.engine.requestPosition(enginePosition.getValue() - Math.sign(event.deltaY) * PPQN.SemiQuaver * 2)
+        })
     )
     return element
 }

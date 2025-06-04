@@ -17,11 +17,11 @@ const className = Html.adoptStyleSheet(css, "PianoModePanel")
 // TODO
 //  [ ] Allow 90degrees rotation
 //  [ ] Show timeline navigation
-//  [ ] Scroll Y should change engine position (FW, RW)
 //  [ ] dialog? to map note tracks to colors
 //  [ ] Different note labels for different countries
 //  [ ] Control to show and edit signature
 //  [ ] Playfield: Samples appear louder when polyphone
+//  [X] Scroll Y should change engine position (FW, RW)
 //  [X] Rename to PianoModePanel
 //  [X] Transpose
 //  [X] Go back to timeline view

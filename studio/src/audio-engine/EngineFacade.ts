@@ -4,6 +4,7 @@ import {
     int,
     MutableObservableValue,
     Nullable,
+    ObservableValue,
     Observer,
     Option,
     Subscription,
@@ -51,7 +52,7 @@ export class EngineFacade implements Engine {
     }
 
     playbackTimestamp(): MutableObservableValue<ppqn> {return this.#playbackTimestamp}
-    position(): MutableObservableValue<ppqn> {return this.#position}
+    position(): ObservableValue<ppqn> {return this.#position}
     isPlaying(): MutableObservableValue<boolean> {return this.#isPlaying}
     isRecording(): MutableObservableValue<boolean> {return this.#isRecording}
     metronomeEnabled(): MutableObservableValue<boolean> {return this.#metronomeEnabled}
