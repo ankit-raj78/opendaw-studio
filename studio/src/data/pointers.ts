@@ -1,6 +1,7 @@
 export enum Pointers {
     Timeline,
     Selection,
+    PianoMode,
     User,
     AudioConnection,
     InstrumentHost,

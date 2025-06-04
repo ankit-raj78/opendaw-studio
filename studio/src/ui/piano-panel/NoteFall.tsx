@@ -110,7 +110,6 @@ export const NoteFall = (
             context.clip()
             if (labelEnabled) {
                 context.fillStyle = "rgba(0, 0, 0, 0.66)"
-                // TODO
                 MidiKeys.Names.English[pitch % 12]
                     .split("")
                     .forEach((letter, index) => context
