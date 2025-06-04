@@ -60,6 +60,7 @@ export const PianoRoll = ({lifecycle, project}: Construct) => {
                     for (const note of events.iterateRange(searchStart - collection.maxDuration, searchEnd)) {
                         if (note.position + rawStart <= position && position < note.complete + rawStart) {
                             const pitch = note.pitch + transpose.getValue()
+                            if (pitch < pianoLayout.min || pitch > pianoLayout.max) {continue}
                             const rect = svg.querySelector<SVGRectElement>(`[data-key="${pitch}"]`)
                             if (isDefined(rect)) {
                                 rect.style.fill = pianoLayout.getFillStyle(hue, true)

@@ -76,6 +76,7 @@ export const NoteFall = (
                         const searchEnd = Math.floor(resultEnd - rawStart)
                         for (const note of events.iterateRange(searchStart - collection.maxDuration, searchEnd)) {
                             const pitch = note.pitch + transpose.getValue()
+                            if (pitch < pianoLayout.min || pitch > pianoLayout.max) {continue}
                             renderCalls.push({
                                 pitch,
                                 x: pianoLayout.getCenteredX(pitch) * actualWidth,
@@ -89,34 +90,41 @@ export const NoteFall = (
                 }
             })
         })
-        // shadow pass
+        // render shadow pass
         context.fillStyle = "rgba(0, 0, 0, 0.25)"
         context.beginPath()
         renderCalls.forEach(({x, y0, y1}) => {
             context.roundRect(x - noteWidth / 2, y0 + devicePixelRatio * 4, noteWidth, y1 - y0, 3 * devicePixelRatio)
         })
         context.fill()
-        // solid pass
+        // render solid pass
         context.lineWidth = devicePixelRatio
         context.strokeStyle = "rgba(0, 0, 0, 0.5)"
-        renderCalls.forEach(({pitch, x, y0, y1, hue}) => {
+        renderCalls.forEach(({x, y0, y1, hue}) => {
             const isPlaying = y1 >= actualHeight
             context.fillStyle = pianoLayout.getFillStyle(hue, isPlaying)
-            context.save()
             context.beginPath()
             context.roundRect(x - noteWidth / 2, y0, noteWidth, y1 - y0, 3 * devicePixelRatio)
             context.fill()
             context.stroke()
-            context.clip()
-            if (labelEnabled) {
-                context.fillStyle = "rgba(0, 0, 0, 0.66)"
+            context.restore()
+        })
+        // render label pass
+        if (labelEnabled) {
+            renderCalls.forEach(({pitch, x, y0, y1}) => {
+                context.save()
+                context.beginPath()
+                context.roundRect(x - noteWidth / 2, y0, noteWidth, y1 - y0, 3 * devicePixelRatio)
+                context.clip()
+                context.fillStyle = "rgba(0, 0, 0, 0.75)"
                 MidiKeys.Names.English[pitch % 12]
+                    .toUpperCase()
                     .split("")
                     .forEach((letter, index) => context
                         .fillText(letter, x, y1 - index * noteWidth * 0.45 * devicePixelRatio))
-            }
-            context.restore()
-        })
+                context.restore()
+            })
+        }
     })
     const element: HTMLElement = (<div className={className}>{canvas}</div>)
     lifecycle.ownAll(
@@ -126,7 +134,8 @@ export const NoteFall = (
         pianoMode.subscribe(painter.requestUpdate),
         Events.subscribe(canvas, "wheel", event => {
             event.preventDefault()
-            project.service.engine.requestPosition(enginePosition.getValue() - Math.sign(event.deltaY) * PPQN.SemiQuaver * 2)
+            const position = enginePosition.getValue() - Math.sign(event.deltaY) * PPQN.SemiQuaver * 2
+            project.service.engine.requestPosition(Math.max(0, position))
         })
     )
     return element

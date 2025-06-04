@@ -15,10 +15,9 @@ import {EditWrapper} from "@/ui/wrapper/EditWrapper.ts"
 const className = Html.adoptStyleSheet(css, "PianoModePanel")
 
 // TODO
-//  [ ] Allow 90degrees rotation
 //  [ ] Show timeline navigation
 //  [ ] dialog? to map note tracks to colors
-//  [ ] Different note labels for different countries
+//  [ ] Different note labels for different countries (Global Switch)
 //  [ ] Control to show and edit signature
 //  [ ] Playfield: Samples appear louder when polyphone
 //  [X] Scroll Y should change engine position (FW, RW)
