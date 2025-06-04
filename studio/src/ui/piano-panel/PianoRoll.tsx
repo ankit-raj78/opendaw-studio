@@ -45,8 +45,7 @@ export const PianoRoll = ({lifecycle, project}: Construct) => {
         const pianoLayout = getPianoLayout()
         project.rootBoxAdapter.audioUnits.adapters().forEach(adapter => {
             const trackBoxAdapters = adapter.tracks.values()
-            trackBoxAdapters.forEach((trackAdapter, index) => {
-                const hue = index / trackBoxAdapters.length * 360
+            trackBoxAdapters.forEach(trackAdapter => {
                 const region = trackAdapter.regions.collection.lowerEqual(position)
                 if (region === null || !isInstanceOf(region, NoteRegionBoxAdapter) || position >= region.complete) {
                     return
@@ -63,7 +62,7 @@ export const PianoRoll = ({lifecycle, project}: Construct) => {
                             if (pitch < pianoLayout.min || pitch > pianoLayout.max) {continue}
                             const rect = svg.querySelector<SVGRectElement>(`[data-key="${pitch}"]`)
                             if (isDefined(rect)) {
-                                rect.style.fill = pianoLayout.getFillStyle(hue, true)
+                                rect.style.fill = pianoLayout.getFillStyle(region.hue, true)
                                 rect.classList.add("playing")
                             }
                         }

@@ -65,10 +65,10 @@ export const NoteFall = (
         renderCalls.length = 0
         project.rootBoxAdapter.audioUnits.adapters().forEach(audioUnitAdapter => {
             const trackBoxAdapters = audioUnitAdapter.tracks.values()
-            trackBoxAdapters.forEach((trackAdapter, index) => {
-                const hue = index / trackBoxAdapters.length * 360
+            trackBoxAdapters.forEach(trackAdapter => {
                 for (const region of trackAdapter.regions.collection.iterateRange(min, max)) {
                     if (!isInstanceOf(region, NoteRegionBoxAdapter)) {continue}
+                    const hue = region.hue
                     const collection = region.optCollection.unwrap()
                     const events = collection.events
                     for (const {resultStart, resultEnd, rawStart} of LoopableRegion.locateLoops(region, min, max)) {
