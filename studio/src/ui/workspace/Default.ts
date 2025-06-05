@@ -155,7 +155,7 @@ export const DefaultWorkspace = Object.freeze({
         icon: IconSymbol.Piano,
         content: PanelState.create({
             type: "panel",
-            name: "Piano",
+            name: "Piano Tutorial Mode",
             icon: IconSymbol.Piano,
             panelType: PanelType.MidiFall,
             constrains: {type: "flex", minSize: 0, flex: 1}

@@ -4,7 +4,7 @@ import {StudioService} from "@/service/StudioService.ts"
 import {deferNextFrame, Html} from "dom"
 import {PianoRoll} from "@/ui/piano-panel/PianoRoll.tsx"
 import {NoteFall} from "@/ui/piano-panel/NoteFall.tsx"
-import {Lifecycle, Notifier} from "std"
+import {Exec, Lifecycle, MutableObservableValue, Notifier, Subscription, Terminable, Terminator} from "std"
 import {NumberInput} from "@/ui/components/NumberInput.tsx"
 import {Checkbox} from "@/ui/components/Checkbox.tsx"
 import {Icon} from "@/ui/components/Icon.tsx"
@@ -12,6 +12,9 @@ import {IconSymbol} from "@/IconSymbol.ts"
 import {RadioGroup} from "@/ui/components/RadioGroup.tsx"
 import {EditWrapper} from "@/ui/wrapper/EditWrapper.ts"
 import {TrackType} from "@/audio-engine-shared/adapters/timeline/TrackType.ts"
+import {RootBoxAdapter} from "@/audio-engine-shared/adapters/RootBoxAdapter.ts"
+import {TrackBoxAdapter} from "@/audio-engine-shared/adapters/timeline/TrackBoxAdapter.ts"
+import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter.ts"
 
 const className = Html.adoptStyleSheet(css, "PianoModePanel")
 
@@ -28,10 +31,46 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
     const {keyboard, timeRangeInQuarters, noteScale, noteLabels, transpose} = pianoMode
     const updateNotifier = lifecycle.own(new Notifier<void>())
     const notify = deferNextFrame(() => updateNotifier.notify())
-    // TODO Listen to new tracks somehow (RootBoxAdapter) and then listen to their excludePianoMode field
+    const noMidiTrackMessage: HTMLElement = (
+        <div className="no-midi-track-label">No midi track available</div>
+    )
+    const subscribeExcludePianoModeAll = (rootBoxAdapter: RootBoxAdapter, anyUpdate: Exec): Terminable => {
+        const terminator = new Terminator()
+        let showMidiTrack = false
+        terminator.own(rootBoxAdapter.audioUnits.catchupAndSubscribe({
+            onAdd: (audioUnitBoxAdapter: AudioUnitBoxAdapter) =>
+                terminator.own(audioUnitBoxAdapter.tracks.catchupAndSubscribe({
+                    onAdd: (adapter: TrackBoxAdapter) => {
+                        if (adapter.type === TrackType.Notes) {
+                            const {box: {excludePianoMode}} = adapter
+                            terminator.own(excludePianoMode.subscribe(anyUpdate))
+                            if (!excludePianoMode.getValue()) {
+                                showMidiTrack = true
+                            }
+                        }
+                    },
+                    onRemove: anyUpdate,
+                    onReorder: anyUpdate
+                })),
+            onRemove: () => anyUpdate,
+            onReorder: () => anyUpdate
+        }))
+        noMidiTrackMessage.classList.toggle("hidden", showMidiTrack)
+        return terminator
+    }
+    let excludePianoModeSubscription: Subscription = Terminable.Empty
+    const subscribeExcludePianoMode = () => {
+        excludePianoModeSubscription = subscribeExcludePianoModeAll(rootBoxAdapter, () => {
+            excludePianoModeSubscription.terminate()
+            subscribeExcludePianoMode()
+            notify.request()
+        })
+    }
+    subscribeExcludePianoMode()
     lifecycle.ownAll(
         service.engine.position().subscribe(notify.request),
-        pianoMode.subscribe(notify.request)
+        pianoMode.subscribe(notify.request),
+        excludePianoModeSubscription
     )
     return (
         <div className={className}>
@@ -70,13 +109,14 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
                                 .filter(track => track.type === TrackType.Notes)
                                 .map((track, index, array) => (
                                     <Group>
-                                        <span>Exc. {
-                                            // TODO This list will not scale and isn't very nice
+                                        <span>{
+                                            // TODO This list will not scale and isn't very well designed
                                             array.length === 1
                                                 ? audioUnitBoxAdapter.label
                                                 : `${(audioUnitBoxAdapter.label)} (${index + 1})`}</span>
                                         <Checkbox lifecycle={lifecycle}
-                                                  model={EditWrapper.forValue(editing, track.box.excludePianoMode)}>
+                                                  model={EditWrapper.forValue(editing,
+                                                      MutableObservableValue.inverseBoolean(track.box.excludePianoMode))}>
                                             <Icon symbol={IconSymbol.Checkbox}/>
                                         </Checkbox>
                                     </Group>
@@ -84,11 +124,7 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
                     }
                 </Group>
             </div>
-            {!rootBoxAdapter.audioUnits.adapters()
-                .some(audioUnitBoxAdapter => audioUnitBoxAdapter.tracks.values()
-                    .some(trackAdapter => trackAdapter.type === TrackType.Notes)) && (
-                <div className="no-midi-track-label">No midi track found</div>
-            )}
+            {noMidiTrackMessage}
         </div>
     )
 }
