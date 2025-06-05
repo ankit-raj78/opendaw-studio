@@ -34,7 +34,6 @@ export class PianoRollLayout {
     constructor(min: int, max: int) {
         this.#min = PianoRollLayout.#moveToNextWhiteKey(min, -1)
         this.#max = PianoRollLayout.#moveToNextWhiteKey(max, 1)
-        console.debug(MidiKeys.toFullString(this.#min), MidiKeys.toFullString(this.#max), this.count)
         this.#whiteKeysX = []
         this.#blackKeysX = []
         this.#octaveSplits = []
