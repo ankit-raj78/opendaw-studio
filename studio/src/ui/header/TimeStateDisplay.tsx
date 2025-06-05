@@ -1,14 +1,27 @@
 import css from "./TimeStateDisplay.sass?inline"
-import {clamp, DefaultObservableValue, EmptyExec, float, Lifecycle, ObservableValue, Option, Terminator} from "std"
+import {
+    Attempt,
+    Attempts,
+    clamp,
+    DefaultObservableValue,
+    EmptyExec,
+    float,
+    int,
+    Lifecycle,
+    ObservableValue,
+    Option,
+    Terminator
+} from "std"
 import {createElement, Frag, Inject} from "jsx"
 import {StudioService} from "@/service/StudioService.ts"
-import {PPQN} from "dsp"
+import {parseTimeSignature, PPQN} from "dsp"
 import {DblClckTextInput} from "@/ui/wrapper/DblClckTextInput.tsx"
 import {ContextMenu} from "@/ui/ContextMenu.ts"
 import {MenuItem} from "@/ui/model/menu-item.ts"
 import {ProjectSession} from "@/project/ProjectSession"
 import {Dragging, Html} from "dom"
-import {FlexSpacer} from "../components/FlexSpacer"
+import {FlexSpacer} from "@/ui/components/FlexSpacer.tsx"
+import {Propagation} from "box"
 
 const className = Html.adoptStyleSheet(css, "time-display")
 
@@ -27,6 +40,7 @@ export const TimeStateDisplay = ({lifecycle, service}: Construct) => {
     const ticksDigit = Inject.value("000")
     const shuffleDigit = Inject.value("60")
     const bpmDigit = Inject.value("120")
+    const meterLabel = Inject.value("4/4")
     // Bar, Bar+Beats, Bar+Beats+SemiQuaver, Bar+Beats+SemiQuaver+Ticks
     const timeUnits = ["Bar", "Beats", "SemiQuaver", "Ticks"] // Bar+Beats
     const timeUnitIndex = new DefaultObservableValue(1)
@@ -37,7 +51,7 @@ export const TimeStateDisplay = ({lifecycle, service}: Construct) => {
         const optSession = owner.getValue()
         if (optSession.isEmpty()) {return}
         const {project} = optSession.unwrap()
-        const {position, timelineBoxAdapter, rootBoxAdapter} = project
+        const {position, timelineBoxAdapter, rootBoxAdapter, boxGraph} = project
         projectActiveLifeTime.own(position.catchupAndSubscribe((owner: ObservableValue<number>) => {
             const {bars, beats, semiquavers, ticks} = PPQN.toParts(owner.getValue())
             barDigits.value = (bars + 1).toString().padStart(3, "0")
@@ -47,6 +61,12 @@ export const TimeStateDisplay = ({lifecycle, service}: Construct) => {
         }))
         timelineBoxAdapter.box.bpm.catchupAndSubscribe((owner: ObservableValue<float>) =>
             bpmDigit.value = owner.getValue().toFixed(0).padStart(3, "0"))
+        const updateMeterLabel = () => {
+            const {nominator, denominator} = timelineBoxAdapter.box.signature
+            meterLabel.value = `${nominator.getValue()}/${denominator.getValue()}`
+        }
+        boxGraph.subscribeBoxUpdates(Propagation.Children, timelineBoxAdapter.box.signature.address, updateMeterLabel)
+        updateMeterLabel()
         rootBoxAdapter.groove.box.amount.catchupAndSubscribe((owner: ObservableValue<float>) =>
             shuffleDigit.value = String(Math.round(owner.getValue() * 100)))
     }
@@ -97,10 +117,6 @@ export const TimeStateDisplay = ({lifecycle, service}: Construct) => {
     const element: HTMLElement = (
         <div className={className}>
             {timeUnitElements}
-            <div className="number-display hidden">
-                <div>4/4</div>
-                <div>METER</div>
-            </div>
             <DblClckTextInput resolversFactory={() => {
                 const resolvers = Promise.withResolvers<string>()
                 resolvers.promise.then((value: string) => {
@@ -114,6 +130,27 @@ export const TimeStateDisplay = ({lifecycle, service}: Construct) => {
                 {bpmDisplay}
             </DblClckTextInput>
             <FlexSpacer pixels={3}/>
+            <DblClckTextInput resolversFactory={() => {
+                const resolvers = Promise.withResolvers<string>()
+                resolvers.promise.then((value: string) => {
+                    const attempt: Attempt<[int, int]> = Attempts.tryGet(() => parseTimeSignature(value))
+                    if (attempt.isSuccess()) {
+                        const [nominator, denominator] = attempt.result()
+                        sessionService.getValue()
+                            .ifSome(({project: {editing, rootBoxAdapter: {timeline: {box: {signature}}}}}) =>
+                                editing.modify(() => {
+                                    signature.nominator.setValue(clamp(nominator, 1, 32))
+                                    signature.denominator.setValue(clamp(denominator, 1, 32))
+                                }))
+                    }
+                }, EmptyExec)
+                return resolvers
+            }} provider={() => ({unit: "", value: meterLabel.value})}>
+                <div className="number-display">
+                    <div>{meterLabel}</div>
+                    <div>METER</div>
+                </div>
+            </DblClckTextInput>
             <DblClckTextInput resolversFactory={() => {
                 const resolvers = Promise.withResolvers<string>()
                 resolvers.promise.then((value: string) => {

@@ -41,20 +41,22 @@ export const TimeAxis = ({lifecycle, service, snapping, range, mapper}: Construc
         context.textBaseline = "alphabetic"
         context.font = `${parseFloat(fontSize) * devicePixelRatio}px ${fontFamily}`
         const textY = height - 4 * devicePixelRatio
-        TimeGrid.fragment(range, ({bars, beats, isBar, isBeat, pulse}) => {
-            const x = Math.floor(range.unitToX(pulse) * devicePixelRatio)
-            const textX = x + 5
-            if (isBar) {
-                context.fillRect(x, 0, 2, height)
-                context.fillText((bars + 1).toFixed(0), textX, textY)
-            } else if (isBeat) {
-                context.fillRect(x, height * 0.5, 1, height * 0.5)
-                context.fillRect(x, height * 0.5, 4, 1)
-                context.fillText((bars + 1) + "•" + (beats + 1), textX, textY)
-            } else {
-                context.fillRect(x, height * 0.5, 1, height * 0.5)
-            }
-        })
+        const {nominator, denominator} = signature
+        TimeGrid.fragment([nominator.getValue(), denominator.getValue()],
+            range, ({bars, beats, isBar, isBeat, pulse}) => {
+                const x = Math.floor(range.unitToX(pulse) * devicePixelRatio)
+                const textX = x + 5
+                if (isBar) {
+                    context.fillRect(x, 0, 2, height)
+                    context.fillText((bars + 1).toFixed(0), textX, textY)
+                } else if (isBeat) {
+                    context.fillRect(x, height * 0.5, 1, height * 0.5)
+                    context.fillRect(x, height * 0.5, 4, 1)
+                    context.fillText((bars + 1) + "•" + (beats + 1), textX, textY)
+                } else {
+                    context.fillRect(x, height * 0.5, 1, height * 0.5)
+                }
+            })
         const pulse = service.engine.playbackTimestamp().getValue()
         const x = Math.floor(range.unitToX(pulse) * devicePixelRatio)
         context.fillStyle = "rgba(255, 255, 255, 0.25)"
@@ -96,27 +98,6 @@ export const TimeAxis = ({lifecycle, service, snapping, range, mapper}: Construc
                 }
             }
         }), {immediate: true, permanentUpdates: false}),
-        /*Dragging.attach(endMarkerElement, () => {
-            return Option.wrap({
-                update: (event: Dragging.Event) => {
-                    endMarkerPosition = clamp(snapping.xToUnitRound(event.clientX - canvas.getBoundingClientRect().left),
-                        MIN_TRACK_DURATION, MAX_TRACK_DURATION)
-                    if (endMarkerPosition > range.unitMax) {
-                        // TODO For auto-scroll, disable range clamping to scroll outside the current song duration
-                    }
-                    updateEndMarker()
-                },
-                approve: () => {
-                    if (endMarkerPosition !== null) {
-                        editing.modify(() => durationInPulses.setValue(asDefined(endMarkerPosition, "Unexpected change")))
-                    }
-                },
-                finally: () => {
-                    endMarkerPosition = null
-                    updateEndMarker()
-                }
-            })
-        }, { immediate: true, permanentUpdates: false }),*/
         TextTooltip.simple(endMarkerElement, () => {
             const rect = endMarkerElement.getBoundingClientRect()
             return ({

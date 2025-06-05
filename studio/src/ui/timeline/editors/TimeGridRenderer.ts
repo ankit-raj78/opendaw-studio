@@ -10,7 +10,7 @@ export const renderTimeGrid = (context: CanvasRenderingContext2D,
                                snapping: Snapping,
                                top: number,
                                bottom: number) => {
-    TimeGrid.fragment(range, ({pulse, ticks}) => {
+    TimeGrid.fragment([4, 4], range, ({pulse, ticks}) => {
         const x = Math.floor(range.unitToX(pulse) * devicePixelRatio)
         context.fillStyle = ticks % snapping.value === 0 ? SnapColor : SubSnapColor
         context.fillRect(x, top, devicePixelRatio, bottom - top)

@@ -3,15 +3,15 @@ import {int, quantizeFloor} from "std"
 import {TimelineRange} from "@/ui/timeline/TimelineRange.ts"
 
 export namespace TimeGrid {
+    export type Signature = [int, int]
     export type Options = { minLength?: number }
     export type Fragment = { bars: int, beats: int, ticks: int, isBar: boolean, isBeat: boolean, pulse: number }
     export type Designer = (fragment: Fragment) => void
 
-    export const fragment = (range: TimelineRange, designer: Designer, options?: Options): void => {
+    export const fragment = ([nominator, denominator]: Signature,
+                             range: TimelineRange, designer: Designer, options?: Options): void => {
         const unitsPerPixel = range.unitsPerPixel
         if (unitsPerPixel <= 0) {return}
-        const nominator = 4
-        const denominator = 4
         const barPulses = PPQN.fromSignature(nominator, denominator)
         const minLength = options?.minLength ?? 48
         let interval = barPulses
@@ -33,7 +33,7 @@ export namespace TimeGrid {
         const p0 = quantizeFloor(range.unitMin, interval)
         const p1 = range.unitMax
         for (let pulse = p0; pulse < p1; pulse += interval) {
-            const {bars, beats, semiquavers, ticks} = PPQN.toParts(pulse)
+            const {bars, beats, semiquavers, ticks} = PPQN.toParts(pulse, nominator, denominator)
             const isBeat = ticks === 0 && semiquavers === 0
             const isBar = isBeat && beats === 0
             designer({bars, beats, ticks, isBar, isBeat, pulse})
