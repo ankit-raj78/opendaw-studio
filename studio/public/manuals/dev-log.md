@@ -2,17 +2,30 @@
 
 ## TODO
 
-### Always
-
-* Check all TODOs in code
-* Test all browsers
-
-### Bugs
-
-* Currently none reported 🧐
-
-### Coming Up
-
+* PianoModePanel
+    * Show timeline navigation
+    * dialog? to disable note tracks
+    * Different note labels for different countries (Global Switch)
+    * Control to show and edit signature
+    * Playfield: Samples appear louder when polyphone
+    * ~~Scroll Y should change engine position (FW, RW)~~
+    * ~~Rename to PianoModePanel~~
+    * ~~Transpose~~
+    * ~~Go back to timeline view~~
+    * ~~Open MidiFall view (or Piano Tutorial Mode?)~~
+    * ~~labels on falling notes (~~Hide when note is too short~~ clip)~~
+    * ~~control to adjust visible time range~~
+    * ~~active piano colors~~
+    * ~~different keyboard layouts https://familypiano.com/blog/piano-keys-faq/~~
+    * ~~time signature / octave (C, F) grid~~
+* Attach a CurveBox to ValueEventBox (enables having different curve shapes in future)
+* Make effect-bypass parameter automatable
+* Add SoundFont device
+* Polish audio playback -> will have unwanted sounds when start/stop audio segments
+* AcceptingType for audio-unit should be a set?
+* Admin sample management (rename, edit, delete)
+* Do not use an unknown track for busses. This must be handled by the timeline view.
+* https://bungee.parabolaresearch.com/
 * Audio/Midi Recording
     * Solid state for recording in main-thread (none, running, cancel, abort)
     * Listen to all incoming midi-signals and create track, region, notes and automation (revertible process)
@@ -43,47 +56,36 @@
     * ~~Reset Playfield and delete samples~~
     * ~~Automation~~
     * ~~Exclusion group~~
-    * ~~Gatemode selector (Off, On, Loop)~~
+    * ~~Gate-mode selector (Off, On, Loop)~~
     * ~~Monophone / Polyphone switcher~~
 * Stereo Tool
-    * Stereo Widthing not really working (not in prototype < no easy fix)
+    * Stereo Widthing is not really working (not in prototype < no easy fix)
     * ~~Interpolate matrix~~
     * ~~swap channels~~
 * PointerLock Api
-* Midi Pitchbend
+* Midi Pitch-bend
 * List all midi connections and edit (range, remove, etc..)
-* Name contraints (min, max)
-* Find modifier key to always select
+* Name constraints (min, max)
+* Find a modifier key to always select
 * Offline Tauri version
 * Offline PWA version
 * studio header > peak-meter
 * peak-meter > hold-value | rms < PeakBroadcaster
 * Implement presets for devices and complete device-chain
 * Preview midi notes (https://discord.com/channels/1241019312328675399/1337837099302391849)
-* Different schedule switch times for clips
-* Double-click input name in track-header to rename
+* Different schedule switch-times for clips
+* Double-click the input name in the track-header to rename
 * [kurp] Making region bounds in content-editor fully operational
 * Timeline navigation in other workspace views (mixer)
 * Spotlight
 * Flatten ValueRegion
 * Flatten AudioRegion
 * Absolute time display
-* Pre- & Postgain FX / Gain-stage
-
-### Backlog
-
-* Attach a CurveBox to ValueEventBox (enables having different curve shapes in future)
-* Make effect bypass parameter automatable
-* SoundFont
-* Polish audio playback -> will have unwanted sounds when start/stop audio segments
-* AcceptingType for audio-unit should be a set?
-* Admin sample management (rename, edit, delete)
-* Do not use an unknown track for busses. This must be handled by the timeline view.
-* https://bungee.parabolaresearch.com/
+* Pre- & Post-gain FX / Gain-stage
 
 ### Optimisation
 
-* Only produce & stream values in the audio-engine if there is a visible consumer in the user-interface
+* Only produce and stream values in the audio-engine if there is a visible consumer in the user-interface
 
 ### Misc Bugs
 
@@ -92,12 +94,12 @@
 ### Panel Management
 
 * Resizers are only working on the adjacent elements.
-* Resizers do not open/close panels while dragging to increase/descrease space
-* Resizers on min-size and max-size should remember their size in pixels not flex (example: Browser).
+* Resizers do not open/close panels while dragging to increase/decrease space
+* Resizers on min-size and max-size should remember their size in pixels, not flex (example: Browser).
 * No indicator that a panel reached min- or max-size
-* Switching screen will rebuild ALL panels (should be reused if the screen contains same panel-states)
+* Switching screen will rebuild ALL panels (should be reused if the screen contains the same panel-states)
 
-### Done
+## Done
 
 * ~~Learn Midi Device~~
     * ~~Keys~~

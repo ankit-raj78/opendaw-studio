@@ -1,11 +1,8 @@
 # openDAW Studio
 
-**openDAW** is a next-generation web-based Digital Audio Workstation (DAW) designed to democratize music production and
-to resurface the process of making music. Our mission is to make high-quality music creation accessible to everyone,
-regardless of their background or resources.
-
-By focusing on the creative process itself, openDAW wants to encourage exploration, learning, and a deeper understanding of how
-digital music is made.
+**openDAW** is a next-generation web-based Digital Audio Workstation (DAW) designed to **democratize** music production
+and to **resurface the process of making music** by making **high-quality** creation tools accessible to everyone, with
+a strong focus on **education** and hands-on **learning**.
 
 ![image](studio/public/images/meta.jpg)
 
@@ -18,7 +15,7 @@ supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [k
 - **Web-Based Platform**: Create and edit music directly from your browser.
 - **Offline Version**: A downloadable version that you own.
 - **Educational Resources**: Access tutorials and guides to enhance your music production skills.
-- **Best Data-Protection**: Store your data locally, on your server or a service you trust. 
+- **Best Data-Protection**: Store your data locally, on your server or a service you trust.
 - **Modular Systems**: Create and share your own devices and tools to extend the built-in feature-set.
 - **Collaborative Tools**: Work seamlessly with others in real-time.
 - **User-Friendly Interface**: Intuitive design for both beginners and professionals alike.
@@ -35,19 +32,23 @@ supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [k
 
 ### Introduction:
 
-openDAW is deliberately **environment-agnostic**.
+* We deliberately pass on UI frameworks like React to maintain full control over rendering and behavior. This avoids
+  unnecessary abstractions, reduces overhead and lets us tailor the interface precisely to the needs of a real-time
+  audio environment. openDAW uses [JSX](https://en.wikipedia.org/wiki/JSX_(JavaScript)).
+* openDAW is **environment-agnostic** - The codebase must run either as a self-contained desktop
+  application or from any standard web server; cloud features are optional and only activate when the user asked for it
+  and supplies their own credentials.
+* Nothing about the surrounding platform can be taken for granted. Every component is built to be maximally independent
+  and lazy-loaded only when first needed, keeping the studio launch time under one second.
 
-The codebase must run either as a self-contained desktop application or from any standard web server; cloud features are
-optional and only activate when the user asked for it and supplies their own credentials.
-
-All project data should be storable either on the local file system or in whatever cloud service the user chooses; no
-single storage backend is assumed. Because nothing about the surrounding platform can be taken for granted, every
-component is built to be maximally independent, lazy-loaded only when first needed, and capable of launching in seconds
-on even modest hardware.
-
-### Checklist:
+### How We Write Code:
 
 * Do not panic!
+* Write code for the task, not for eternity.
+* Always write self-documenting code if possible.
+
+### Code Style:
+
 * Methods that contain only trivial getters or setters are kept on a single line to minimize scrolling through
   low-signal code.
 * Crucial functionality is implemented at a lower level with well-tested classes, while the UI layer is primarily
@@ -55,27 +56,24 @@ on even modest hardware.
 * Excessive abstraction can harm both readability and scalability, so layers are added only when they clearly pay for
   themselves.
 * Rule of thumb: when a method requires more than three parameters, bundle them into a dedicated argument object.
-* Always write self-documenting code if possible.
 
 ### What We Are Looking For:
 
-1. **Offline desktop build (e.g., via Tauri) or a standalone installable PWA** — offer offline capability either through
-   a packaged desktop version, a Progressive Web App, or both.
+1. **Offline desktop build (e.g., via Tauri) or a standalone installable PWA** — offer offline capability.
 2. **Cloud-agnostic project storage** — a facade layer that lets users plug in different cloud services (e.g., Drive,
    S3, Dropbox) for projects and sample libraries.
 3. **Live remote collaboration** — real-time session sharing and sync so multiple users can edit the same project
    concurrently.
 4. **AI manual assistant** — an embedded agent that answers context-aware questions and guides users through features as
    they work.
-5. **AI-powered stem splitting** — integrated source-separation to extract vocals, drums, and other stems directly
+5. **AI-powered stem splitting** — integrated source-separation to extract vocals, drums and other stems directly
    inside the DAW.
 6. **Import and Export** - Contribute every possible file format IO
 
 ### Libraries:
 
-**openDAW tries to avoid external libraries and frameworks.**
-
-Following is a list of the internal core libraries and their dependencies.
+openDAW tries to avoid external libraries and frameworks. Following is a list of the internal core libraries and their
+dependencies.
 
 | Library       | Dependencies                        |
 |---------------|-------------------------------------|
@@ -98,42 +96,31 @@ This is a list of the external libraries we currently use in the web studio:
 
 Before starting, ensure you have the following installed on your system:
 
-1. **Git** is required for cloning the repository and managing submodules. Download and install it
-   from [git-scm.com](https://git-scm.com/).
-2. **mkcert** is required to create a certificate for developing with https protocol. Get information on how to
-   install [here](https://github.com/FiloSottile/mkcert#installation)
-3. Ensure you have Node.js version **>= 23**. This is necessary for running the development server and installing
-   dependencies. Download Node.js from [nodejs.org](https://nodejs.org/).
-4. **Sass** While Sass is handled internally during the development process, you will need to ensure you have the
-   binaries available in your environment if used outside the build system. Install it globally if necessary:
+- [Git](https://git-scm.com/) is required for cloning the repository and managing submodules.
+- [mkcert](https://github.com/FiloSottile/mkcert#installation) is required to create a certificate for developing with
+  https protocol.
+- [Node.js](nodejs.org) version **>= 23**. This is necessary for running the development server and installing
+  dependencies.
+- [Sass](https://sass-lang.com/) While Sass is handled internally during the development process, you will need to
+  ensure you have the
+  binaries available in your environment if used outside the build system.
+- [TypeScript](https://www.typescriptlang.org/)
+- [OpenSSL](https://chocolatey.org/) For generating local development certificates (), OpenSSL needs to be installed on
+  your system. Most Linux/macOS systems have OpenSSL pre-installed.
 
-``` bash
-   npm install -g sass
-   ```
-
-1. **OpenSSL** For generating local development certificates (), OpenSSL needs to be installed on your system. Most
-   Linux/macOS systems have OpenSSL pre-installed. If you're on Windows, use a package manager
-   like [Chocolatey](https://chocolatey.org/) to install OpenSSL.
-2. **Additional Dependencies per Development Tools**:
-    - TypeScript (`tsc`): You may need to globally install it for global use: `package.json`
-
-``` bash
-     npm install -g typescript
-```
-
-#### Clone (once)
+#### 1. Clone (once)
 
 `git clone --recurse-submodules https://github.com/andremichelle/opendaw-studio.git && cd opendaw-studio`
 
-#### Generate local certificates (once)
+#### 2. Generate local certificates (once)
 
 `npm run cert`
 
-#### Clean & Install & Rebuild the entire project (once)
+#### 3. Clean & Install & Rebuild the entire project (once)
 
 `npm run build`
 
-#### Start the development server
+#### 4. Start the development server
 
 `npm run web` – open the printed URL `https://localhost:8080`
 
@@ -147,7 +134,7 @@ openDAW is available **under two alternative license terms**:
 | **B. Commercial Licence** | You wish to incorporate openDAW into **closed-source** or otherwise licence-incompatible software.             | – Pay the agreed fee.<br>– No copyleft requirement for your own source code.<br>– Other terms as per the signed agreement.                                                       |
 
 > **How to obtain the Commercial License**  
-> Email `andre.michelle@opendaw.org` with your company name, product description, and expected distribution volume.
+> Email `andre.michelle@opendaw.org` with your company name, product description and expected distribution volume.
 
 If you redistribute openDAW or a derivative work **without** a commercial license, the GPL v3 terms apply automatically.
 

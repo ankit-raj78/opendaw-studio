@@ -14,23 +14,6 @@ import {EditWrapper} from "@/ui/wrapper/EditWrapper.ts"
 
 const className = Html.adoptStyleSheet(css, "PianoModePanel")
 
-// TODO
-//  [ ] Show timeline navigation
-//  [ ] dialog? to disable note tracks
-//  [ ] Different note labels for different countries (Global Switch)
-//  [ ] Control to show and edit signature
-//  [ ] Playfield: Samples appear louder when polyphone
-//  [X] Scroll Y should change engine position (FW, RW)
-//  [X] Rename to PianoModePanel
-//  [X] Transpose
-//  [X] Go back to timeline view
-//  [X] Open MidiFall view (or Piano Tutorial Mode?)
-//  [X] labels on falling notes (~~Hide when note is too short~~ clip)
-//  [X] control to adjust visible time range
-//  [X] active piano colors
-//  [X] different keyboard layouts https://familypiano.com/blog/piano-keys-faq/
-//  [X] time signature / octave (C, F) grid
-
 type Construct = {
     lifecycle: Lifecycle
     service: StudioService
