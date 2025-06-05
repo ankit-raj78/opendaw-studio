@@ -1,6 +1,6 @@
 import css from "./NoteFall.sass?inline"
 import {Events, Html} from "dom"
-import {Arrays, int, isInstanceOf, Lifecycle} from "std"
+import {Arrays, int, isInstanceOf, Lifecycle, Notifier} from "std"
 import {createElement} from "jsx"
 import {CanvasPainter} from "@/ui/canvas/painter.ts"
 import {PianoRollLayout} from "@/ui/piano-panel/PianoRollLayout.ts"
@@ -15,6 +15,7 @@ const className = Html.adoptStyleSheet(css, "NoteFall")
 type Construct = {
     lifecycle: Lifecycle
     project: Project
+    updateNotifier: Notifier<void>
 }
 
 type RenderCall = {
@@ -25,8 +26,7 @@ type RenderCall = {
     hue: number
 }
 
-export const NoteFall = (
-    {lifecycle, project}: Construct) => {
+export const NoteFall = ({lifecycle, project, updateNotifier}: Construct) => {
     const enginePosition = project.service.engine.position()
     const pianoMode = project.rootBoxAdapter.pianoMode
     const {keyboard, timeRangeInQuarters, noteScale, noteLabels, transpose} = pianoMode
@@ -65,6 +65,7 @@ export const NoteFall = (
         renderCalls.length = 0
         project.rootBoxAdapter.audioUnits.adapters().forEach(audioUnitAdapter => {
             const trackBoxAdapters = audioUnitAdapter.tracks.values()
+                .filter(adapter => !adapter.box.excludePianoMode.getValue())
             trackBoxAdapters.forEach(trackAdapter => {
                 for (const region of trackAdapter.regions.collection.iterateRange(min, max)) {
                     if (!isInstanceOf(region, NoteRegionBoxAdapter)) {continue}
@@ -129,9 +130,8 @@ export const NoteFall = (
     const element: HTMLElement = (<div className={className}>{canvas}</div>)
     lifecycle.ownAll(
         painter,
-        enginePosition.subscribe(painter.requestUpdate),
+        updateNotifier.subscribe(painter.requestUpdate),
         Html.watchResize(element, painter.requestUpdate),
-        pianoMode.subscribe(painter.requestUpdate),
         Events.subscribe(canvas, "wheel", event => {
             event.preventDefault()
             const position = enginePosition.getValue() - Math.sign(event.deltaY) * PPQN.SemiQuaver * 2

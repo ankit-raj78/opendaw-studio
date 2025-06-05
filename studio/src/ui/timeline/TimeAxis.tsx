@@ -116,7 +116,7 @@ export const TimeAxis = ({lifecycle, service, snapping, range, mapper}: Construc
         Html.watchResize(canvas, onResize),
         range.subscribe(painter.requestUpdate),
         service.engine.playbackTimestamp().subscribe(painter.requestUpdate),
-        boxGraph.subscribeBoxUpdates(Propagation.Children, signature.address, painter.requestUpdate)
+        boxGraph.subscribeVertexUpdates(Propagation.Children, signature.address, painter.requestUpdate)
     )
     return (
         <div className={className}>
