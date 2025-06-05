@@ -15,6 +15,7 @@ import {TrackType} from "@/audio-engine-shared/adapters/timeline/TrackType.ts"
 import {RootBoxAdapter} from "@/audio-engine-shared/adapters/RootBoxAdapter.ts"
 import {TrackBoxAdapter} from "@/audio-engine-shared/adapters/timeline/TrackBoxAdapter.ts"
 import {AudioUnitBoxAdapter} from "@/audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter.ts"
+import {Colors} from "@/ui/Colors.ts"
 
 const className = Html.adoptStyleSheet(css, "PianoModePanel")
 
@@ -31,12 +32,19 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
     const {keyboard, timeRangeInQuarters, noteScale, noteLabels, transpose} = pianoMode
     const updateNotifier = lifecycle.own(new Notifier<void>())
     const notify = deferNextFrame(() => updateNotifier.notify())
+    const tracksHeader: HTMLElement = (
+        <Group>
+            <span style={{color: Colors.blue}}>Tracks:</span>
+            <div style={{height: "1.5em"}}/>
+        </Group>
+    )
     const noMidiTrackMessage: HTMLElement = (
         <div className="no-midi-track-label">No midi track available</div>
     )
     const subscribeExcludePianoModeAll = (rootBoxAdapter: RootBoxAdapter, anyUpdate: Exec): Terminable => {
         const terminator = new Terminator()
-        let showMidiTrack = false
+        let anyEnabled = false
+        let anyAvailable = false
         terminator.own(rootBoxAdapter.audioUnits.catchupAndSubscribe({
             onAdd: (audioUnitBoxAdapter: AudioUnitBoxAdapter) =>
                 terminator.own(audioUnitBoxAdapter.tracks.catchupAndSubscribe({
@@ -45,8 +53,9 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
                             const {box: {excludePianoMode}} = adapter
                             terminator.own(excludePianoMode.subscribe(anyUpdate))
                             if (!excludePianoMode.getValue()) {
-                                showMidiTrack = true
+                                anyEnabled = true
                             }
+                            anyAvailable = true
                         }
                     },
                     onRemove: anyUpdate,
@@ -55,7 +64,8 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
             onRemove: () => anyUpdate,
             onReorder: () => anyUpdate
         }))
-        noMidiTrackMessage.classList.toggle("hidden", showMidiTrack)
+        tracksHeader.classList.toggle("hidden", !anyAvailable)
+        noMidiTrackMessage.classList.toggle("hidden", anyEnabled)
         return terminator
     }
     let excludePianoModeSubscription: Subscription = Terminable.Empty
@@ -103,6 +113,7 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
                               model={EditWrapper.forValue(editing, noteLabels)}>
                         <Icon symbol={IconSymbol.Checkbox}/>
                     </Checkbox>
+                    {tracksHeader}
                     {
                         rootBoxAdapter.audioUnits.adapters()
                             .flatMap(audioUnitBoxAdapter => audioUnitBoxAdapter.tracks.values()
