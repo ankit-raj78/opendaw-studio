@@ -65,7 +65,7 @@ export const TimeStateDisplay = ({lifecycle, service}: Construct) => {
             const {nominator, denominator} = timelineBoxAdapter.box.signature
             meterLabel.value = `${nominator.getValue()}/${denominator.getValue()}`
         }
-        boxGraph.subscribeBoxUpdates(Propagation.Children, timelineBoxAdapter.box.signature.address, updateMeterLabel)
+        boxGraph.subscribeVertexUpdates(Propagation.Children, timelineBoxAdapter.box.signature.address, updateMeterLabel)
         updateMeterLabel()
         rootBoxAdapter.groove.box.amount.catchupAndSubscribe((owner: ObservableValue<float>) =>
             shuffleDigit.value = String(Math.round(owner.getValue() * 100)))

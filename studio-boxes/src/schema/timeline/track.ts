@@ -12,17 +12,8 @@ export const TrackBox: BoxSchema<Pointers> = {
             4: {type: "field", name: "clips", pointerRules: {accepts: [Pointers.ClipCollection], mandatory: false}},
             10: {type: "int32", name: "index"},
             11: {type: "int32", name: "type"},
-            20: {type: "boolean", name: "enabled", value: true}
+            20: {type: "boolean", name: "enabled", value: true},
+            30: {type: "boolean", name: "exclude-piano-mode", value: false}
         }
     }, pointerRules: {accepts: [Pointers.Selection, Pointers.PianoMode], mandatory: false}
-}
-
-export const TrackIgnorePianoModeBox: BoxSchema<Pointers> = {
-    type: "box",
-    class: {
-        name: "TrackIgnorePianoModeBox",
-        fields: {
-            1: {type: "pointer", name: "track", pointerType: Pointers.PianoMode, mandatory: true}
-        }
-    }
 }

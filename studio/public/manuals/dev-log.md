@@ -3,21 +3,22 @@
 ## TODO
 
 * PianoModePanel
-    * Show timeline navigation
-    * dialog? to disable note tracks
+    * Show timeline navigation?
     * Different note labels for different countries (Global Switch)
-    * Control to show and edit signature
-    * Playfield: Samples appear louder when polyphone
+    * Use NoteFall renderCalls in PianoRoll as well (optimization)
+    * ~~dialog? to disable note tracks~~
+    * ~~Control to show and edit signature~~
     * ~~Scroll Y should change engine position (FW, RW)~~
     * ~~Rename to PianoModePanel~~
     * ~~Transpose~~
-    * ~~Go back to timeline view~~
+    * ~~Go back to the timeline view~~
     * ~~Open MidiFall view (or Piano Tutorial Mode?)~~
     * ~~labels on falling notes (~~Hide when note is too short~~ clip)~~
     * ~~control to adjust visible time range~~
     * ~~active piano colors~~
     * ~~different keyboard layouts https://familypiano.com/blog/piano-keys-faq/~~
     * ~~time signature / octave (C, F) grid~~
+* Playfield bug: Samples appear louder when polyphone
 * Attach a CurveBox to ValueEventBox (enables having different curve shapes in future)
 * Make effect-bypass parameter automatable
 * Add SoundFont device

@@ -1,16 +1,17 @@
 import css from "./PianoModePanel.sass?inline"
 import {createElement, Group} from "jsx"
 import {StudioService} from "@/service/StudioService.ts"
-import {Html} from "dom"
+import {deferNextFrame, Html} from "dom"
 import {PianoRoll} from "@/ui/piano-panel/PianoRoll.tsx"
 import {NoteFall} from "@/ui/piano-panel/NoteFall.tsx"
-import {Lifecycle} from "std"
+import {Lifecycle, Notifier} from "std"
 import {NumberInput} from "@/ui/components/NumberInput.tsx"
 import {Checkbox} from "@/ui/components/Checkbox.tsx"
 import {Icon} from "@/ui/components/Icon.tsx"
 import {IconSymbol} from "@/IconSymbol.ts"
 import {RadioGroup} from "@/ui/components/RadioGroup.tsx"
 import {EditWrapper} from "@/ui/wrapper/EditWrapper.ts"
+import {TrackType} from "@/audio-engine-shared/adapters/timeline/TrackType.ts"
 
 const className = Html.adoptStyleSheet(css, "PianoModePanel")
 
@@ -25,10 +26,17 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
     const {rootBoxAdapter, editing} = project
     const pianoMode = rootBoxAdapter.pianoMode
     const {keyboard, timeRangeInQuarters, noteScale, noteLabels, transpose} = pianoMode
-    const element: HTMLElement = (
+    const updateNotifier = lifecycle.own(new Notifier<void>())
+    const notify = deferNextFrame(() => updateNotifier.notify())
+    // TODO Listen to trackBox.excludePianoMode BooleanField
+    lifecycle.ownAll(
+        service.engine.position().subscribe(notify.request),
+        pianoMode.subscribe(notify.request)
+    )
+    return (
         <div className={className}>
-            <NoteFall lifecycle={lifecycle} project={project}/>
-            <PianoRoll lifecycle={lifecycle} project={project}/>
+            <NoteFall lifecycle={lifecycle} project={project} updateNotifier={updateNotifier}/>
+            <PianoRoll lifecycle={lifecycle} project={project} updateNotifier={updateNotifier}/>
             <div className="controls">
                 <Group>
                     <span>Keyboard</span>
@@ -56,9 +64,26 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
                               model={EditWrapper.forValue(editing, noteLabels)}>
                         <Icon symbol={IconSymbol.Checkbox}/>
                     </Checkbox>
+                    {
+                        rootBoxAdapter.audioUnits.adapters()
+                            .flatMap(audioUnitBoxAdapter => audioUnitBoxAdapter.tracks.values()
+                                .filter(track => track.type === TrackType.Notes)
+                                .map((track, index, array) => (
+                                    <Group>
+                                        <span>Exc. {
+                                            // TODO This list will not scale and isn't very nice
+                                            array.length === 1
+                                                ? audioUnitBoxAdapter.label
+                                                : `${(audioUnitBoxAdapter.label)} (${index + 1})`}</span>
+                                        <Checkbox lifecycle={lifecycle}
+                                                  model={EditWrapper.forValue(editing, track.box.excludePianoMode)}>
+                                            <Icon symbol={IconSymbol.Checkbox}/>
+                                        </Checkbox>
+                                    </Group>
+                                )))
+                    }
                 </Group>
             </div>
         </div>
     )
-    return element
 }
