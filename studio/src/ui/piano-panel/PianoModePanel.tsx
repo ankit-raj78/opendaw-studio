@@ -84,6 +84,11 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
                     }
                 </Group>
             </div>
+            {!rootBoxAdapter.audioUnits.adapters()
+                .some(audioUnitBoxAdapter => audioUnitBoxAdapter.tracks.values()
+                    .some(trackAdapter => trackAdapter.type === TrackType.Notes)) && (
+                <div className="no-midi-track-label">No midi track found</div>
+            )}
         </div>
     )
 }
