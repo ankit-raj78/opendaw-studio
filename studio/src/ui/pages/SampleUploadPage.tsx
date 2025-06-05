@@ -6,7 +6,7 @@ import {showInfoDialog} from "@/ui/components/dialogs.tsx"
 import {SampleApi} from "@/service/SampleApi.ts"
 import {estimateBpm} from "dsp"
 import {encodeWavFloat} from "@/wav"
-import {FilePickerAcceptTypes} from "@/FilePickerAcceptTypes"
+import {FilePickerAcceptTypes} from "@/ui/FilePickerAcceptTypes.ts"
 
 const className = Html.adoptStyleSheet(css, "SampleUploadPage")
 

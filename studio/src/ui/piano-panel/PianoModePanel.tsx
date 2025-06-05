@@ -28,7 +28,7 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
     const {keyboard, timeRangeInQuarters, noteScale, noteLabels, transpose} = pianoMode
     const updateNotifier = lifecycle.own(new Notifier<void>())
     const notify = deferNextFrame(() => updateNotifier.notify())
-    // TODO Listen to trackBox.excludePianoMode BooleanField
+    // TODO Listen to new tracks somehow (RootBoxAdapter) and then listen to their excludePianoMode field
     lifecycle.ownAll(
         service.engine.position().subscribe(notify.request),
         pianoMode.subscribe(notify.request)

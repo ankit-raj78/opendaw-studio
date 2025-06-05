@@ -7,7 +7,7 @@ import {ProjectMeta} from "@/project/ProjectMeta"
 import {showApproveDialog, showInfoDialog, showProcessDialog, showProcessMonolog} from "@/ui/components/dialogs"
 import {StudioService} from "./StudioService"
 import {Promises} from "runtime"
-import {FilePickerAcceptTypes} from "@/FilePickerAcceptTypes"
+import {FilePickerAcceptTypes} from "@/ui/FilePickerAcceptTypes.ts"
 import {Errors, Files} from "dom"
 
 export class SessionService implements MutableObservableValue<Option<ProjectSession>> {

@@ -1,4 +1,4 @@
-import {FilePickerAcceptTypes} from "@/FilePickerAcceptTypes"
+import {FilePickerAcceptTypes} from "@/ui/FilePickerAcceptTypes.ts"
 import {FooterLabel} from "@/service/FooterLabel"
 import {SyncLogWriter} from "@/sync-log/SyncLogWriter"
 import {asDefined, Exec, isDefined} from "std"

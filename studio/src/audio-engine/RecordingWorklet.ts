@@ -15,7 +15,7 @@ export class RecordingWorklet extends AudioWorkletNode {
         const audioBytes = numChannels * numChunks * RenderQuantum * Float32Array.BYTES_PER_ELEMENT
         const pointerBytes = Int32Array.BYTES_PER_ELEMENT * 2
         const sab = new SharedArrayBuffer(audioBytes + pointerBytes)
-        const buffer: RingBuffer.Config = {sab, numChunks, numChannels}
+        const buffer: RingBuffer.Config = {sab, numChunks, numChannels, bufferSize: RenderQuantum}
         return factory.create(context => new RecordingWorklet(context, buffer))
     }
 

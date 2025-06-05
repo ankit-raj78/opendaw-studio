@@ -67,9 +67,9 @@ export const Dashboard = ({service}: Construct) => {
                 <p style={{marginTop: "1.5em", fontSize: "0.625em"}}>
                     Last built was <span style={{color: Colors.green}}>{time}</span>. Join our <a
                     href="https://discord.opendaw.studio" target="discord" style={{color: Colors.blue}}>discord
-                    community</a> to stay updated! - What is <a href="https://opendaw.org" target="website"
-                                                                style={{color: Colors.blue}}>openDAW?</a> - Built with
-                    🤍
+                    community</a> to stay updated! · <a href="https://github.com/andremichelle/opendaw"
+                                                      target="github"
+                                                      style={{color: Colors.blue}}>Source code</a> · Built with 🤍
                 </p>
             </article>
         </div>
