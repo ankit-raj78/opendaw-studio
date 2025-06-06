@@ -22,7 +22,7 @@ supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [k
 
 ## Links
 
-* [Discuss openDAW on Discord](https://discord.gg/B3C664wn)
+* [Discuss openDAW on Discord](https://discord.opendaw.studio)
 * [Support openDAW on Patreon](https://www.patreon.com/join/openDAW)
 * [Support openDAW on ko-fi](https://ko-fi.com/opendaw)
 * [More information on opendaw.org (website)](https://opendaw.org)
