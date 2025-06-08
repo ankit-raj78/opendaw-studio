@@ -15,6 +15,7 @@ export class BlockRenderer {
 
     readonly #callbacks: SetMultimap<ppqn, Exec>
 
+    #tempoChanged: boolean = false
     #currentMarker: Nullable<[MarkerBoxAdapter, int]> = null
     #someMarkersChanged: boolean = false
     #freeRunningPosition: ppqn = 0.0 // synced with timeInfo when transporting
@@ -23,6 +24,7 @@ export class BlockRenderer {
     constructor(context: EngineContext) {
         this.#context = context
         this.#context.timelineBoxAdapter.markerTrack.subscribe(() => this.#someMarkersChanged = true)
+        this.#context.timelineBoxAdapter.box.bpm.subscribe(() => this.#tempoChanged = true)
 
         this.#callbacks = new SetMultimap()
     }
@@ -108,7 +110,6 @@ export class BlockRenderer {
                         }
                     }
                 }
-
                 //
                 // handle action (if any)
                 //
@@ -116,7 +117,7 @@ export class BlockRenderer {
                     const s1 = s0 + sn
                     blocks.push({
                         index: index++, p0, p1, s0, s1, bpm,
-                        flags: BlockFlags.create(transporting, discontinuous, this.#playEvents)
+                        flags: BlockFlags.create(transporting, discontinuous, this.#playEvents, this.#tempoChanged)
                     })
                     discontinuous = false
                     p0 = p1
@@ -127,7 +128,7 @@ export class BlockRenderer {
                             const s1 = s0 + PPQN.pulsesToSamples(actionPosition - p0, bpm, sampleRate) | 0
                             blocks.push({
                                 index: index++, p0, p1: actionPosition, s0, s1, bpm,
-                                flags: BlockFlags.create(transporting, discontinuous, this.#playEvents)
+                                flags: BlockFlags.create(transporting, discontinuous, this.#playEvents, this.#tempoChanged)
                             })
                             discontinuous = false
                             p0 = actionPosition
@@ -164,6 +165,7 @@ export class BlockRenderer {
                         }
                     }
                 }
+                this.#tempoChanged = false
             }
             procedure({blocks})
             timeInfo.advanceTo(p0)
@@ -184,7 +186,7 @@ export class BlockRenderer {
             const processInfo: ProcessInfo = {
                 blocks: [{
                     index: 0, p0, p1, s0: 0, s1: RenderQuantum, bpm,
-                    flags: BlockFlags.create(false, false, false)
+                    flags: BlockFlags.create(false, false, false, false)
                 }]
             }
             procedure(processInfo)

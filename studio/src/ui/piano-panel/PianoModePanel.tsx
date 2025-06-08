@@ -41,6 +41,7 @@ export const PianoModePanel = ({lifecycle, service}: Construct) => {
     const noMidiTrackMessage: HTMLElement = (
         <div className="no-midi-track-label">No midi track available</div>
     )
+    // Quick and dirty solution. We just listen to all tracks and unsubscribe and relisten to a new situation
     const subscribeExcludePianoModeAll = (rootBoxAdapter: RootBoxAdapter, anyUpdate: Exec): Terminable => {
         const terminator = new Terminator()
         let anyEnabled = false

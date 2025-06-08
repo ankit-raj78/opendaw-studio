@@ -1,8 +1,8 @@
 import {AudioEffectDeviceProcessor} from "@/worklet/processors.ts"
 import {DelayDeviceBoxAdapter} from "@/audio-engine-shared/adapters/devices/audio-effects/DelayDeviceBoxAdapter.ts"
 import {EngineContext} from "@/worklet/EngineContext.ts"
-import {Block, Processor} from "@/worklet/processing.ts"
-import {int, Option, Terminable, UUID} from "std"
+import {Block, BlockFlag, Processor} from "@/worklet/processing.ts"
+import {Bits, int, Option, Terminable, UUID} from "std"
 import {dbToGain, Event, Fraction, PPQN, StereoMatrix} from "dsp"
 import {AudioBuffer} from "@/worklet/AudioBuffer.ts"
 import {PeakBroadcaster} from "@/worklet/PeakBroadcaster.ts"
@@ -79,13 +79,12 @@ export class DelayDeviceProcessor extends AudioProcessor implements AudioEffectD
 
     handleEvent(_event: Event): void {}
 
-    processAudio({bpm}: Block, from: number, to: number): void {
+    processAudio({bpm, flags}: Block, from: number, to: number): void {
         if (this.#source.isEmpty()) {return}
-        if (this.#updateDelayTime) {
+        if (this.#updateDelayTime || Bits.some(flags, BlockFlag.tempoChanged)) {
             const offsetIndex = this.parameterDelay.getValue()
             const offsetInPulses = Fraction.toPPQN(DelayDeviceBoxAdapter.OffsetFractions[offsetIndex])
-            const offset = PPQN.pulsesToSamples(offsetInPulses, bpm, sampleRate)
-            this.#delayLines.offset = offset
+            this.#delayLines.offset = PPQN.pulsesToSamples(offsetInPulses, bpm, sampleRate)
             this.#updateDelayTime = false
         }
         const source = this.#source.unwrap()

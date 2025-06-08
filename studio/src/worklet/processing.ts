@@ -5,16 +5,18 @@ import {AudioBuffer} from "@/worklet/AudioBuffer.ts"
 import {UpdateEvent} from "@/worklet/UpdateClock.ts"
 
 export const enum BlockFlag {
-    transporting = 1 << 0, // set, if the time has not been advanced naturally (release notes)
+    transporting = 1 << 0, // is true if the (main) timeline should not advance
     discontinuous = 1 << 1, // set, if the time has not been advanced naturally (release notes)
-    playing = 1 << 2 // set, if arrangement should generate sound
+    playing = 1 << 2, // set, if arrangement should generate sound
+    tempoChanged = 1 << 3 // true if the tempo has been changed
 }
 
 export namespace BlockFlags {
-    export const create = (transporting: boolean, discontinuous: boolean, playing: boolean): int => 0
+    export const create = (transporting: boolean, discontinuous: boolean, playing: boolean, tempoChanged: boolean): int => 0
         | (transporting ? BlockFlag.transporting : 0)
         | (discontinuous ? BlockFlag.discontinuous : 0)
         | (playing ? BlockFlag.playing : 0)
+        | (tempoChanged ? BlockFlag.tempoChanged : 0)
 }
 
 export type Block = Readonly<{
