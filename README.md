@@ -6,7 +6,7 @@ a strong focus on **education** and hands-on **learning**.
 
 ![image](studio/public/images/meta.jpg)
 
-For more information about our mission and goals, please join our [Discord](https://discord.gg/B3C664wn), visit
+For more information about our mission and goals, please join our [Discord](https://discord.opendaw.studio/), visit
 our [official website](https://opendaw.org) and test our current [prototype](https://opendaw.studio/). Please consider
 supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [ko-fi](https://ko-fi.com/opendaw).
 
@@ -22,7 +22,7 @@ supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [k
 
 ## Links
 
-* [Discuss openDAW on Discord](https://discord.gg/B3C664wn)
+* [Discuss openDAW on Discord](https://discord.opendaw.studio)
 * [Support openDAW on Patreon](https://www.patreon.com/join/openDAW)
 * [Support openDAW on ko-fi](https://ko-fi.com/opendaw)
 * [More information on opendaw.org (website)](https://opendaw.org)
