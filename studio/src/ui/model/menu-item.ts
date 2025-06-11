@@ -85,10 +85,8 @@ export class MenuItem<DATA extends MenuData = MenuData> {
     }
 
     trigger(): void {
-        this.#triggerProcedure.match({
-            none: () => console.debug("Trigger", this.#data),
-            some: procedure => procedure(this)
-        })
+        console.debug("Trigger", this.#data)
+        this.#triggerProcedure.ifSome(procedure => procedure(this))
     }
 
     isSelectable(value: boolean = true): this {
