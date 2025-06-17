@@ -74,7 +74,7 @@ export class PianoRollLayout {
                 const x = whiteIndex * WhiteKey.width
                 this.#whiteKeysX.push({key, x})
                 this.#centered[key] = whiteIndex + 0.5
-                if (localNote === 0 || localNote === 5) this.#octaveSplits.push(whiteIndex)
+                if (localNote === 0 || localNote === 5) {this.#octaveSplits.push(whiteIndex)}
                 whiteIndex++
             }
         }

@@ -3,9 +3,10 @@ import {Html} from "dom"
 import {createElement, Group} from "jsx"
 import {PianoRollLayout} from "@/ui/piano-panel/PianoRollLayout.ts"
 import {isDefined, isInstanceOf, Lifecycle, Notifier} from "std"
-import {LoopableRegion, ppqn} from "dsp"
+import {LoopableRegion, PPQN, ppqn} from "dsp"
 import {NoteRegionBoxAdapter} from "@/audio-engine-shared/adapters/timeline/region/NoteRegionBoxAdapter.ts"
 import {Project} from "@/project/Project.ts"
+import {Events} from "../../../../lib/dom/src"
 
 const className = Html.adoptStyleSheet(css, "PianoRoll")
 
@@ -82,6 +83,16 @@ export const PianoRoll = ({lifecycle, project, updateNotifier}: Construct) => {
             svg = createSVG()
             placeholder.appendChild(svg)
         }),
+        // TODO We need a way to subscribe to all surfaces (this will fail when popping out into a new window)
+        Events.subscribe(self, "keydown", event => {
+            if (event.code === "ArrowUp") {
+                const position = enginePosition.getValue() + PPQN.Quarter
+                project.service.engine.requestPosition(Math.max(0, position))
+            } else if (event.code === "ArrowDown") {
+                const position = enginePosition.getValue() - PPQN.Quarter
+                project.service.engine.requestPosition(Math.max(0, position))
+            }
+        }, {capture: true}),
         updateNotifier.subscribe(() => update(enginePosition.getValue()))
     )
     update(enginePosition.getValue())

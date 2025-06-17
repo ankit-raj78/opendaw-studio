@@ -5,7 +5,6 @@
 * PianoModePanel
     * Show timeline navigation?
     * Different note labels for different countries (Global Switch)
-    * Use NoteFall renderCalls in PianoRoll as well (optimization)
     * ~~dialog? to disable note tracks~~
     * ~~Control to show and edit signature~~
     * ~~Scroll Y should change engine position (FW, RW)~~
