@@ -11,7 +11,13 @@ import {DeviceDefinitions} from "./schema/devices"
 import {ModuleDefinitions} from "./schema/modular"
 import {NoteClipBox, NoteEventBox, NoteEventCollectionBox, NoteRegionBox} from "./schema/timeline/notes"
 import {AudioClipBox, AudioRegionBox} from "./schema/timeline/audio"
-import {ValueClipBox, ValueEventBox, ValueEventCollectionBox, ValueRegionBox} from "./schema/timeline/value"
+import {
+    ValueClipBox,
+    ValueEventBox,
+    ValueEventCollectionBox,
+    ValueEventDefaultCurveBox,
+    ValueRegionBox
+} from "./schema/timeline/value"
 import {TrackBox} from "./schema/timeline/track"
 import {MarkerBox} from "./schema/timeline/marker"
 import {GrooveShuffleBox} from "./schema/grooves"
@@ -27,7 +33,7 @@ BoxForge.gen<Pointers>({
         RootBox, SelectionBox, UserInterfaceBox,
         TimelineBox, TrackBox,
         NoteEventBox, NoteEventCollectionBox, NoteRegionBox, NoteClipBox,
-        ValueEventBox, ValueEventCollectionBox, ValueRegionBox, ValueClipBox,
+        ValueEventBox, ValueEventCollectionBox, ValueEventDefaultCurveBox, ValueRegionBox, ValueClipBox,
         AudioRegionBox, AudioClipBox,
         MarkerBox,
         AudioFileBox,

@@ -36,6 +36,6 @@ export enum Pointers {
     NoteEventCollection,
     ValueEvents,
     ValueEventCollection,
-    ValueCurve,
+    ValueInterpolation,
     Sample,
 }
