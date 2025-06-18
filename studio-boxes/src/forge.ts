@@ -15,7 +15,7 @@ import {
     ValueClipBox,
     ValueEventBox,
     ValueEventCollectionBox,
-    ValueEventDefaultCurveBox,
+    ValueEventCurveBox,
     ValueRegionBox
 } from "./schema/timeline/value"
 import {TrackBox} from "./schema/timeline/track"
@@ -33,7 +33,7 @@ BoxForge.gen<Pointers>({
         RootBox, SelectionBox, UserInterfaceBox,
         TimelineBox, TrackBox,
         NoteEventBox, NoteEventCollectionBox, NoteRegionBox, NoteClipBox,
-        ValueEventBox, ValueEventCollectionBox, ValueEventDefaultCurveBox, ValueRegionBox, ValueClipBox,
+        ValueEventBox, ValueEventCollectionBox, ValueEventCurveBox, ValueRegionBox, ValueClipBox,
         AudioRegionBox, AudioClipBox,
         MarkerBox,
         AudioFileBox,

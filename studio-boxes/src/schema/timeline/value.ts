@@ -16,21 +16,20 @@ export const ValueEventBox: BoxSchema<Pointers> = {
                 value: 1 /* default is linear */,
                 pointerRules: {accepts: [Pointers.ValueInterpolation], mandatory: false}
             },
-            // TODO Remove these and use ValueEventDefaultCurveBox to attach curve interpolation
             13: {type: "float32", name: "value"},
+            // TODO Remove these and use ValueEventDefaultCurveBox to attach curve interpolation
             14: {type: "float32", name: "slope"}
         }
     }, pointerRules: {accepts: [Pointers.Selection], mandatory: false}
 }
 
-export const ValueEventDefaultCurveBox: BoxSchema<Pointers> = {
+export const ValueEventCurveBox: BoxSchema<Pointers> = {
     type: "box",
     class: {
-        name: "ValueEventDefaultCurveBox",
+        name: "ValueEventCurveBox",
         fields: {
             1: {type: "pointer", name: "event", pointerType: Pointers.ValueInterpolation, mandatory: true},
-            2: {type: "float32", name: "value"},
-            3: {type: "float32", name: "slope"}
+            2: {type: "float32", name: "slope"}
         }
     }
 }
