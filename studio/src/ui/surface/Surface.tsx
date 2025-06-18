@@ -223,7 +223,9 @@ export class Surface implements TerminableOwner {
         this.#terminator.ownAll(
             Events.subscribe(this.#owner, "pointerdown", (event: PointerEvent) => {
                 if (pointerDown.nonEmpty()) {
-                    console.debug("simulate pointerup ondown")
+                    // TODO There is a strange behavior on some machines, where it appears
+                    //  that the pointerdown event is sent twice immediately (related to to-do above)
+                    console.debug("simulate pointerup onpointerdown", Date.now())
                     pointerDown.unwrap().dispatchEvent(new PointerEvent("pointerup", event))
                     pointerDown = Option.None
                 }

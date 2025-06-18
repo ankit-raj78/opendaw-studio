@@ -3,6 +3,7 @@ import {
     asDefined,
     Curve,
     int,
+    linear,
     Notifier,
     Observer,
     Option,
@@ -108,8 +109,14 @@ export class ValueEventCollectionBoxAdapter implements BoxAdapter {
             }))
         }
         if (low.interpolation.type === "linear") {
-            // TODO
-            return panic("Linear interpolation is not implement")
+            const {position: p0, value: v0} = low
+            const {position: p1, value: v1} = high
+            return Option.wrap(this.createEvent({
+                position,
+                value: linear(v0, v1, (position - p0) / (p1 - p0)),
+                index: 0,
+                interpolation: low.interpolation
+            }))
         }
         if (low.interpolation.type === "curve") {
             const {position: p0, value: y0} = low
@@ -138,13 +145,14 @@ export class ValueEventCollectionBoxAdapter implements BoxAdapter {
     subscribeChange(observer: Observer<this>): Subscription {return this.#changeNotifier.subscribe(observer)}
 
     createEvent({position, index, value, interpolation}: CreateEventParams): ValueEventBoxAdapter {
-        return this.#context.boxAdapters.adapterFor(ValueEventBox.create(this.#context.boxGraph, UUID.generate(), box => {
+        const eventBox = ValueEventBox.create(this.#context.boxGraph, UUID.generate(), box => {
             box.position.setValue(position)
             box.index.setValue(index)
             box.value.setValue(value)
             box.events.refer(this.#box.events)
-            InterpolationFieldAdapter.write(box.interpolation, interpolation)
-        }), ValueEventBoxAdapter)
+        })
+        InterpolationFieldAdapter.write(eventBox.interpolation, interpolation)
+        return this.#context.boxAdapters.adapterFor(eventBox, ValueEventBoxAdapter)
     }
 
     requestSorting(): void {

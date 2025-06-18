@@ -80,8 +80,10 @@ export class ValueEventBoxAdapter implements ValueEvent, BoxAdapter, Selectable 
         )
 
         this.#interpolationSubscription = this.#box.interpolation.pointerHub
-            .filter(Pointers.ValueInterpolation)
-            .at(0)?.box.subscribe(Propagation.Children, invalidateInterpolation) ?? Terminable.Empty
+                .filter(Pointers.ValueInterpolation)
+                .at(0)?.box
+                .subscribe(Propagation.Children, invalidateInterpolation)
+            ?? Terminable.Empty
     }
 
     onSelected(): void {
@@ -113,13 +115,14 @@ export class ValueEventBoxAdapter implements ValueEvent, BoxAdapter, Selectable 
     }
 
     copyTo(options?: CopyToParams): ValueEventBoxAdapter {
-        return this.#context.boxAdapters.adapterFor(ValueEventBox.create(this.#context.boxGraph, UUID.generate(), box => {
+        const eventBox = ValueEventBox.create(this.#context.boxGraph, UUID.generate(), box => {
             box.position.setValue(options?.position ?? this.position)
             box.index.setValue(options?.index ?? this.index)
             box.events.refer(options?.events ?? this.collection.unwrap().box.events)
             box.value.setValue(options?.value ?? this.value)
-            InterpolationFieldAdapter.write(box.interpolation, options?.interpolation ?? this.interpolation)
-        }), ValueEventBoxAdapter)
+        })
+        InterpolationFieldAdapter.write(eventBox.interpolation, options?.interpolation ?? this.interpolation)
+        return this.#context.boxAdapters.adapterFor(eventBox, ValueEventBoxAdapter)
     }
 
     copyFrom(options?: CopyToParams): this {
