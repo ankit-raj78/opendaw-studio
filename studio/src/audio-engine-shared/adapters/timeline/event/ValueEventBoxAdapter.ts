@@ -1,5 +1,5 @@
 import {Interpolation, ppqn, ValueEvent} from "dsp"
-import {Arrays, CacheValue, Comparator, int, Option, Selectable, Terminable, Terminator, unitValue, UUID} from "std"
+import {Arrays, Cache, Comparator, int, Option, Selectable, Terminable, Terminator, unitValue, UUID} from "std"
 import {Address, Field, Propagation, Update} from "box"
 import {Pointers} from "@/data/pointers.ts"
 import {ValueEventBox} from "@/data/boxes/ValueEventBox.ts"
@@ -32,7 +32,7 @@ export class ValueEventBoxAdapter implements ValueEvent, BoxAdapter, Selectable 
     readonly #context: BoxAdaptersContext
     readonly #box: ValueEventBox
 
-    readonly #interpolation: CacheValue<Interpolation>
+    readonly #interpolation: Cache<Interpolation>
 
     #interpolationSubscription: Terminable
     #isSelected: boolean = false
@@ -41,7 +41,7 @@ export class ValueEventBoxAdapter implements ValueEvent, BoxAdapter, Selectable 
         this.#context = context
         this.#box = box
 
-        this.#interpolation = this.#terminator.own(new CacheValue<Interpolation>(() =>
+        this.#interpolation = this.#terminator.own(new Cache<Interpolation>(() =>
             InterpolationFieldAdapter.read(this.#box.interpolation)))
 
         const invalidateInterpolation = () => {
