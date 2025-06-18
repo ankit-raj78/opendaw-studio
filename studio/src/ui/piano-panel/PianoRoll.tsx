@@ -85,6 +85,7 @@ export const PianoRoll = ({lifecycle, project, updateNotifier}: Construct) => {
         }),
         // TODO We need a way to subscribe to all surfaces (this will fail when popping out into a new window)
         Events.subscribe(self, "keydown", event => {
+            if (Events.isTextInput(event.target)) {return}
             if (event.code === "ArrowUp") {
                 const position = enginePosition.getValue() + PPQN.Quarter
                 project.service.engine.requestPosition(Math.max(0, position))
