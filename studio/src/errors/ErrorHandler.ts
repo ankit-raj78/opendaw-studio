@@ -1,8 +1,10 @@
-import {Terminable, Terminator} from "std"
+import {int, Terminable, Terminator} from "std"
 import {showErrorDialog} from "@/ui/components/dialogs.tsx"
 import {Surface} from "@/ui/surface/Surface.tsx"
 import {AnimationFrame, Browser, Events} from "dom"
 import {StudioService} from "@/service/StudioService.ts"
+import {BuildInfo} from "@/BuildInfo.ts"
+import {LogBuffer} from "@/LogBuffer.ts"
 
 export interface ErrorReporting {
     error(...args: any[]): void
@@ -13,6 +15,15 @@ type ErrorInfo = {
     name: string
     message: string
     stack?: string
+}
+
+type ErrorLog = {
+    date: string
+    agent: string
+    build: BuildInfo
+    scripts: int
+    error: ErrorInfo
+    logs: Array<LogBuffer.Entry>
 }
 
 const extractErrorInfo = (event: Event): ErrorInfo => {
@@ -103,13 +114,16 @@ export class ErrorHandler implements ErrorReporting {
         if (this.#errorThrown) {return}
         this.#errorThrown = true
         AnimationFrame.terminate()
-        console.debug(JSON.stringify({
-            date: new Date().toISOString(),
-            agent: navigator.userAgent,
-            build: this.#service.buildInfo,
-            scripts: document.scripts.length,
-            error: extractErrorInfo(event)
-        }))
+        if (location.hash === "#admin") { // TODO This is for testing the output. Will be sent to the server...
+            console.debug(JSON.stringify({
+                date: new Date().toISOString(),
+                agent: navigator.userAgent,
+                build: this.#service.buildInfo,
+                scripts: document.scripts.length,
+                error: extractErrorInfo(event),
+                logs: LogBuffer.get()
+            } satisfies ErrorLog))
+        }
         if (event instanceof ErrorEvent && event.error instanceof Error) {
             this.error(scope, event.error)
         } else if (event instanceof PromiseRejectionEvent) {
