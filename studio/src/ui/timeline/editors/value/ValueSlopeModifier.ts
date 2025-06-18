@@ -1,4 +1,4 @@
-import {clampUnit, Iterables, Notifier, Observer, Option, Selection, Terminable, unitValue, ValueAxis} from "std"
+import {clampUnit, Iterables, Notifier, Observer, Option, panic, Selection, Terminable, unitValue, ValueAxis} from "std"
 import {Editing} from "box"
 import {ValueEventBoxAdapter} from "@/audio-engine-shared/adapters/timeline/event/ValueEventBoxAdapter.ts"
 import {EventCollection, Interpolation, ppqn, ValueEvent} from "dsp"
@@ -54,15 +54,17 @@ export class ValueSlopeModifier implements ValueModifier {
     readValue(event: ValueEvent): unitValue {return event.value}
     readInterpolation(event: UIValueEvent): Interpolation {
         const successor = ValueEvent.nextEvent(this.#unwrapEventCollection(), event)
-        if (successor === null) {return Interpolation.None} // the last event has no successor hence no interpolation
-        const interpolation = successor.interpolation
-        if (interpolation.type === "linear") {
+        if (successor === null) {return event.interpolation} // the last event has no successor hence no curve
+        const interpolation = event.interpolation
+        if (interpolation.type === "none") {
+            return Interpolation.None
+        } else if (interpolation.type === "linear") {
             return Interpolation.Linear
         } else if (interpolation.type === "curve") {
             const slope = clampUnit(interpolation.slope - this.#deltaSlope * Math.sign(event.value - successor.value))
-            return {type: "curve", slope}
+            return Interpolation.Curve(slope)
         }
-        return Interpolation.None
+        return panic("Internal Error (readInterpolation)")
     }
     readContentDuration(owner: ValueEventOwnerReader): number {return owner.contentDuration}
     iterator(searchMin: ppqn, searchMax: ppqn): IteratorObject<ValueEventDraft> {
@@ -89,9 +91,11 @@ export class ValueSlopeModifier implements ValueModifier {
 
     approve(editing: Editing): void {
         if (this.#deltaSlope === 0.0) {return}
-        const result: ReadonlyArray<{ event: ValueEventBoxAdapter, interpolation: Interpolation }> =
-            this.#selection.selected().map(event => ({event, interpolation: this.readInterpolation(event)}))
+        type Subject = { event: ValueEventBoxAdapter, interpolation: Interpolation }
+        const result: ReadonlyArray<Subject> = this.#selection.selected()
+            .map(event => ({event, interpolation: this.readInterpolation(event)}))
         editing.modify(() => result.forEach(({event, interpolation}) => event.interpolation = interpolation))
+        this.#deltaSlope = 0.0
     }
 
     cancel(): void {

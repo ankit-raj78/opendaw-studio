@@ -91,7 +91,6 @@ export class ValueEventCollectionBoxAdapter implements BoxAdapter {
             }))
         }
         if (null === low) {
-            if (null === high) {return Option.None}
             return Option.wrap(this.createEvent({
                 position,
                 value: high.value,

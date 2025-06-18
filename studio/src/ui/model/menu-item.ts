@@ -85,7 +85,11 @@ export class MenuItem<DATA extends MenuData = MenuData> {
     }
 
     trigger(): void {
-        console.debug("Trigger", this.#data)
+        try {
+            console.debug(`MenuItem.trigger: ${JSON.stringify(this.#data)}`)
+        } catch (reason) {
+            console.debug(`MenuItem.trigger: ${this.#data}`)
+        }
         this.#triggerProcedure.ifSome(procedure => procedure(this))
     }
 

@@ -2,10 +2,11 @@ import {ContextMenu} from "@/ui/ContextMenu.ts"
 import {MenuItem} from "@/ui/model/menu-item.ts"
 import {ElementCapturing} from "@/ui/canvas/capturing.ts"
 import {Editing} from "box"
-import {Selection} from "std"
+import {Objects, Selection} from "std"
 import {ValueEventBoxAdapter} from "@/audio-engine-shared/adapters/timeline/event/ValueEventBoxAdapter.ts"
 import {ValueCaptureTarget} from "@/ui/timeline/editors/value/ValueEventCapturing.ts"
 import {Interpolation} from "dsp"
+import {DebugMenus} from "@/ui/menu/debug.ts"
 
 type Construct = {
     element: Element
@@ -50,10 +51,9 @@ export const installValueContextMenu = ({element, capturing, editing, selection}
                 )),
             MenuItem.default({label: "Print events to console"})
                 .setTriggerProcedure(() => {
-                    console.debug(target.event.collection.unwrap().events.asArray()
-                        .map(({position, index, value, interpolation}) =>
-                            `{position: ${position}, index: ${index}, value: ${value}, interpolation: ${interpolation}}`)
-                        .join(",\n"))
-                })
+                    console.debug(JSON.stringify(target.event.collection.unwrap().events.asArray()
+                        .map(event => Objects.include(event, "position", "value", "interpolation", "index"))))
+                }),
+            DebugMenus.debugBox(target.event.box)
         )
     })
