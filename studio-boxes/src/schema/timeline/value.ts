@@ -17,7 +17,7 @@ export const ValueEventBox: BoxSchema<Pointers> = {
                 pointerRules: {accepts: [Pointers.ValueInterpolation], mandatory: false}
             },
             13: {type: "float32", name: "value"},
-            // TODO Remove these and use ValueEventDefaultCurveBox to attach curve interpolation
+            // TODO Remove slope. It is not used anymore but older project files
             14: {type: "float32", name: "slope"}
         }
     }, pointerRules: {accepts: [Pointers.Selection], mandatory: false}
@@ -29,7 +29,7 @@ export const ValueEventCurveBox: BoxSchema<Pointers> = {
         name: "ValueEventCurveBox",
         fields: {
             1: {type: "pointer", name: "event", pointerType: Pointers.ValueInterpolation, mandatory: true},
-            2: {type: "float32", name: "slope"}
+            2: {type: "float32", name: "slope", value: 0.5}
         }
     }
 }
