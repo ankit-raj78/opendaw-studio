@@ -38,7 +38,7 @@ requestAnimationFrame(async () => {
             alert(errorReportingResult.error)
             return
         }
-        const errorHandler = new ErrorHandler(errorReportingResult.value)
+
         await FontLoader.load()
         const testFeaturesResult = await Promises.tryCatch(testFeatures())
         if (testFeaturesResult.status === "rejected") {
@@ -68,8 +68,9 @@ requestAnimationFrame(async () => {
             fetch: async (uuid: UUID.Format, progress: Procedure<unitValue>): Promise<[AudioData, AudioMetaData]> =>
                 SampleApi.load(context, uuid, progress)
         } satisfies AudioServerApi, context)
-        const service: StudioService = new StudioService(
-            context, audioWorklets.value, audioDevices, audioManager, errorHandler, buildInfo)
+        const service: StudioService =
+            new StudioService(context, audioWorklets.value, audioDevices, audioManager, buildInfo)
+        const errorHandler = new ErrorHandler(service, errorReportingResult.value)
         const surface = Surface.main({
             config: (surface: Surface) => {
                 surface.ownAll(

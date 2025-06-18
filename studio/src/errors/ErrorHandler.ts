@@ -1,13 +1,8 @@
-import {Option, Provider, Terminable, Terminator, UUID} from "std"
+import {Terminable, Terminator} from "std"
 import {showErrorDialog} from "@/ui/components/dialogs.tsx"
 import {Surface} from "@/ui/surface/Surface.tsx"
-import {OpfsAgent} from "@/service/agents.ts"
-import {ProjectSession} from "@/project/ProjectSession.ts"
-import {Project} from "../project/Project.ts"
-import {StudioService} from "@/service/StudioService.ts"
-import {ProjectMeta} from "@/project/ProjectMeta.ts"
 import {AnimationFrame, Browser, Events} from "dom"
-import {Promises} from "runtime"
+import {StudioService} from "@/service/StudioService.ts"
 
 export interface ErrorReporting {
     error(...args: any[]): void
@@ -46,8 +41,6 @@ export namespace ErrorReporting {
 }
 
 export class ErrorHandler implements ErrorReporting {
-    static readonly #RESTORE_FILE_PATH = ".backup" // TODO Extract Recovery into another class
-
     static #decodeToString(value: any): string {
         switch (true) {
             case typeof value === "string":
@@ -66,13 +59,15 @@ export class ErrorHandler implements ErrorReporting {
     }
 
     readonly terminator = new Terminator()
+    readonly #service: StudioService
     readonly #reporting: ErrorReporting
-
-    optSession: Option<ProjectSession> = Option.None
 
     #errorThrown: boolean = false
 
-    constructor(reporting: ErrorReporting) {this.#reporting = reporting}
+    constructor(service: StudioService, reporting: ErrorReporting) {
+        this.#service = service
+        this.#reporting = reporting
+    }
 
     error(...args: any[]): void {this.#reporting.error(...args)}
     warning(...args: any[]): void {this.#reporting.error(...args)}
@@ -89,11 +84,11 @@ export class ErrorHandler implements ErrorReporting {
             this.error(scope, reason)
         }
         const message = ErrorHandler.#decodeToString(reason)
-        console.log(`project: ${this.optSession.unwrapOrNull()?.meta?.name}`)
+        console.log(`project: ${this.#service.sessionService.getValue().unwrapOrNull()?.meta?.name}`)
         console.log(`scripts: ${document.scripts.length}`)
         console.error(scope, message)
         if (Surface.isAvailable()) {
-            showErrorDialog(scope, message, this.#createBackupCommand())
+            showErrorDialog(scope, message, this.#service.recovery.createBackupCommand())
         } else {
             alert(`Boot Error in '${scope}': ${message}`)
         }
@@ -132,40 +127,5 @@ export class ErrorHandler implements ErrorReporting {
             })
         )
         return lifetime
-    }
-
-    async restoreSession(service: StudioService): Promise<Option<ProjectSession>> {
-        const backupResult = await Promises.tryCatch(OpfsAgent.list(ErrorHandler.#RESTORE_FILE_PATH))
-        if (backupResult.status === "rejected" || backupResult.value.length === 0) {return Option.None}
-        const readResult = await Promises.tryCatch(Promise.all([
-            OpfsAgent.read(`${ErrorHandler.#RESTORE_FILE_PATH}/uuid`)
-                .then(x => UUID.validate(x)),
-            OpfsAgent.read(`${ErrorHandler.#RESTORE_FILE_PATH}/project.od`)
-                .then(x => Project.load(service, x.buffer as ArrayBuffer)),
-            OpfsAgent.read(`${ErrorHandler.#RESTORE_FILE_PATH}/meta.json`)
-                .then(x => JSON.parse(new TextDecoder().decode(x.buffer as ArrayBuffer)) as ProjectMeta),
-            OpfsAgent.read(`${ErrorHandler.#RESTORE_FILE_PATH}/saved`)
-                .then(x => x.at(0) === 1)
-        ]))
-        const deleteResult = await Promises.tryCatch(OpfsAgent.delete(ErrorHandler.#RESTORE_FILE_PATH))
-        console.debug(`delete backup: "${deleteResult.status}"`)
-        if (readResult.status === "rejected") {return Option.None}
-        const [uuid, project, meta, saved] = readResult.value
-        const session = new ProjectSession(uuid, project, meta, Option.None, saved)
-        console.debug(`restore ${session}, saved: ${saved}`)
-        return Option.wrap(session)
-    }
-
-    #createBackupCommand(): Option<Provider<Promise<void>>> {
-        return this.optSession.map((session: ProjectSession) => async () => {
-            console.debug("temp storing project")
-            const {project, meta, uuid} = session
-            return Promises.tryCatch(Promise.all([
-                OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/uuid`, uuid),
-                OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/project.od`, new Uint8Array(project.toArrayBuffer())),
-                OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/meta.json`, new TextEncoder().encode(JSON.stringify(meta))),
-                OpfsAgent.write(`${ErrorHandler.#RESTORE_FILE_PATH}/saved`, new Uint8Array([session.saved() ? 1 : 0]))
-            ])).then(result => console.debug(`backup result: ${result.status}`))
-        })
     }
 }

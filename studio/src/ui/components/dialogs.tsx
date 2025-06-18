@@ -228,25 +228,26 @@ export const showNewItemDialog = (headline: string, suggestion: string, factory:
 export const showErrorDialog = (scope: string,
                                 message: string,
                                 backupCommand: Option<Provider<Promise<void>>> = Option.None): void => {
+    console.debug(`Recovery enabled: ${backupCommand}`)
     const dialog: HTMLDialogElement = (
         <Dialog headline="An error occurred :("
                 icon={IconSymbol.Robot}
-                buttons={backupCommand.nonEmpty() ? [
-                    {
-                        text: "Recover",
-                        onClick: () => {
-                            const command = backupCommand.unwrap()
-                            command().then(() => location.reload())
-                        }
-                    }, {
-                        text: "Dismiss",
-                        onClick: () => location.reload()
-                    }, {
-                        text: "EMail",
-                        primary: true,
-                        onClick: () => window.location.href =
-                            `mailto:support@opendaw.org?subject=${encodeURI("Bug Report - openDAW")}&body=${encodeURI(EmailBody)}`
-                    }] : Arrays.empty()}
+                buttons={backupCommand.nonEmpty() ? [{
+                    text: "Recover",
+                    onClick: () => {
+                        const command = backupCommand.unwrap()
+                        command().then(() => location.reload())
+                    }
+                }, {
+                    text: "Dismiss",
+                    onClick: () => location.reload()
+                }, {
+                    text: "EMail",
+                    primary: true,
+                    onClick: () => window.location.href =
+                        `mailto:support@opendaw.org?subject=${
+                            encodeURI("Bug Report - openDAW")}&body=${encodeURI(EmailBody)}`
+                }] : Arrays.empty()}
                 cancelable={false}
                 error>
             <div style={{padding: "1em 0", maxWidth: "50vw"}}>
