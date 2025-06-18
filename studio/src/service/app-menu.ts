@@ -77,7 +77,7 @@ export const initAppMenu = (service: StudioService) => {
                         MenuItem.default({
                             label: "Throw an error in main-thread 💣",
                             separatorBefore: true,
-                            hidden: !Browser.isLocalHost()
+                            hidden: !Browser.isLocalHost() && location.hash !== "#admin"
                         }).setTriggerProcedure(() => panic("An error has been emulated")),
                         MenuItem.default({label: "Throw an error in audio-worklet 💣", hidden: !Browser.isLocalHost()})
                             .setTriggerProcedure(() => service.panicAudioWorklet())

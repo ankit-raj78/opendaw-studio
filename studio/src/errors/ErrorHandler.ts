@@ -9,6 +9,33 @@ export interface ErrorReporting {
     warning(...args: any[]): void
 }
 
+type ErrorInfo = {
+    name: string
+    message: string
+    stack?: string
+}
+
+const extractErrorInfo = (event: Event): ErrorInfo => {
+    if (event instanceof ErrorEvent && event.error instanceof Error) {
+        return {name: event.error.name || "Error", message: event.error.message, stack: event.error.stack}
+    } else if (event instanceof PromiseRejectionEvent) {
+        const reason = event.reason
+        if (reason instanceof Error) {
+            return {name: reason.name || "UnhandledRejection", message: reason.message, stack: reason.stack}
+        } else {
+            return {name: "UnhandledRejection", message: typeof reason === "string" ? reason : JSON.stringify(reason)}
+        }
+    } else if (event instanceof MessageEvent) {
+        return {name: "MessageError", message: typeof event.data === "string" ? event.data : JSON.stringify(event.data)}
+    } else if (event.type === "processorerror") {
+        return {name: "ProcessorError", message: "N/A"}
+    } else if (event instanceof SecurityPolicyViolationEvent) {
+        return {name: "SecurityPolicyViolation", message: `${event.violatedDirective} blocked ${event.blockedURI}`}
+    } else {
+        return {name: "UnknownError", message: "Unknown error"}
+    }
+}
+
 export namespace ErrorReporting {
     export const init = async (): Promise<ErrorReporting> => {
         if (import.meta.env.MODE === "production") {
@@ -72,18 +99,25 @@ export class ErrorHandler implements ErrorReporting {
     error(...args: any[]): void {this.#reporting.error(...args)}
     warning(...args: any[]): void {this.#reporting.error(...args)}
 
-    async processError(scope: string, reason: any) {
+    processError(scope: string, event: Event) {
         if (this.#errorThrown) {return}
         this.#errorThrown = true
         AnimationFrame.terminate()
-        if (reason instanceof ErrorEvent && reason.error instanceof Error) {
-            this.error(scope, reason.error)
-        } else if (reason instanceof PromiseRejectionEvent) {
-            this.error(scope, reason.reason)
+        console.debug(JSON.stringify({
+            date: new Date().toISOString(),
+            agent: navigator.userAgent,
+            build: this.#service.buildInfo,
+            scripts: document.scripts.length,
+            error: extractErrorInfo(event)
+        }))
+        if (event instanceof ErrorEvent && event.error instanceof Error) {
+            this.error(scope, event.error)
+        } else if (event instanceof PromiseRejectionEvent) {
+            this.error(scope, event.reason)
         } else {
-            this.error(scope, reason)
+            this.error(scope, event)
         }
-        const message = ErrorHandler.#decodeToString(reason)
+        const message = ErrorHandler.#decodeToString(event)
         console.log(`project: ${this.#service.sessionService.getValue().unwrapOrNull()?.meta?.name}`)
         console.log(`scripts: ${document.scripts.length}`)
         console.error(scope, message)
@@ -101,28 +135,28 @@ export class ErrorHandler implements ErrorReporting {
             Events.subscribe(owner, "error", event => {
                 lifetime.terminate()
                 console.debug(scope, event)
-                this.processError(scope, event).then()
+                this.processError(scope, event)
             }),
             Events.subscribe(owner, "unhandledrejection", event => {
                 lifetime.terminate()
                 console.debug(scope, event)
-                this.processError(scope, event).then()
+                this.processError(scope, event)
             }),
             Events.subscribe(owner, "messageerror", event => {
                 lifetime.terminate()
                 console.debug(scope, event)
-                this.processError(scope, event).then()
+                this.processError(scope, event)
             }),
             Events.subscribe(owner, "processorerror" as any, event => {
                 lifetime.terminate()
                 console.debug(scope, event)
-                this.processError(scope, event).then()
+                this.processError(scope, event)
             }),
             Events.subscribe(owner, "securitypolicyviolation", (event: SecurityPolicyViolationEvent) => {
                 lifetime.terminate()
                 console.debug(scope, event)
                 if ("blockedURI" in event) {
-                    this.processError(scope, `URL '${event.blockedURI}' is blocked`).then()
+                    this.processError(scope, event)
                 }
             })
         )
