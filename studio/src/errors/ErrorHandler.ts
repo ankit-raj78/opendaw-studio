@@ -1,4 +1,4 @@
-import {int, Terminable, Terminator} from "std"
+import {int, isDefined, Terminable, Terminator} from "std"
 import {showErrorDialog} from "@/ui/components/dialogs.tsx"
 import {Surface} from "@/ui/surface/Surface.tsx"
 import {AnimationFrame, Events} from "dom"
@@ -27,9 +27,26 @@ const extractErrorInfo = (event: Event): ErrorInfo => {
     } else if (event instanceof PromiseRejectionEvent) {
         const reason = event.reason
         if (reason instanceof Error) {
-            return {name: reason.name || "UnhandledRejection", message: reason.message, stack: reason.stack}
+            if (!isDefined(reason.stack)) {
+                try {
+                    // noinspection ExceptionCaughtLocallyJS
+                    throw reason
+                } catch (error) {
+                    if (error instanceof Error && isDefined(error.stack)) {
+                        reason.stack = error.stack
+                    }
+                }
+            }
+            return {
+                name: reason.name || "UnhandledRejection",
+                message: reason.message,
+                stack: reason.stack
+            }
         } else {
-            return {name: "UnhandledRejection", message: typeof reason === "string" ? reason : JSON.stringify(reason)}
+            return {
+                name: "UnhandledRejection",
+                message: typeof reason === "string" ? reason : JSON.stringify(reason)
+            }
         }
     } else if (event instanceof MessageEvent) {
         return {name: "MessageError", message: typeof event.data === "string" ? event.data : JSON.stringify(event.data)}
