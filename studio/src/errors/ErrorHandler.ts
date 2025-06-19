@@ -128,7 +128,7 @@ export class ErrorHandler implements ErrorReporting {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(data)
-            }).then(console.info)
+            }).then(console.info, console.warn)
         }
         if (event instanceof ErrorEvent && event.error instanceof Error) {
             this.error(scope, event.error)
