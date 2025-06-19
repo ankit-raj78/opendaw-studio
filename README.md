@@ -12,15 +12,13 @@ supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [k
 
 ## Goals
 
-### Features
+### Planned Features
 
-- **Web-Based Platform**: Create and edit music directly from your browser.
 - **Offline Version**: A downloadable version that you own.
 - **Educational Resources**: Access tutorials and guides to enhance your music production skills.
 - **Best Data-Protection**: Store your data locally, on your server or a service you trust.
 - **Modular Systems**: Create and share your own devices and tools to extend the built-in feature-set.
 - **Collaborative Tools**: Work seamlessly with others in real-time.
-- **User-Friendly Interface**: Intuitive design for both beginners and professionals alike.
 
 ### No Bullshit
 
