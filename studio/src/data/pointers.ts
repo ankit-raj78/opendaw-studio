@@ -33,6 +33,7 @@ export enum Pointers {
     ConnectionCollection,
     DeviceUserInterface,
     NoteEvents,
+    NoteEventFeature,
     NoteEventCollection,
     ValueEvents,
     ValueEventCollection,
