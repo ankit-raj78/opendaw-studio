@@ -115,14 +115,20 @@ export class ErrorHandler implements ErrorReporting {
         this.#errorThrown = true
         AnimationFrame.terminate()
         if (location.hash === "#admin") { // TODO This is for testing the output. Will be sent to the server...
-            console.debug(JSON.stringify({
+            const data = JSON.stringify({
                 date: new Date().toISOString(),
                 agent: navigator.userAgent,
                 build: this.#service.buildInfo,
                 scripts: document.scripts.length,
                 error: extractErrorInfo(event),
                 logs: LogBuffer.get()
-            } satisfies ErrorLog))
+            } satisfies ErrorLog)
+            console.debug(data)
+            fetch("https://logs.opendaw.studio/log.php", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(data)
+            }).then(console.info)
         }
         if (event instanceof ErrorEvent && event.error instanceof Error) {
             this.error(scope, event.error)
