@@ -235,7 +235,7 @@ export class Surface implements TerminableOwner {
             }, {capture: true}),
             Events.subscribe(this.#owner, "pointermove", (event: PointerEvent) => {
                 if (pointerDown.nonEmpty() && event.buttons === 0) {
-                    console.debug("simulate pointerup")
+                    console.debug("simulate pointerup pointermove")
                     pointerDown.unwrap().dispatchEvent(new PointerEvent("pointerup", event))
                     pointerDown = Option.None
                 }
@@ -276,6 +276,7 @@ export class Surface implements TerminableOwner {
                 if (event.ctrlKey) {event.preventDefault()}
             }, {passive: false}),
             Events.subscribe(this.#owner, "contextmenu", (event) => {
+                console.debug("contextmenu", event.target)
                 event.preventDefault()
                 event.stopPropagation()
                 AnimationFrame.once(() => CssUtils.setCursor("auto"))

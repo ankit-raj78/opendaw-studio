@@ -32,7 +32,7 @@ const extractErrorInfo = (event: Event): ErrorInfo => {
                     // noinspection ExceptionCaughtLocallyJS
                     throw reason
                 } catch (error) {
-                    if (error instanceof Error && isDefined(error.stack)) {
+                    if (error instanceof Error) {
                         reason.stack = error.stack
                     }
                 }
