@@ -20,7 +20,7 @@ supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [k
 - **Modular Systems**: Create and share your own devices and tools to extend the built-in feature-set.
 - **Collaborative Tools**: Work seamlessly with others in real-time.
 
-### No Bullshit
+### Built on Trust and Transparency
 
 **openDAW stands for radical simplicity and respect.**
 
