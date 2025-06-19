@@ -90,7 +90,6 @@ This is a list of the external libraries we currently use in the web studio:
 
 * [jszip](https://www.npmjs.com/package/jszip) (for openDAW project bundle file)
 * [markdown-it](https://www.npmjs.com/package/markdown-it) + [markdown-it-table](https://www.npmjs.com/package/markdown-it-table) (for help pages)
-* [rollbar](https://www.npmjs.com/package/rollbar) (for runtime error reporting in development mode)
 
 ### Prepare, Clone, Install and Run
 

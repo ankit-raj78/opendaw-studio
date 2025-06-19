@@ -4,8 +4,20 @@
 component
   flex: 1
   padding: 1.5em 0 1.5em 1.5em
-  display: grid
-  grid-template-columns: auto 1fr
-  column-gap: 4em
+  display: flex
+  flex-direction: column
   overflow: hidden
   @include colors.panel-background
+  font-size: 0.75rem
+  row-gap: 1em
+
+  div.list
+    display: grid
+    grid-template-columns: repeat(7, auto)
+    column-gap: 1em
+    align-content: start
+    justify-content: start
+    overflow: hidden scroll
+
+    h4
+      color: var(--color-blue)
