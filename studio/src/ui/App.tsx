@@ -11,6 +11,7 @@ import {ManualPage} from "@/ui/pages/ManualPage"
 import {ColorsPage} from "@/ui/pages/ColorsPage"
 import {Header} from "@/ui/header/Header"
 import {AudioInputDevicesPage} from "./pages/AudioInputDevicesPage"
+import {ErrorsPage} from "@/ui/pages/ErrorsPage.tsx"
 
 export const App = (service: StudioService) => {
     const terminator = new Terminator()
@@ -28,6 +29,7 @@ export const App = (service: StudioService) => {
                 routes={[
                     {path: "/", factory: WorkspacePage},
                     {path: "/manuals/*", factory: ManualPage},
+                    {path: "/errors/*", factory: ErrorsPage},
                     // from here these are all debugging and developing pages
                     {path: "/icons", factory: IconsPage},
                     {path: "/components", factory: ComponentsPage},

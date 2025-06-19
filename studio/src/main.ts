@@ -24,7 +24,7 @@ import {AnimationFrame, Browser, Events, Keyboard} from "dom"
 import {AudioOutputDevice} from "@/audio/AudioOutputDevice"
 import {FontLoader} from "@/ui/FontLoader"
 import {AudioWorklets} from "@/audio-engine/AudioWorklets"
-import {ErrorHandler, ErrorReporting} from "@/errors/ErrorHandler.ts"
+import {ErrorHandler} from "@/errors/ErrorHandler.ts"
 
 window.name = "main"
 
@@ -33,12 +33,6 @@ const loadBuildInfo = async () => fetch(`/build-info.json?v=${Date.now()}`).then
 requestAnimationFrame(async () => {
         if (!window.crossOriginIsolated) {return panic("window must be crossOriginIsolated")}
         console.debug("booting...")
-        const errorReportingResult = await Promises.tryCatch(ErrorReporting.init())
-        if (errorReportingResult.status === "rejected") {
-            alert(errorReportingResult.error)
-            return
-        }
-
         await FontLoader.load()
         const testFeaturesResult = await Promises.tryCatch(testFeatures())
         if (testFeaturesResult.status === "rejected") {
@@ -55,7 +49,8 @@ requestAnimationFrame(async () => {
         console.debug(`AudioContext state: ${context.state}, sampleRate: ${context.sampleRate}`)
         const audioWorklets = await Promises.tryCatch(AudioWorklets.install(context))
         if (audioWorklets.status === "rejected") {
-            showErrorDialog("Audio", `Could not boot audio-worklets (${audioWorklets.error})`, Option.None)
+            showErrorDialog("Audio",
+                "Boot Error", `Could not boot audio-worklets (${audioWorklets.error})`, Option.None)
             return
         }
         if (context.state === "suspended") {
@@ -70,7 +65,7 @@ requestAnimationFrame(async () => {
         } satisfies AudioServerApi, context)
         const service: StudioService =
             new StudioService(context, audioWorklets.value, audioDevices, audioManager, buildInfo)
-        const errorHandler = new ErrorHandler(service, errorReportingResult.value)
+        const errorHandler = new ErrorHandler(service)
         const surface = Surface.main({
             config: (surface: Surface) => {
                 surface.ownAll(

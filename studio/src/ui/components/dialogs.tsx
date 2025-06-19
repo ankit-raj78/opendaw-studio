@@ -226,6 +226,7 @@ export const showNewItemDialog = (headline: string, suggestion: string, factory:
 }
 
 export const showErrorDialog = (scope: string,
+                                name: string,
                                 message: string,
                                 backupCommand: Option<Provider<Promise<void>>> = Option.None): void => {
     console.debug(`Recovery enabled: ${backupCommand}`)
@@ -251,7 +252,7 @@ export const showErrorDialog = (scope: string,
                 cancelable={false}
                 error>
             <div style={{padding: "1em 0", maxWidth: "50vw"}}>
-                <h3>{`Scope: '${scope}'`}</h3>
+                <h3>{name}</h3>
                 <p>{message}</p>
                 {document.scripts.length > 1 &&
                     <p style={{color: Colors.red}}>
