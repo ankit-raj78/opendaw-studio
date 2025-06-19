@@ -2,13 +2,13 @@ export namespace LogBuffer {
     export type Entry = {
         time: number
         level: "debug" | "info" | "warn"
-        args: string
+        args: Array<string>
     }
     let estimatedSize = 0
     const MAX_ARGS_SIZE = 100_000
     const logBuffer: Entry[] = []
     const pushLog = (level: Entry["level"], args: unknown[]) => {
-        const entry: Entry = {time: Date.now(), level, args: args.map(String).join(" ")}
+        const entry: Entry = {time: Date.now(), level, args: args.map(String)}
         const argLength = entry.args.length
         logBuffer.push(entry)
         estimatedSize += argLength
