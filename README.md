@@ -12,6 +12,8 @@ supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [k
 
 ## Goals
 
+### Features
+
 - **Web-Based Platform**: Create and edit music directly from your browser.
 - **Offline Version**: A downloadable version that you own.
 - **Educational Resources**: Access tutorials and guides to enhance your music production skills.
@@ -19,6 +21,21 @@ supporting this project on [Patreon](https://www.patreon.com/join/openDAW) or [k
 - **Modular Systems**: Create and share your own devices and tools to extend the built-in feature-set.
 - **Collaborative Tools**: Work seamlessly with others in real-time.
 - **User-Friendly Interface**: Intuitive design for both beginners and professionals alike.
+
+### No Bullshit
+
+**openDAW stands for radical simplicity and respect.**
+
+- **No SignUp**  
+- **No Tracking**  
+- **No Cookie Banners**  
+- **No User Profiling**  
+- **No Terms & Conditions**  
+- **No Ads**
+- **No Paywalls**  
+- **No Data Mining**
+
+**Just a free, open-source DAW in your browser.**
 
 ## Links
 
