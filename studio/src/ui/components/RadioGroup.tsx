@@ -46,7 +46,7 @@ export const RadioGroup = <T, >({lifecycle, model, elements, style, className, a
     lifecycle.own(model.subscribe(owner => {
         const active = map.get(owner.getValue())
         if (isDefined(active)) {
-            console.debug(`click: ${owner.getValue()}`)
+            console.debug(`RadioGroup.click: ${owner.getValue()}`)
             active.click()
         } else {
             children.forEach(([input]) => input.checked = false)
