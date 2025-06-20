@@ -43,6 +43,7 @@ requestAnimationFrame(async () => {
         const buildInfo: BuildInfo = await loadBuildInfo()
         console.debug("buildInfo", buildInfo)
         console.debug("isLocalHost", Browser.isLocalHost())
+        console.debug("agent", Browser.userAgent)
         const sampleRate = Browser.isFirefox() ? undefined : 48000
         console.debug("requesting custom sampleRate", sampleRate ?? "'No (Firefox)'")
         const context = new AudioContext({sampleRate, latencyHint: 0})
