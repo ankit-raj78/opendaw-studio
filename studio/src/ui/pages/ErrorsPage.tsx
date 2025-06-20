@@ -40,7 +40,8 @@ export const ErrorsPage: PageFactory<StudioService> = ({}: PageContext<StudioSer
                                <h4>Time</h4>
                                <h4>Build</h4>
                                <h4>Type</h4>
-                               <h4>Scripts</h4>
+                               <h4>Message</h4>
+                               <h4>JS</h4>
                                <h4>Browser</h4>
                                <h4>Stack</h4>
                                <h4>Logs</h4>
@@ -50,16 +51,16 @@ export const ErrorsPage: PageFactory<StudioService> = ({}: PageContext<StudioSer
                                    const errorTime = new Date(log.date).getTime()
                                    const errorTimeString = TimeSpan.millis(errorTime - nowTime).toUnitString()
                                    const buildTimeString = TimeSpan.millis(new Date(log.build_date).getTime() - nowTime).toUnitString()
-                                   return (
+                               const userAgent = log.user_agent.replace(/^Mozilla\/[\d.]+\s*/, "")
+                               return (
                                        <Group>
                                            <div>{log.id}</div>
                                            <div>{errorTimeString}</div>
                                            <div>{buildTimeString}</div>
                                            <div>{log.error_name}</div>
+                                           <div className="error-message" title={log.error_message}>{log.error_message}</div>
                                            <div>{log.script_tags}</div>
-                                           <div style={{maxWidth: "20rem"}}>
-                                               {log.user_agent.replace(/^Mozilla\/[\d.]+\s*/, "")}
-                                           </div>
+                                           <div className="browser" title={userAgent}>{userAgent}</div>
                                            <div style={{cursor: "pointer"}}
                                                 onclick={() => showDialog({
                                                     headline: "Error Stack",

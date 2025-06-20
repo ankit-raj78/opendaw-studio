@@ -18,12 +18,21 @@ component
 
   div.list
     display: grid
-    grid-template-columns: repeat(8, auto)
+    grid-template-columns: repeat(9, auto)
     column-gap: 1em
     align-content: start
     justify-content: start
     overflow: hidden scroll
     font-size: 0.75rem
+
+    div
+      white-space: nowrap
+
+    div.error-message, div.browser
+      max-width: 20rem
+      overflow: hidden
+      white-space: nowrap
+      text-overflow: ellipsis
 
     h4
       margin-bottom: 0.125rem
