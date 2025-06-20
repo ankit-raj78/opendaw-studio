@@ -40,6 +40,7 @@ export const ErrorsPage: PageFactory<StudioService> = ({service, path}: PageCont
                                <h4>Build</h4>
                                <h4>Type</h4>
                                <h4>Scripts</h4>
+                               <h4>Browser</h4>
                                <h4>Stack</h4>
                                <h4>Log</h4>
                            </Group>
@@ -55,6 +56,7 @@ export const ErrorsPage: PageFactory<StudioService> = ({service, path}: PageCont
                                            <div>{buildTimeString}</div>
                                            <div>{log.error_name}</div>
                                            <div>{log.script_tags}</div>
+                                           <div>{log.user_agent}</div>
                                            <div style={{cursor: "pointer"}}
                                                 onclick={() => showDialog({
                                                     headline: "Error Stack",
