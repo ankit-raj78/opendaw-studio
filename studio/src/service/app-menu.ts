@@ -66,15 +66,16 @@ export const initAppMenu = (service: StudioService) => {
                             label: "Save file...",
                             selectable: service.hasProjectSession
                         }).setTriggerProcedure(() => service.saveFile()),
-                        MenuItem.default({label: "Icons", hidden: !Browser.isLocalHost(), separatorBefore: true})
+                        MenuItem.default({label: "Pages", selectable: false, separatorBefore: true}),
+                        MenuItem.default({label: "・ Icons"})
                             .setTriggerProcedure(() => RouteLocation.get().navigateTo("/icons")),
-                        MenuItem.default({label: "Components", hidden: !Browser.isLocalHost()})
+                        MenuItem.default({label: "・ Components"})
                             .setTriggerProcedure(() => RouteLocation.get().navigateTo("/components")),
-                        MenuItem.default({label: "Automation", hidden: !Browser.isLocalHost()})
+                        MenuItem.default({label: "・ Automation"})
                             .setTriggerProcedure(() => RouteLocation.get().navigateTo("/automation")),
-                        MenuItem.default({label: "Audio Input Devices", hidden: !Browser.isLocalHost()})
+                        MenuItem.default({label: "・ Audio Input Devices"})
                             .setTriggerProcedure(() => RouteLocation.get().navigateTo("/audio-input")),
-                        MenuItem.default({label: "Errors", hidden: !Browser.isLocalHost(), separatorBefore: true})
+                        MenuItem.default({label: "・ Errors"})
                             .setTriggerProcedure(() => RouteLocation.get().navigateTo("/errors")),
                         MenuItem.default({
                             label: "Throw an error in main-thread 💣",
