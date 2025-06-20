@@ -74,6 +74,8 @@ export const initAppMenu = (service: StudioService) => {
                             .setTriggerProcedure(() => RouteLocation.get().navigateTo("/automation")),
                         MenuItem.default({label: "Audio Input Devices", hidden: !Browser.isLocalHost()})
                             .setTriggerProcedure(() => RouteLocation.get().navigateTo("/audio-input")),
+                        MenuItem.default({label: "Errors", hidden: !Browser.isLocalHost(), separatorBefore: true})
+                            .setTriggerProcedure(() => RouteLocation.get().navigateTo("/errors")),
                         MenuItem.default({
                             label: "Throw an error in main-thread 💣",
                             separatorBefore: true,

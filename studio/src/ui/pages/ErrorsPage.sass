@@ -9,7 +9,9 @@ component
   overflow: hidden
   @include colors.panel-background
   font-size: 0.75rem
-  row-gap: 1em
+
+  p
+    color: var(--color-dark)
 
   div.list
     display: grid
@@ -20,4 +22,5 @@ component
     overflow: hidden scroll
 
     h4
+      margin-bottom: 0.125rem
       color: var(--color-blue)

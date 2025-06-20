@@ -1,5 +1,5 @@
 import {BuildInfo} from "@/BuildInfo.ts"
-import {LogBuffer} from "@/LogBuffer.ts"
+import {LogBuffer} from "@/errors/LogBuffer.ts"
 import {ErrorInfo} from "@/errors/ErrorHandler.ts"
 import {int, isDefined} from "std"
 

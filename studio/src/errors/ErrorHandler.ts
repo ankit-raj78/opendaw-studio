@@ -3,7 +3,7 @@ import {showErrorDialog} from "@/ui/components/dialogs.tsx"
 import {Surface} from "@/ui/surface/Surface.tsx"
 import {AnimationFrame, Browser, Events} from "dom"
 import {StudioService} from "@/service/StudioService.ts"
-import {LogBuffer} from "@/LogBuffer.ts"
+import {LogBuffer} from "@/errors/LogBuffer.ts"
 import {ErrorLog} from "@/errors/ErrorLog.ts"
 
 export type ErrorInfo = {
@@ -21,6 +21,7 @@ export class ErrorHandler {
     constructor(service: StudioService) {this.#service = service}
 
     processError(scope: string, event: Event) {
+        console.debug("Processing error in", scope, ":", event)
         if (this.#errorThrown) {return}
         this.#errorThrown = true
         AnimationFrame.terminate()

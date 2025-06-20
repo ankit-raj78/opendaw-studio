@@ -2,7 +2,7 @@ import css from "./Logs.sass?inline"
 import {Html} from "dom"
 import {isDefined, TimeSpan} from "std"
 import {createElement, Group} from "jsx"
-import {LogBuffer} from "@/LogBuffer.ts"
+import {LogBuffer} from "@/errors/LogBuffer.ts"
 
 const className = Html.adoptStyleSheet(css, "Logs")
 
@@ -23,14 +23,19 @@ export const Logs = ({errorTime, entries}: Construct) => {
                 const elapsed = TimeSpan.millis(new Date(time).getTime() - errorTime)
                 return (
                     <Group>
-                        <div>{level}</div>
+                        <div>[{level.toUpperCase()}]</div>
                         <div>
-                            <span style={{opacity: "0.5"}}>{elapsed.absHours().toFixed(0).padStart(2, "0")}</span>
+                            <span style={{opacity: "0.5"}}>
+                                {elapsed.absHours().toFixed(0).padStart(2, "0")}
+                            </span>
                             <span> </span>
-                            <span>{elapsed.absMinutes().toFixed(0).padStart(2, "0")}</span>
-                            :
-                            <span>{elapsed.absSeconds().toFixed(0).padStart(2, "0")}</span>
-
+                            <span>
+                                {elapsed.absMinutes().toFixed(0).padStart(2, "0")}
+                            </span>
+                            <span>:</span>
+                            <span>
+                                {elapsed.absSeconds().toFixed(0).padStart(2, "0")}
+                            </span>
                             <span style={{opacity: "0.5"}}>
                                 .{(Math.abs(elapsed.millis()) % 1000).toFixed(0).padStart(3, "0")}
                             </span>
