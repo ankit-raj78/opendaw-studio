@@ -3,15 +3,18 @@
 
 component
   flex: 1
-  padding: 1.5em 0 1.5em 1.5em
+  padding: 2em
   display: flex
   flex-direction: column
   overflow: hidden
   @include colors.panel-background
-  font-size: 0.75rem
+
+  h1
+    color: var(--color-cream)
 
   p
-    color: var(--color-dark)
+    opacity: 0.66
+    font-size: 0.75rem
 
   div.list
     display: grid
@@ -20,6 +23,7 @@ component
     align-content: start
     justify-content: start
     overflow: hidden scroll
+    font-size: 0.75rem
 
     h4
       margin-bottom: 0.125rem

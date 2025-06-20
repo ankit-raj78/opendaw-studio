@@ -85,6 +85,8 @@ export const initAppMenu = (service: StudioService) => {
                         MenuItem.default({label: "Throw an error in audio-worklet 💣", hidden: !Browser.isLocalHost()})
                             .setTriggerProcedure(() => service.panicAudioWorklet())
                     )
-                })
+                }),
+            MenuItem.default({label: "Imprint", separatorBefore: true})
+                .setTriggerProcedure(() => RouteLocation.get().navigateTo("/imprint"))
         ))
 }
