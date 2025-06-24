@@ -13,6 +13,10 @@ export class PitchDeviceProcessor extends EventProcessor implements MidiEffectPr
     readonly #adapter: PitchDeviceBoxAdapter
 
     readonly #noteBroadcaster: NoteBroadcaster
+    // TODO We do not need this system in midi-effects, but we cannot remove it without losing ui-updates
+    readonly #octavesParameter: AutomatableParameter<int>
+    readonly #semiTonesParameter: AutomatableParameter<int>
+    readonly #centParameter: AutomatableParameter<number>
 
     #source: Option<NoteEventSource> = Option.None
 
@@ -22,6 +26,9 @@ export class PitchDeviceProcessor extends EventProcessor implements MidiEffectPr
         this.#adapter = adapter
 
         this.#noteBroadcaster = this.own(new NoteBroadcaster(context.broadcaster, adapter.address))
+        this.#octavesParameter = this.own(this.bindParameter(adapter.namedParameter.octaves))
+        this.#semiTonesParameter = this.own(this.bindParameter(adapter.namedParameter.semiTones))
+        this.#centParameter = this.own(this.bindParameter(adapter.namedParameter.cent))
         this.own(context.registerProcessor(this))
         this.readAllParameters()
     }
