@@ -3,7 +3,7 @@ import {Await, createElement, Group, PageContext, PageFactory} from "jsx"
 import {StudioService} from "@/service/StudioService.ts"
 import {Html} from "dom"
 import {ThreeDots} from "@/ui/spinner/ThreeDots.tsx"
-import {EmptyExec, TimeSpan} from "std"
+import {EmptyExec, Strings, TimeSpan} from "std"
 import {showDialog} from "@/ui/components/dialogs.tsx"
 import {LogBuffer} from "@/errors/LogBuffer.ts"
 import {Logs} from "@/ui/pages/errors/Logs.tsx"
@@ -52,13 +52,14 @@ export const ErrorsPage: PageFactory<StudioService> = ({}: PageContext<StudioSer
                                    const errorTimeString = TimeSpan.millis(errorTime - nowTime).toUnitString()
                                    const buildTimeString = TimeSpan.millis(new Date(log.build_date).getTime() - nowTime).toUnitString()
                                const userAgent = log.user_agent.replace(/^Mozilla\/[\d.]+\s*/, "")
+                               const errorMessage = Strings.fallback(log.error_message, "No message")
                                return (
                                        <Group>
                                            <div>{log.id}</div>
                                            <div>{errorTimeString}</div>
                                            <div>{buildTimeString}</div>
                                            <div>{log.error_name}</div>
-                                           <div className="error-message" title={log.error_message}>{log.error_message}</div>
+                                           <div className="error-message" title={errorMessage}>{errorMessage}</div>
                                            <div>{log.script_tags}</div>
                                            <div className="browser" title={userAgent}>{userAgent}</div>
                                            <div style={{cursor: "pointer"}}
