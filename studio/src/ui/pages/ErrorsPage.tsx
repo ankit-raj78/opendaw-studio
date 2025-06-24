@@ -32,7 +32,7 @@ export const ErrorsPage: PageFactory<StudioService> = ({}: PageContext<StudioSer
             <p>This page shows all errors reported from users running openDAW in production, helping us identify and fix issues.</p>
             <Await factory={() => fetch(`https://logs.opendaw.studio/list.php`).then(x => x.json())}
                    failure={(error) => `Unknown request (${error.reason})`}
-                   loading={() => <ThreeDots/>}
+                   loading={() => <p>loading...</p>}
                    success={(json: ReadonlyArray<Entry>) => (
                        <div className="list">
                            <Group>

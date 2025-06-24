@@ -1,16 +1,11 @@
 import {Terminable, Terminator} from "std"
-import {showErrorDialog} from "@/ui/components/dialogs.tsx"
-import {Surface} from "@/ui/surface/Surface.tsx"
 import {AnimationFrame, Browser, Events} from "dom"
-import {StudioService} from "@/service/StudioService.ts"
 import {LogBuffer} from "@/errors/LogBuffer.ts"
 import {ErrorLog} from "@/errors/ErrorLog.ts"
-
-export type ErrorInfo = {
-    name: string
-    message: string
-    stack?: string
-}
+import {ErrorInfo} from "@/errors/ErrorInfo.ts"
+import {Surface} from "@/ui/surface/Surface.tsx"
+import {StudioService} from "@/service/StudioService.ts"
+import {showErrorDialog} from "@/ui/components/dialogs.tsx"
 
 export class ErrorHandler {
     readonly terminator = new Terminator()
@@ -21,11 +16,12 @@ export class ErrorHandler {
     constructor(service: StudioService) {this.#service = service}
 
     processError(scope: string, event: Event) {
-        console.debug("Processing error in", scope, ":", event)
+        console.debug("processError", scope, event)
         if (this.#errorThrown) {return}
         this.#errorThrown = true
         AnimationFrame.terminate()
-        const error = ErrorLog.extract(event)
+        const error = ErrorInfo.extract(event)
+        console.debug("ErrorInfo", error.name, error.message)
         const body = JSON.stringify({
             date: new Date().toISOString(),
             agent: Browser.userAgent,
@@ -55,30 +51,23 @@ export class ErrorHandler {
         lifetime.ownAll(
             Events.subscribe(owner, "error", event => {
                 lifetime.terminate()
-                console.debug(scope, event)
                 this.processError(scope, event)
             }),
             Events.subscribe(owner, "unhandledrejection", event => {
                 lifetime.terminate()
-                console.debug(scope, event)
                 this.processError(scope, event)
             }),
             Events.subscribe(owner, "messageerror", event => {
                 lifetime.terminate()
-                console.debug(scope, event)
                 this.processError(scope, event)
             }),
             Events.subscribe(owner, "processorerror" as any, event => {
                 lifetime.terminate()
-                console.debug(scope, event)
                 this.processError(scope, event)
             }),
             Events.subscribe(owner, "securitypolicyviolation", (event: SecurityPolicyViolationEvent) => {
                 lifetime.terminate()
-                console.debug(scope, event)
-                if ("blockedURI" in event) {
-                    this.processError(scope, event)
-                }
+                this.processError(scope, event)
             })
         )
         return lifetime
