@@ -30,11 +30,11 @@ export const Logs = ({errorTime, entries}: Construct) => {
                             </span>
                             <span> </span>
                             <span>
-                                {elapsed.absMinutes().toFixed(0).padStart(2, "0")}
+                                {(elapsed.absMinutes() % 60).toFixed(0).padStart(2, "0")}
                             </span>
                             <span>:</span>
                             <span>
-                                {elapsed.absSeconds().toFixed(0).padStart(2, "0")}
+                                {(elapsed.absSeconds() % 60).toFixed(0).padStart(2, "0")}
                             </span>
                             <span style={{opacity: "0.5"}}>
                                 .{(Math.abs(elapsed.millis()) % 1000).toFixed(0).padStart(3, "0")}
