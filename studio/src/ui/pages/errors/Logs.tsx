@@ -21,20 +21,21 @@ export const Logs = ({errorTime, entries}: Construct) => {
             </Group>
             {entries.map(({time, level, args}) => {
                 const elapsed = TimeSpan.millis(new Date(time).getTime() - errorTime)
+                const {h, m, s} = elapsed.split()
                 return (
                     <Group>
                         <div>[{level.toUpperCase()}]</div>
                         <div>
                             <span style={{opacity: "0.5"}}>
-                                {elapsed.absHours().toFixed(0).padStart(2, "0")}
+                                {h.toFixed(0).padStart(2, "0")}
                             </span>
                             <span> </span>
                             <span>
-                                {(elapsed.absMinutes() % 60).toFixed(0).padStart(2, "0")}
+                                {m.toFixed(0).padStart(2, "0")}
                             </span>
                             <span>:</span>
                             <span>
-                                {(elapsed.absSeconds() % 60).toFixed(0).padStart(2, "0")}
+                                {s.toFixed(0).padStart(2, "0")}
                             </span>
                             <span style={{opacity: "0.5"}}>
                                 .{(Math.abs(elapsed.millis()) % 1000).toFixed(0).padStart(3, "0")}
