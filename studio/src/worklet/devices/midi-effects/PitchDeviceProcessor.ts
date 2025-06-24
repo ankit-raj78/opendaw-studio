@@ -13,15 +13,8 @@ export class PitchDeviceProcessor extends EventProcessor implements MidiEffectPr
     readonly #adapter: PitchDeviceBoxAdapter
 
     readonly #noteBroadcaster: NoteBroadcaster
-    readonly #octavesParameter: AutomatableParameter<int>
-    readonly #semiTonesParameter: AutomatableParameter<int>
-    readonly #centParameter: AutomatableParameter<number>
 
     #source: Option<NoteEventSource> = Option.None
-
-    #octaves: int = 0
-    #semiTones: int = 0
-    #cent: number = 0.0
 
     constructor(context: EngineContext, adapter: PitchDeviceBoxAdapter) {
         super(context)
@@ -29,9 +22,6 @@ export class PitchDeviceProcessor extends EventProcessor implements MidiEffectPr
         this.#adapter = adapter
 
         this.#noteBroadcaster = this.own(new NoteBroadcaster(context.broadcaster, adapter.address))
-        this.#octavesParameter = this.own(this.bindParameter(adapter.namedParameter.octaves))
-        this.#semiTonesParameter = this.own(this.bindParameter(adapter.namedParameter.semiTones))
-        this.#centParameter = this.own(this.bindParameter(adapter.namedParameter.cent))
         this.own(context.registerProcessor(this))
         this.readAllParameters()
     }
@@ -51,9 +41,10 @@ export class PitchDeviceProcessor extends EventProcessor implements MidiEffectPr
         for (const event of this.#source.unwrap().processNotes(from, to, flags)) {
             if (NoteLifecycleEvent.isStart(event)) {
                 this.#noteBroadcaster.noteOn(event.pitch)
+                const {cent, octaves, semiTones} = this.#adapter.namedParameter
                 yield Objects.overwrite(event, {
-                    pitch: event.pitch + this.#octaves * 12 + this.#semiTones,
-                    cent: event.cent + this.#cent
+                    pitch: event.pitch + octaves.valueAt(event.position) * 12 + semiTones.valueAt(event.position),
+                    cent: event.cent + cent.valueAt(event.position)
                 })
             } else {
                 this.#noteBroadcaster.noteOff(event.pitch)
@@ -66,9 +57,10 @@ export class PitchDeviceProcessor extends EventProcessor implements MidiEffectPr
         if (this.#source.isEmpty()) {return}
         for (const event of this.#source.unwrap().iterateActiveNotesAt(position, onlyExternal)) {
             if (event.type === "note-event") {
+                const {cent, octaves, semiTones} = this.#adapter.namedParameter
                 yield Objects.overwrite(event, {
-                    pitch: event.pitch + this.#semiTones + this.#octaves * 12,
-                    cent: event.cent + this.#cent
+                    pitch: event.pitch + octaves.valueAt(event.position) * 12 + semiTones.valueAt(event.position),
+                    cent: event.cent + cent.valueAt(event.position)
                 })
             }
         }
@@ -80,15 +72,7 @@ export class PitchDeviceProcessor extends EventProcessor implements MidiEffectPr
 
     processEvents(_block: Block, _from: ppqn, _to: ppqn): void {}
 
-    parameterChanged(parameter: AutomatableParameter): void {
-        if (parameter === this.#octavesParameter) {
-            this.#octaves = this.#octavesParameter.getValue()
-        } else if (parameter === this.#semiTonesParameter) {
-            this.#semiTones = this.#semiTonesParameter.getValue()
-        } else if (parameter === this.#centParameter) {
-            this.#cent = this.#centParameter.getValue()
-        }
-    }
+    parameterChanged(parameter: AutomatableParameter): void {}
 
     handleEvent(_block: Block, _event: Event): void {}
 
