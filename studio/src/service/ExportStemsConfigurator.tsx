@@ -11,7 +11,6 @@ import {ColorCodes} from "@/ui/mixer/ColorCodes"
 import {Colors} from "@/ui/Colors"
 import {AudioUnitType} from "@/data/enums"
 
-const className = Html.adoptStyleSheet(css, "ExportStemsConfigurator")
 
 export type EditableExportStemsConfiguration = ExportStemsConfiguration & Record<string, {
     readonly type: AudioUnitType
@@ -24,73 +23,87 @@ type Construct = {
     configuration: EditableExportStemsConfiguration
 }
 
-export const ExportStemsConfigurator = ({lifecycle, configuration}: Construct) => {
-    const includeAll = new DefaultObservableValue(true)
-    const includeAudioEffectsAll = new DefaultObservableValue(true)
-    const includeSendsAll = new DefaultObservableValue(true)
+export const ExportStemsConfigurator = ({lifecycle}: Construct) => {
+    const enableBounceStems = new DefaultObservableValue(false)
+    const enableBounceAll = new DefaultObservableValue(false)
+    const enableBounceSelected = new DefaultObservableValue(false)
+    const enableBounceIndividual = new DefaultObservableValue(false)
+    const exportPath = new DefaultObservableValue("")
+    
     return (
-        <div className={className}>
-            <header>
-                <div>Name</div>
-                <Checkbox lifecycle={lifecycle}
-                          model={includeAll}
-                          appearance={{activeColor: Colors.cream, cursor: "pointer"}}>
-                    <span style={{color: Colors.gray}}>Export</span>
-                    <Icon symbol={IconSymbol.Checkbox}/>
-                </Checkbox>
-                <Checkbox lifecycle={lifecycle}
-                          model={includeAudioEffectsAll}
-                          appearance={{activeColor: Colors.blue, cursor: "pointer"}}>
-                    <span style={{color: Colors.gray}}>Audio FX</span>
-                    <Icon symbol={IconSymbol.Checkbox}/>
-                </Checkbox>
-                <Checkbox lifecycle={lifecycle}
-                          model={includeSendsAll}
-                          appearance={{activeColor: ColorCodes.forAudioType(AudioUnitType.Aux), cursor: "pointer"}}>
-                    <span style={{color: Colors.gray}}>Send FX</span>
-                    <Icon symbol={IconSymbol.Checkbox}/>
-                </Checkbox>
-                <div>File Name</div>
-            </header>
-            <div className="list">
-                {Object.values(configuration).map((stem) => {
-                    const include = new DefaultObservableValue(stem.include)
-                    const includeAudioEffects = new DefaultObservableValue(stem.includeAudioEffects)
-                    const includeSends = new DefaultObservableValue(stem.includeSends)
-                    const fileName = new DefaultObservableValue(ExportStemsConfiguration.sanitizeFileName(stem.label))
-                    lifecycle.ownAll(
-                        include.subscribe(owner => stem.include = owner.getValue()),
-                        includeAudioEffects.subscribe(owner => stem.includeAudioEffects = owner.getValue()),
-                        includeSends.subscribe(owner => stem.includeSends = owner.getValue()),
-                        fileName.subscribe(owner => stem.fileName = owner.getValue()),
-                        includeAll.subscribe(owner => include.setValue(owner.getValue())),
-                        includeAudioEffectsAll.subscribe(owner => includeAudioEffects.setValue(owner.getValue())),
-                        includeSendsAll.subscribe(owner => includeSends.setValue(owner.getValue()))
-                    )
-                    return (
-                        <Frag>
-                            <div className="name" style={{color: ColorCodes.forAudioType(stem.type)}}>{stem.label}</div>
-                            <Checkbox lifecycle={lifecycle}
-                                      model={include}
-                                      appearance={{activeColor: Colors.cream}}>
-                                <Icon symbol={IconSymbol.Checkbox}/>
-                            </Checkbox>
-                            <Checkbox lifecycle={lifecycle}
-                                      model={includeAudioEffects}
-                                      appearance={{activeColor: Colors.blue}}>
-                                <Icon symbol={IconSymbol.Checkbox}/>
-                            </Checkbox>
-                            {stem.type === AudioUnitType.Output ? <div/> : (
-                                <Checkbox lifecycle={lifecycle}
-                                          model={includeSends}
-                                          appearance={{activeColor: ColorCodes.forAudioType(AudioUnitType.Aux)}}>
-                                    <Icon symbol={IconSymbol.Checkbox}/>
-                                </Checkbox>
-                            )}
-                            <TextInput lifecycle={lifecycle} model={fileName}/>
-                        </Frag>
-                    )
-                })}
+        <div>
+            <h3>Export Configuration</h3>
+            {Checkbox({
+                lifecycle,
+                model: enableBounceStems,
+                appearance: {
+                    activeColor: Colors.blue,
+                    cursor: "pointer" as const
+                }
+            }, [
+                (<span>Bounce Stems</span>) as any,
+                (<span style={{color: Colors.gray}}>Export individual track stems</span>) as any
+            ] as any)}
+            
+            {Checkbox({
+                lifecycle,
+                model: enableBounceAll,
+                appearance: {
+                    activeColor: Colors.blue,
+                    cursor: "pointer" as const
+                }
+            }, [
+                (<span>Bounce All</span>) as any,
+                (<span style={{color: Colors.gray}}>Export complete mix</span>) as any
+            ] as any)}
+            
+            {Checkbox({
+                lifecycle,
+                model: enableBounceSelected,
+                appearance: {
+                    activeColor: Colors.blue
+                }
+            }, [
+                (<span>Bounce Selected</span>) as any,
+                (<span style={{color: Colors.gray}}>Export selected tracks only</span>) as any
+            ] as any)}
+            
+            {Checkbox({
+                lifecycle,
+                model: enableBounceIndividual,
+                appearance: {
+                    activeColor: Colors.blue
+                }
+            }, [
+                (<span>Bounce Individual</span>) as any,
+                (<span style={{color: Colors.gray}}>Export each track separately</span>) as any
+            ] as any)}
+            
+            <div style={{marginTop: "1em"}}>
+                <label>Export Path:</label>
+                {(Frag as any)({}, [
+                    TextInput({
+                        lifecycle,
+                        model: exportPath,
+                        className: "export-path",
+                        maxChars: 200
+                    }) as any,
+                    Checkbox({
+                        lifecycle,
+                        model: enableBounceAll,
+                        appearance: {activeColor: Colors.blue}
+                    }, (<span>Use default path</span>) as any) as any,
+                    Checkbox({
+                        lifecycle,
+                        model: enableBounceSelected,
+                        appearance: {activeColor: Colors.blue}
+                    }, (<span>Ask for path each time</span>) as any) as any,
+                    Checkbox({
+                        lifecycle,
+                        model: enableBounceIndividual,
+                        appearance: {activeColor: Colors.blue}
+                    }, (<span>Remember last path</span>) as any) as any
+                ] as any)}
             </div>
         </div>
     )

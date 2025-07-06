@@ -37,7 +37,7 @@ requestAnimationFrame(async () => {
         const testFeaturesResult = await Promises.tryCatch(testFeatures())
         if (testFeaturesResult.status === "rejected") {
             document.querySelector("#preloader")?.remove()
-            replaceChildren(document.body, MissingFeature({error: testFeaturesResult.error}))
+            replaceChildren(document.body, MissingFeature({error: testFeaturesResult.error}) as any)
             return
         }
         const buildInfo: BuildInfo = await loadBuildInfo()
@@ -87,7 +87,7 @@ requestAnimationFrame(async () => {
         }, errorHandler)
         document.querySelector("#preloader")?.remove()
         document.addEventListener("touchmove", (event: TouchEvent) => event.preventDefault(), {passive: false})
-        replaceChildren(surface.ground, App(service))
+        replaceChildren(surface.ground, App(service) as any)
         AnimationFrame.start()
         installCursors()
         if (buildInfo.env === "production" && !Browser.isLocalHost()) {
@@ -116,7 +116,7 @@ requestAnimationFrame(async () => {
                 if (!navigator.onLine) {return}
                 const {status, value: newBuildInfo} = await Promises.tryCatch(loadBuildInfo())
                 if (status === "resolved" && newBuildInfo.uuid !== undefined && newBuildInfo.uuid !== buildInfo.uuid) {
-                    document.body.prepend(UpdateMessage())
+                    document.body.prepend(UpdateMessage() as unknown as Node)
                     console.warn("A new version is online.")
                     clearInterval(checkUpdates)
                 }

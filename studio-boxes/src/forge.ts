@@ -28,12 +28,12 @@ import {TrackBox} from "./schema/timeline/track"
 import {MarkerBox} from "./schema/timeline/marker"
 import {GrooveShuffleBox} from "./schema/grooves"
 
-BoxForge.gen<Pointers>({
+BoxForge.gen({
     path: "../studio/src/data/boxes",
     pointers: {
         from: "@/data/pointers",
         enum: "Pointers",
-        print: pointer => `Pointers.${Pointers[pointer]}`
+        print: (pointer: any) => `Pointers.${Pointers[pointer]}`
     },
     boxes: [
         RootBox, SelectionBox, UserInterfaceBox,

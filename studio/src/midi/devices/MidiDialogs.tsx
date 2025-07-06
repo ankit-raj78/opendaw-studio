@@ -6,23 +6,23 @@ import {Exec} from "std"
 
 export namespace MidiDialogs {
     export const showInfoDialog = (cancel: Exec): DialogHandler => {
-        const dialog: HTMLDialogElement = (
-            <Dialog headline={"Learn Midi Keys..."}
-                    icon={IconSymbol.DinSlot}
-                    cancelable={true}
-                    buttons={[{
-                        text: "Cancel",
-                        primary: false,
-                        onClick: handler => {
-                            handler.close()
-                            cancel()
-                        }
-                    }]}>
-                <div style={{padding: "1em 0"}}>
-                    <p>Hit a key on your midi-device to learn a connection.</p>
-                </div>
-            </Dialog>
-        )
+        const dialog: HTMLDialogElement = Dialog({
+            headline: "Learn Midi Keys...",
+            icon: IconSymbol.DinSlot,
+            cancelable: true,
+            buttons: [{
+                text: "Cancel",
+                primary: false,
+                onClick: handler => {
+                    handler.close()
+                    cancel()
+                }
+            }]
+        }, (
+            <div style={{padding: "1em 0"}}>
+                <p>Hit a key on your midi-device to learn a connection.</p>
+            </div>
+        ) as any) as unknown as HTMLDialogElement
         Surface.get().body.appendChild(dialog)
         dialog.showModal()
         return dialog

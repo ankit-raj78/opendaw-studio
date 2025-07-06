@@ -15,6 +15,29 @@ interface FileSystemDirectoryHandle {
     entries(): AsyncIterableIterator<[string, FileSystemHandle]>
 }
 
+interface SaveFilePickerOptions {
+    suggestedName?: string
+    types?: Array<{
+        description: string
+        accept: Record<string, string[]>
+    }>
+    excludeAcceptAllOption?: boolean
+}
+
+interface OpenFilePickerOptions {
+    multiple?: boolean
+    types?: Array<{
+        description: string
+        accept: Record<string, string[]>
+    }>
+    excludeAcceptAllOption?: boolean
+}
+
+interface Window {
+    showSaveFilePicker?: (options?: SaveFilePickerOptions) => Promise<FileSystemFileHandle>
+    showOpenFilePicker?: (options?: OpenFilePickerOptions) => Promise<FileSystemFileHandle[]>
+}
+
 type AudioSinkInfo = string | { type: "none" }
 
 interface AudioContext {
