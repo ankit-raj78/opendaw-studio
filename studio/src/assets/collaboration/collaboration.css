@@ -1,0 +1,201 @@
+/* OpenDAW Collaboration UI Styles */
+
+/* Box ownership indicators */
+.box-owned-by-me {
+  border-left: 4px solid #10b981 !important;
+  position: relative;
+}
+
+.box-owned-by-me::before {
+  content: "●";
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  color: #10b981;
+  font-size: 8px;
+  z-index: 1000;
+}
+
+.box-owned-by-others {
+  border-left: 4px solid var(--owner-color, #ef4444) !important;
+  opacity: 0.8;
+  position: relative;
+}
+
+.box-owned-by-others::before {
+  content: "●";
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  color: var(--owner-color, #ef4444);
+  font-size: 8px;
+  z-index: 1000;
+}
+
+.box-locked {
+  pointer-events: none !important;
+  filter: grayscale(0.5);
+  opacity: 0.6;
+  position: relative;
+}
+
+.box-locked::after {
+  content: "🔒";
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: 10px;
+  z-index: 1000;
+}
+
+/* Disable controls for non-owned boxes */
+.box-owned-by-others input,
+.box-owned-by-others button,
+.box-owned-by-others select,
+.box-owned-by-others textarea {
+  pointer-events: none !important;
+  opacity: 0.6;
+}
+
+/* User avatars in collaboration panel */
+.collaboration-panel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  z-index: 10000;
+  min-width: 200px;
+}
+
+.collaboration-panel h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.user-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.user-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.user-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--user-color, #6b7280);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.user-name {
+  flex: 1;
+}
+
+.user-status {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Connection status indicator */
+.connection-status {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  z-index: 10000;
+}
+
+.connection-status.connected {
+  background: #10b981;
+  color: white;
+}
+
+.connection-status.connecting {
+  background: #f59e0b;
+  color: white;
+}
+
+.connection-status.disconnected {
+  background: #ef4444;
+  color: white;
+}
+
+/* Notification toasts */
+.collab-notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  z-index: 10001;
+  animation: slideInOut 3s ease-in-out;
+}
+
+@keyframes slideInOut {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+  10%, 90% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+}
+
+/* Box highlighting when selected by others */
+.box-selected-by-others {
+  outline: 2px dashed var(--owner-color, #ef4444) !important;
+  outline-offset: 2px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* User color variants */
+.user-color-1 { --owner-color: #ef4444; --user-color: #ef4444; } /* Red */
+.user-color-2 { --owner-color: #f59e0b; --user-color: #f59e0b; } /* Orange */
+.user-color-3 { --owner-color: #10b981; --user-color: #10b981; } /* Green */
+.user-color-4 { --owner-color: #3b82f6; --user-color: #3b82f6; } /* Blue */
+.user-color-5 { --owner-color: #8b5cf6; --user-color: #8b5cf6; } /* Purple */
+.user-color-6 { --owner-color: #ec4899; --user-color: #ec4899; } /* Pink */
+.user-color-7 { --owner-color: #06b6d4; --user-color: #06b6d4; } /* Cyan */
+.user-color-8 { --owner-color: #84cc16; --user-color: #84cc16; } /* Lime */
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .collaboration-panel {
+    top: 10px;
+    right: 10px;
+    font-size: 11px;
+    min-width: 150px;
+  }
+  
+  .connection-status {
+    bottom: 10px;
+    right: 10px;
+  }
+}
