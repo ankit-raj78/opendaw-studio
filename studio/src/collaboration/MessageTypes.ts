@@ -158,6 +158,14 @@ export const createCollabMessage = {
     data
   }),
 
+  projectSaved: (projectId: string, userId: string, data: ProjectSavedData): CollabMessage => ({
+    type: 'PROJECT_SAVED',
+    projectId,
+    userId,
+    timestamp: Date.now(),
+    data
+  }),
+
   syncRequest: (projectId: string, userId: string, data: SyncRequestData): CollabMessage => ({
     type: 'SYNC_REQUEST',
     projectId,

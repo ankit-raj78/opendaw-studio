@@ -18,6 +18,7 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
   private ws: WSClient
   private projectId: string
   private userId: string
+  private version: number = 1
 
   constructor(
     localOpfs: OpfsProtocol,
@@ -147,39 +148,134 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
     }
 
     // Perform the actual write operation
-    return this.localOpfs.write(path, data)
+    await this.localOpfs.write(path, data)
+
+    // Auto-save project after significant changes
+    this.scheduleProjectSave()
   }
 
-  async delete(path: string): Promise<void> {
-    console.log(`[CollabOpfs] Delete operation: ${path}`)
+  // Debounced project save to avoid excessive saves
+  private saveTimer: any = null
+  private scheduleProjectSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer)
+    }
+    
+    // Save project state after 2 seconds of inactivity
+    this.saveTimer = setTimeout(() => {
+      this.saveProjectState()
+    }, 2000)
+  }
 
-    // Check ownership for box deletions
-    if (this.isBoxOperation(path)) {
-      const boxUuid = this.extractBoxUuid(path)
-      if (boxUuid) {
-        const owner = await this.db.getBoxOwner(this.projectId, boxUuid)
-        if (owner && owner !== this.userId) {
-          throw new Error(`Cannot delete box ${boxUuid} - owned by another user: ${owner}`)
-        }
-
-        // Broadcast box deletion
-        this.ws.send(createCollabMessage.boxDeleted(
+  private async saveProjectState(): Promise<void> {
+    try {
+      console.log(`[CollabOpfs] Saving project state for: ${this.projectId}`)
+      
+      // Collect all project files and data
+      const projectData = await this.collectProjectData()
+      
+      if (projectData) {
+        await this.db.saveProject(this.projectId, projectData)
+        console.log(`[CollabOpfs] Project state saved successfully`)
+        
+        // Broadcast that project was saved
+        this.ws.send(createCollabMessage.projectSaved(
           this.projectId,
           this.userId,
-          { boxUuid }
+          { 
+            projectData: projectData,
+            version: this.version++
+          }
         ))
-
-        // Remove ownership record
-        // We'll add this method to DatabaseService later
       }
+    } catch (error) {
+      console.error('[CollabOpfs] Failed to save project state:', error)
     }
-
-    return this.localOpfs.delete(path)
   }
 
-  async list(path: string): Promise<ReadonlyArray<Entry>> {
-    // List operations don't require ownership checks
-    return this.localOpfs.list(path)
+  private async collectProjectData(): Promise<any | null> {
+    try {
+      // Start from the project root and recursively collect files
+      const rootPath = `/projects/${this.projectId}`
+      
+      // Check if project exists
+      const projectExists = await this.fileExists(rootPath)
+      if (!projectExists) {
+        console.log(`[CollabOpfs] Project directory doesn't exist yet: ${rootPath}`)
+        return null
+      }
+      
+      const projectFiles = await this.collectFilesRecursively(rootPath)
+      
+      return {
+        id: this.projectId,
+        name: `Project ${this.projectId}`,
+        files: projectFiles,
+        savedAt: new Date().toISOString(),
+        savedBy: this.userId
+      }
+    } catch (error) {
+      console.error('[CollabOpfs] Error collecting project data:', error)
+      return null
+    }
+  }
+
+  private async fileExists(path: string): Promise<boolean> {
+    try {
+      await this.localOpfs.read(path)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  private async collectFilesRecursively(dirPath: string): Promise<any[]> {
+    const files: any[] = []
+    
+    try {
+      const entries = await this.localOpfs.list(dirPath)
+      
+      for (const entry of entries) {
+        const fullPath = `${dirPath}/${entry.name}`
+        
+        if (entry.kind === 'directory') {
+          // Recursively collect files from subdirectories
+          const subFiles = await this.collectFilesRecursively(fullPath)
+          files.push({
+            type: 'directory',
+            path: fullPath,
+            name: entry.name,
+            children: subFiles
+          })
+        } else {
+          // Read file content
+          try {
+            const content = await this.localOpfs.read(fullPath)
+            files.push({
+              type: 'file',
+              path: fullPath,
+              name: entry.name,
+              size: content.length,
+              content: Array.from(content) // Convert Uint8Array to regular array for JSON serialization
+            })
+          } catch (error) {
+            console.warn(`[CollabOpfs] Could not read file: ${fullPath}`, error)
+            files.push({
+              type: 'file',
+              path: fullPath,
+              name: entry.name,
+              size: 0,
+              content: [],
+              error: 'Could not read file'
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`[CollabOpfs] Could not list directory: ${dirPath}`, error)
+    }
+    
+    return files
   }
 
   // Helper method to sync ownership state
@@ -227,5 +323,41 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
       default:
         console.log(`[CollabOpfs] Unhandled message type: ${message.type}`)
     }
+  }
+
+  async delete(path: string): Promise<void> {
+    console.log(`[CollabOpfs] Delete operation: ${path}`)
+
+    // Check for box operations that need ownership validation
+    if (this.isBoxOperation(path)) {
+      const boxUuid = this.extractBoxUuid(path)
+      if (boxUuid) {
+        console.log(`[CollabOpfs] Box delete operation detected: ${boxUuid}`)
+
+        // Check ownership before allowing deletion
+        const owner = await this.db.getBoxOwnership(this.projectId, boxUuid)
+        if (owner && owner !== this.userId) {
+          throw new Error(`Cannot delete box ${boxUuid}: owned by ${owner}`)
+        }
+
+        // Broadcast box deletion
+        this.ws.send(createCollabMessage.boxDeleted(
+          this.projectId,
+          this.userId,
+          { boxUuid }
+        ))
+      }
+    }
+
+    // Perform the actual delete operation
+    await this.localOpfs.delete(path)
+
+    // Schedule project save after deletion
+    this.scheduleProjectSave()
+  }
+
+  async list(path: string): Promise<ReadonlyArray<Entry>> {
+    // List operations don't require ownership checks
+    return this.localOpfs.list(path)
   }
 }

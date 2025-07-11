@@ -38,6 +38,11 @@ export class DatabaseService {
     // No-op in browser mode
   }
 
+  async close(): Promise<void> {
+    // No-op in browser mode - same as disconnect
+    await this.disconnect()
+  }
+
   async saveProject(projectId: string, projectData: any): Promise<void> {
     try {
       await fetch(`${this.baseUrl}/projects/${projectId}`, {
@@ -247,5 +252,24 @@ export class DatabaseService {
       console.warn('Database ping failed:', error)
       return false
     }
+  }
+
+  async getBoxOwner(projectId: string, boxUuid: string): Promise<string | null> {
+    return this.getBoxOwnership(projectId, boxUuid)
+  }
+
+  async setBoxOwner(projectId: string, boxUuid: string, ownerId: string): Promise<void> {
+    await this.acquireBoxOwnership(projectId, boxUuid, ownerId)
+  }
+
+  async getProjectOwnership(projectId: string): Promise<Record<string, string>> {
+    return this.getAllBoxOwnerships(projectId)
+  }
+
+  async getActiveUsers(projectId: string): Promise<string[]> {
+    // This is handled by the WebSocket server in real-time
+    // For the browser client, we'll return an empty array as this data
+    // comes through WebSocket messages
+    return []
   }
 }

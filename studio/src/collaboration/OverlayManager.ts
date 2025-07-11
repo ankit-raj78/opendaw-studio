@@ -20,9 +20,19 @@ export class OverlayManager {
   constructor(projectId: string, userId: string) {
     this.projectId = projectId
     this.currentUserId = userId
+    
+    // Add current user to the list
+    this.addUser(userId, { 
+      name: 'You', 
+      color: '#10b981',
+      isActive: true 
+    })
+    
     this.setupMutationObserver()
     this.injectStyles()
     this.createUI()
+    
+    console.log('[OverlayManager] Initialized with user:', userId)
   }
 
   private injectStyles(): void {
@@ -198,15 +208,19 @@ export class OverlayManager {
   }
 
   addUser(userId: string, userInfo: Partial<UserInfo>): void {
+    console.log('[OverlayManager] Adding user:', userId, userInfo)
+    
     const user: UserInfo = {
       id: userId,
       name: userInfo.name || `User ${userId.slice(0, 8)}`,
       color: userInfo.color || this.generateUserColor(userId),
-      isActive: true
+      isActive: userInfo.isActive !== undefined ? userInfo.isActive : true
     }
     
     this.users.set(userId, user)
     this.updateUserList()
+    
+    console.log('[OverlayManager] Current users:', Array.from(this.users.keys()))
   }
 
   removeUser(userId: string): void {
@@ -229,15 +243,22 @@ export class OverlayManager {
   }
 
   handleCollaborationMessage(message: CollabMessage): void {
+    console.log('🔥 [OverlayManager] Handling message:', message.type, 'from user:', message.userId, 'data:', message.data)
+    
     switch (message.type) {
       case 'USER_JOIN':
-        this.addUser(message.userId, message.data)
-        this.showNotification(`${this.getUserName(message.userId)} joined`)
+        // Don't add yourself again, but add other users
+        if (message.userId !== this.currentUserId) {
+          this.addUser(message.userId, message.data)
+          this.showNotification(`${this.getUserName(message.userId)} joined`)
+        }
         break
       
       case 'USER_LEAVE':
-        this.showNotification(`${this.getUserName(message.userId)} left`)
-        this.removeUser(message.userId)
+        if (message.userId !== this.currentUserId) {
+          this.showNotification(`${this.getUserName(message.userId)} left`)
+          this.removeUser(message.userId)
+        }
         break
       
       case 'BOX_OWNERSHIP_CLAIMED':
@@ -260,18 +281,37 @@ export class OverlayManager {
   }
 
   private syncState(data: any): void {
+    console.log('🔥 [OverlayManager] Syncing state:', data)
+    
     // Update ownership from server state
     this.boxOwnership.clear()
-    Object.entries(data.ownership).forEach(([boxUuid, ownerId]) => {
-      this.boxOwnership.set(boxUuid, ownerId as string)
-    })
+    if (data.ownership) {
+      Object.entries(data.ownership).forEach(([boxUuid, ownerId]) => {
+        this.boxOwnership.set(boxUuid, ownerId as string)
+      })
+    }
 
-    // Update active users
-    data.activeUsers.forEach((userId: string) => {
-      if (!this.users.has(userId) && userId !== this.currentUserId) {
-        this.addUser(userId, {})
+    // Update active users (excluding current user since we already have them)
+    if (data.activeUsers) {
+      console.log('🔥 [OverlayManager] Processing active users:', data.activeUsers)
+      data.activeUsers.forEach((userId: string) => {
+        if (!this.users.has(userId) && userId !== this.currentUserId) {
+          console.log('🔥 [OverlayManager] Adding new active user:', userId)
+          this.addUser(userId, { name: `User ${userId.slice(0, 8)}` })
+        }
+      })
+      
+      // Remove users who are no longer active
+      const activeUserSet = new Set(data.activeUsers)
+      activeUserSet.add(this.currentUserId) // Keep current user
+      
+      for (const [userId] of this.users) {
+        if (!activeUserSet.has(userId)) {
+          console.log('🔥 [OverlayManager] Removing inactive user:', userId)
+          this.removeUser(userId)
+        }
       }
-    })
+    }
 
     this.refreshAllBoxStyling()
   }
@@ -280,7 +320,17 @@ export class OverlayManager {
     const userList = document.getElementById('user-list')
     if (!userList) return
 
+    console.log('[OverlayManager] Updating user list with', this.users.size, 'users')
+    
     userList.innerHTML = ''
+    
+    if (this.users.size === 0) {
+      const li = document.createElement('li')
+      li.className = 'user-item'
+      li.innerHTML = '<span class="user-name">No users online</span>'
+      userList.appendChild(li)
+      return
+    }
     
     this.users.forEach(user => {
       const li = document.createElement('li')
@@ -290,10 +340,19 @@ export class OverlayManager {
           ${user.name.charAt(0).toUpperCase()}
         </div>
         <span class="user-name">${user.name}</span>
-        <span class="user-status">${user.isActive ? 'active' : 'away'}</span>
+        <span class="user-status">${user.isActive ? 'online' : 'away'}</span>
       `
       userList.appendChild(li)
     })
+    
+    // Update panel title to show count
+    const panel = this.collaborationPanel
+    if (panel) {
+      const title = panel.querySelector('h3')
+      if (title) {
+        title.textContent = `Collaborators (${this.users.size})`
+      }
+    }
   }
 
   private refreshAllBoxStyling(): void {

@@ -63,6 +63,9 @@ export class CollaborationManager {
       // Set up message handlers
       this.setupMessageHandlers()
 
+      // Send USER_JOIN message
+      await this.sendUserJoin()
+
       // Request initial sync
       await this.requestSync()
 
@@ -117,6 +120,24 @@ export class CollaborationManager {
       console.error('[Collaboration] Server error:', message.data)
       this.overlay!.updateConnectionStatus('disconnected')
     })
+  }
+
+  private async sendUserJoin(): Promise<void> {
+    if (this.ws) {
+      const userJoinMessage = {
+        type: 'USER_JOIN' as const,
+        projectId: this.config.projectId,
+        userId: this.config.userId,
+        timestamp: Date.now(),
+        data: {
+          username: this.config.userName || `User ${this.config.userId.slice(0, 8)}`,
+          avatar: undefined
+        }
+      }
+      
+      console.log('[Collaboration] Sending USER_JOIN:', userJoinMessage)
+      this.ws.send(userJoinMessage)
+    }
   }
 
   requestSync(): void {
