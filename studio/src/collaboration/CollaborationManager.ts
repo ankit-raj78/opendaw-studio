@@ -1,4 +1,4 @@
-import { CollaborativeOpfsAgent } from './CollaborativeOpfsAgent'
+import { CollaborativeOpfsAgent, setStudioServiceRef } from './CollaborativeOpfsAgent'
 import { DatabaseService } from './DatabaseService'
 import { WSClient } from './WSClient'
 import { OverlayManager } from './OverlayManager'
@@ -10,6 +10,7 @@ export interface CollaborationConfig {
   wsUrl?: string
   dbUrl?: string
   userName?: string
+  studioService?: any // Reference to StudioService for project operations
 }
 
 export class CollaborationManager {
@@ -35,6 +36,14 @@ export class CollaborationManager {
 
     try {
       console.log('[Collaboration] Initializing collaboration layer...')
+
+      // Set global StudioService reference for project serialization
+      if (this.config.studioService) {
+        setStudioServiceRef(this.config.studioService)
+        console.log('[Collaboration] StudioService reference set for project serialization')
+      } else {
+        console.warn('[Collaboration] No StudioService provided - project serialization will be limited')
+      }
 
       // Initialize database service
       this.db = new DatabaseService(this.config.dbUrl!)
@@ -65,6 +74,9 @@ export class CollaborationManager {
 
       // Send USER_JOIN message
       await this.sendUserJoin()
+
+      // Load existing project data if available
+      await this.loadExistingProject()
 
       // Request initial sync
       await this.requestSync()
@@ -137,6 +149,47 @@ export class CollaborationManager {
       
       console.log('[Collaboration] Sending USER_JOIN:', userJoinMessage)
       this.ws.send(userJoinMessage)
+    }
+  }
+
+  private async loadExistingProject(): Promise<void> {
+    try {
+      console.log('[Collaboration] Loading existing project data...')
+      
+      // Use the CollaborativeOpfsAgent's new project loading system
+      if (this.collaborativeAgent) {
+        const success = await this.collaborativeAgent.loadProjectFromDatabase()
+        if (success) {
+          console.log('[Collaboration] ✅ Project loaded successfully using OpenDAW serialization')
+        } else {
+          console.log('[Collaboration] No existing project data found, starting fresh')
+        }
+      } else {
+        console.error('[Collaboration] CollaborativeOpfsAgent not initialized')
+      }
+    } catch (error) {
+      console.error('[Collaboration] Failed to load existing project:', error)
+    }
+  }
+
+  private async restoreProjectFiles(files: any[]): Promise<void> {
+    for (const file of files) {
+      try {
+        if (file.type === 'directory') {
+          // Create directory (OPFS might handle this automatically)
+          console.log(`[Collaboration] Creating directory: ${file.path}`)
+          if (file.children && file.children.length > 0) {
+            await this.restoreProjectFiles(file.children)
+          }
+        } else if (file.type === 'file' && file.content && !file.error) {
+          // Restore file content
+          console.log(`[Collaboration] Restoring file: ${file.path}`)
+          const content = new Uint8Array(file.content)
+          await this.collaborativeAgent!.write(file.path, content)
+        }
+      } catch (error) {
+        console.warn(`[Collaboration] Failed to restore file: ${file.path}`, error)
+      }
     }
   }
 

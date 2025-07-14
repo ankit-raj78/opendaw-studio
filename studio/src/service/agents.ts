@@ -9,6 +9,15 @@ import {Communicator, Messenger} from "runtime"
 // Import collaboration components
 import { CollaborationManager } from '../collaboration/CollaborationManager'
 
+// Variable to store StudioService reference
+let studioServiceRef: any = null
+
+// Function to set the StudioService reference for collaboration
+export function setStudioServiceForCollaboration(service: any) {
+    studioServiceRef = service
+    console.log('🔗 StudioService reference set for collaboration')
+}
+
 const messenger = Messenger.for(new Worker(WorkerUrl, {type: "module"}))
 
 export const PeakAgent = Communicator.sender<PeakProtocol>(messenger.channel("peaks"),
@@ -56,7 +65,8 @@ if (isCollaborative && projectId && userId) {
             userId,
             userName: userName || userId,
             wsUrl: 'ws://localhost:3005',
-            dbUrl: 'postgresql://opendaw:collaboration@localhost:5433/opendaw_collab'
+            dbUrl: 'postgresql://opendaw:collaboration@localhost:5433/opendaw_collab',
+            studioService: studioServiceRef
         })
         
         // Initialize collaboration asynchronously
@@ -217,3 +227,28 @@ const proxyAgent = new class implements OpfsProtocol {
 
 // Export the proxy agent
 export const OpfsAgent = proxyAgent
+
+// Cleanup function for collaboration
+export function cleanupCollaboration() {
+    if (collaborationManager) {
+        collaborationManager.cleanup()
+        collaborationManager = null
+    }
+    if (collaborationInitialized && (currentOpfsAgent as any).cleanup) {
+        (currentOpfsAgent as any).cleanup()
+    }
+    collaborationInitialized = false
+    currentOpfsAgent = baseOpfsAgent
+    console.log('🧹 Collaboration cleaned up')
+}
+
+// Export collaboration state for debugging
+export function getCollaborationState() {
+    return {
+        isInitialized: collaborationInitialized,
+        hasManager: !!collaborationManager,
+        hasStudioService: !!studioServiceRef,
+        projectId: urlParams.get('projectId'),
+        userId: urlParams.get('userId')
+    }
+}
