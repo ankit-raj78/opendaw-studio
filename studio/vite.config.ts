@@ -2,13 +2,13 @@ import {defineConfig, UserConfig} from "vite"
 import {resolve} from "path"
 import * as path from "node:path"
 import {readFileSync, writeFileSync} from "fs"
-import {UUID} from "std"
+import {randomUUID} from "crypto"
 import {BuildInfo} from "./src/BuildInfo"
 import viteCompression from "vite-plugin-compression"
 import crossOriginIsolation from "vite-plugin-cross-origin-isolation"
 
 export default defineConfig(({mode, command}) => {
-    const uuid = UUID.toString(UUID.generate())
+    const uuid = randomUUID()
     const env = process.env.NODE_ENV as BuildInfo["env"]
     const date = Date.now()
     const config: UserConfig = {
