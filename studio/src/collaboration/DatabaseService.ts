@@ -23,7 +23,7 @@ export interface UserSession {
 }
 
 export class DatabaseService {
-  private baseUrl: string = 'http://localhost:3004/api'
+  private baseUrl: string = 'https://localhost:8443/api'
 
   constructor(connectionString?: string) {
     // Connection string is ignored in browser mode

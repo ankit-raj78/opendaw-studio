@@ -23,8 +23,8 @@ export class CollaborationManager {
 
   constructor(config: CollaborationConfig) {
     this.config = {
-      wsUrl: 'ws://localhost:3005',
-      dbUrl: 'http://localhost:3003',
+      wsUrl: 'wss://localhost:8443/ws',
+      dbUrl: 'https://localhost:8443',
       ...config
     }
   }

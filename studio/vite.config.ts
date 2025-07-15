@@ -67,7 +67,10 @@ export default defineConfig(({mode, command}) => {
         config.server = {
             port: 8080,
             strictPort: true,
-            // HTTPS disabled for development
+            https: {
+                key: readFileSync(resolve(__dirname, "../localhost-key.pem")),
+                cert: readFileSync(resolve(__dirname, "../localhost.pem"))
+            },
             watch: {
                 ignored: ["**/src-tauri/**"]
             }
