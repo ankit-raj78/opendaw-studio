@@ -60,12 +60,16 @@ if (isCollaborative && projectId && userId) {
     
     try {
         // Initialize collaboration manager
+        // Use environment variables or defaults
+        const wsUrl = import.meta.env.VITE_COLLABORATION_WS_URL || 'ws://localhost:3005'
+        const httpUrl = import.meta.env.VITE_COLLABORATION_HTTP_URL || 'http://localhost:3003'
+        
         collaborationManager = new CollaborationManager({
             projectId,
             userId,
             userName: userName || userId,
-            wsUrl: 'ws://localhost:3005',
-            dbUrl: 'postgresql://opendaw:collaboration@localhost:5433/opendaw_collab',
+            wsUrl: wsUrl,
+            dbUrl: httpUrl, // Use HTTP URL for API calls
             studioService: studioServiceRef
         })
         

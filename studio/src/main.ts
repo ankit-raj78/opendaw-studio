@@ -25,6 +25,7 @@ import {AudioOutputDevice} from "@/audio/AudioOutputDevice"
 import {FontLoader} from "@/ui/FontLoader"
 import {AudioWorklets} from "@/audio-engine/AudioWorklets"
 import {ErrorHandler} from "@/errors/ErrorHandler.ts"
+import {initializeSynxSphereIntegration, startAutoSave} from "@/synxsphere-integration.ts"
 
 window.name = "main"
 
@@ -90,6 +91,12 @@ requestAnimationFrame(async () => {
         replaceChildren(surface.ground, App(service) as any)
         AnimationFrame.start()
         installCursors()
+        
+        // Initialize SynxSphere integration
+        initializeSynxSphereIntegration(service).then(() => {
+            console.log('SynxSphere integration initialized')
+            startAutoSave(service)
+        })
         if (buildInfo.env === "production" && !Browser.isLocalHost()) {
             const uuid = buildInfo.uuid
             const sourceCss = document.querySelector<HTMLLinkElement>("link[rel='stylesheet']")?.href ?? ""
