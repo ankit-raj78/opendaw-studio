@@ -61,7 +61,7 @@ if (isCollaborative && projectId && userId) {
     try {
         // Initialize collaboration manager
         // Use environment variables or defaults
-        const wsUrl = import.meta.env.VITE_COLLABORATION_WS_URL || 'ws://localhost:3005'
+        const wsUrl = import.meta.env.VITE_COLLABORATION_WS_URL || 'wss://localhost:8443/ws'
         const httpUrl = import.meta.env.VITE_COLLABORATION_HTTP_URL || 'http://localhost:3003'
         
         collaborationManager = new CollaborationManager({

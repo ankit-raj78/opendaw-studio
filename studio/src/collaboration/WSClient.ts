@@ -6,7 +6,7 @@ export class WSClient {
   private projectId: string
   private userId: string
   private reconnectAttempts = 0
-  private maxReconnectAttempts = 5
+  private maxReconnectAttempts = 2
   private reconnectDelay = 1000
   private messageHandlers: Map<CollabMessageType, (message: CollabMessage) => void> = new Map()
   private isConnecting = false

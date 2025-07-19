@@ -14,32 +14,17 @@ async function getWorkingApiBaseUrl(token: string): Promise<string | null> {
         return workingApiBaseUrl
     }
     
-    const possibleHosts = ['http://localhost:8000', 'http://localhost:8001', 'http://synxsphere:3000']
-    
-    for (const host of possibleHosts) {
-        try {
-            console.log(`🔍 Testing API connection to: ${host}`)
-            const response = await fetch(`${host}/api/health`, {
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-            })
-            
-            if (response.ok) {
-                console.log(`✅ API available at: ${host}`)
-                workingApiBaseUrl = host
-                return host
-            }
-        } catch (error) {
-            console.log(`❌ API not available at ${host}:`, error.message)
-        }
-    }
-    
-    console.error('❌ No working API endpoint found')
-    return null
+    // Force using the expected endpoint based on Docker configuration
+    const defaultHost = 'http://localhost:8000' // SyncSphere runs on this port
+    console.log(`🔍 Using expected API host: ${defaultHost}`)
+    workingApiBaseUrl = defaultHost
+    return defaultHost
 }
 
 export async function initializeSynxSphereIntegration(service: StudioService) {
-    console.log('🔗 Initializing SynxSphere integration...')
+    console.log('🔗 MODIFIED VERSION: Initializing SynxSphere integration...')
     console.log('🎯 DEBUG: Integration function called, service:', service)
+    console.log('🚀 FORCE PROJECT CREATION: This version will always create a project')
     
     // Set the service reference for collaboration
     setStudioServiceForCollaboration(service)
@@ -56,6 +41,18 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
     
     if (roomId && userId) {
         try {
+            // FORCE PROJECT CREATION FIRST - ensure we always have a working project
+            console.log('🚀 FORCE PROJECT CREATION: Creating new project immediately')
+            service.cleanSlate()
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            service.switchScreen("default")
+            
+            // Force navigation to workspace
+            if (window.location.pathname !== '/') {
+                window.history.pushState({}, '', '/')
+            }
+            console.log('✅ FORCE PROJECT CREATION: Project created and switched to workspace')
+            
             // Wait a bit for the service to be fully initialized
             await new Promise(resolve => setTimeout(resolve, 500))
             
@@ -86,32 +83,80 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
             }
             
             if (token) {
+                console.log('🔑 Token found, attempting to get API base URL...')
                 // Get the working API base URL
                 const apiBaseUrl = await getWorkingApiBaseUrl(token)
                 
+                console.log('🔍 API base URL result:', apiBaseUrl)
+                
                 if (!apiBaseUrl) {
                     console.error('❌ Cannot connect to SyncSphere API')
+                    console.error('❌ AUTOMATIC IMPORT FAILED: No API connection')
                     return
                 }
                 
                 // Get the studio project with audio files
-                console.log(`📦 Fetching studio project from: ${apiBaseUrl}`)
-                const projectResponse = await fetch(`${apiBaseUrl}/api/rooms/${roomId}/studio-project`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
+                console.log(`📦 AUTOMATIC IMPORT: Fetching studio project from: ${apiBaseUrl}`)
+                console.log(`📦 AUTOMATIC IMPORT: Full URL: ${apiBaseUrl}/api/rooms/${roomId}/studio-project`)
+                
+                let projectResponse
+                try {
+                    // Add timeout to prevent hanging
+                    const controller = new AbortController()
+                    const timeout = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+                    
+                    projectResponse = await fetch(`${apiBaseUrl}/api/rooms/${roomId}/studio-project`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        signal: controller.signal
+                    })
+                    
+                    clearTimeout(timeout)
+                    
+                    console.log('🔍 AUTOMATIC IMPORT: Project response status:', projectResponse.status)
+                    console.log('🔍 AUTOMATIC IMPORT: Response headers:', projectResponse.headers)
+                } catch (fetchError) {
+                    console.error('❌ AUTOMATIC IMPORT: Failed to fetch project:', fetchError)
+                    console.error('❌ AUTOMATIC IMPORT: Error details:', {
+                        name: fetchError.name,
+                        message: fetchError.message,
+                        stack: fetchError.stack
+                    })
+                    if (fetchError.name === 'AbortError') {
+                        console.error('❌ AUTOMATIC IMPORT: Request timed out after 10 seconds')
+                        console.error('📝 Possible causes:')
+                        console.error('   - Backend server not running on expected port')
+                        console.error('   - Database query hanging')
+                        console.error('   - CORS blocking the request')
+                        console.error('   - Authentication issue')
                     }
-                })
+                    console.error('🔄 AUTOMATIC IMPORT: Creating new project anyway...')
+                    
+                    // Create new project even if API fails
+                    service.cleanSlate()
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                    service.switchScreen("default")
+                    return
+                }
                 
                 let projectData = null
                 if (projectResponse.ok) {
                     projectData = await projectResponse.json()
-                    console.log(`✅ Successfully loaded studio project`)
+                    console.log(`✅ AUTOMATIC IMPORT: Successfully loaded studio project`)
+                    console.log('🔍 AUTOMATIC IMPORT: Project data structure:', {
+                        hasAudioFiles: !!(projectData.audioFiles && projectData.audioFiles.length),
+                        audioFilesCount: projectData.audioFiles ? projectData.audioFiles.length : 0,
+                        hasProjectData: !!projectData.projectData
+                    })
                 } else {
-                    console.error(`❌ Failed to load studio project: ${projectResponse.status}`)
+                    console.error(`❌ AUTOMATIC IMPORT: Failed to load studio project: ${projectResponse.status}`)
+                    return
                 }
                 
                 if (projectData) {
-                    console.log('✅ Room project data loaded:', projectData)
+                    console.log('✅ AUTOMATIC IMPORT: Room project data loaded')
+                    console.log('🔍 AUTOMATIC IMPORT: Full project data:', JSON.stringify(projectData, null, 2))
                     
                     // Store project data globally for UI access
                     ;(window as any).currentProjectData = projectData.projectData
@@ -149,7 +194,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     
                     // Check if there are audio files to import
                     if (projectData.audioFiles && projectData.audioFiles.length > 0) {
-                        console.log('🎵 Found', projectData.audioFiles.length, 'audio files, importing directly...')
+                        console.log('🎵 AUTOMATIC IMPORT: Found', projectData.audioFiles.length, 'audio files, importing directly to tracks...')
+                        console.log('🎯 AUTOMATIC IMPORT: Audio files will be automatically added as tracks in timeline')
+                        console.log('📋 AUTOMATIC IMPORT: Files to import:', projectData.audioFiles.map(f => f.originalName).join(', '))
                         
                         // Import audio files as tracks
                         await loadProjectFromJSON(service, projectData, roomId)
@@ -173,17 +220,8 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     }), 1500)
                     
                 } else {
-                    console.log('ℹ️ No existing project found for room, creating new project')
-                    // Even if no project exists, create a new one immediately
-                    service.cleanSlate()
-                    
-                    // Switch from dashboard to default workspace screen
-                    service.switchScreen("default")
-                    
-                    // Force navigation to workspace
-                    if (window.location.pathname !== '/') {
-                        window.history.pushState({}, '', '/')
-                    }
+                    console.log('ℹ️ AUTOMATIC IMPORT: No existing project found for room')
+                    console.log('✅ AUTOMATIC IMPORT: Project already created, workspace already loaded')
                 }
             } else {
                 console.warn('⚠️ No authentication token found, but still creating project')
@@ -216,7 +254,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
             `
             
             // Get project name from the loaded data or use default
-            const projectName = (window as any).currentProjectData?.name || `Room ${roomId} Project`
+            const projectName = (window as any).currentProjectData?.name || `test${roomId}`
             const userDisplayName = decodeURIComponent(userName || 'Unknown User')
             
             projectInfoPanel.innerHTML = `
@@ -378,7 +416,7 @@ async function importRoomAudioFiles(service: StudioService, tracks: any[], roomI
                     continue
                 }
                 
-                const audioResponse = await fetch(`${apiBaseUrl}${trackData.filePath}`, {
+                const audioResponse = await fetch(`${apiBaseUrl}/api/audio/stream/${trackData.audioFileId || trackData.id}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -403,27 +441,28 @@ async function importRoomAudioFiles(service: StudioService, tracks: any[], roomI
                 
                 console.log('✅ Audio sample imported:', audioSample.name, audioSample.uuid)
                 
-                // Create a Tape device/track for this audio
-                const {device, track} = Instruments.create(project, Instruments.Tape, {
-                    name: trackData.originalName || trackData.name
-                })
-                
-                console.log('🎛️ Created track:', track.name.getValue())
-                
                 // Get the audio file UUID
                 const audioUUID = UUID.parse(audioSample.uuid)
                 
-                // Find or create AudioFileBox
-                const audioFileBox = boxGraph.findBox(audioUUID).unwrapOrElse(() => 
-                    AudioFileBox.create(boxGraph, audioUUID, box => {
-                        box.fileName.setValue(audioSample.name)
-                        box.startInSeconds.setValue(0)
-                        box.endInSeconds.setValue(audioSample.duration)
-                    })
-                )
-                
-                // Add audio as a region on the track
+                // Create track, audio file box, and region within a single transaction
                 editing.modify(() => {
+                    // Create a Tape device/track for this audio
+                    const {device, track} = Instruments.create(project, Instruments.Tape, {
+                        name: trackData.originalName || trackData.name
+                    })
+                    
+                    console.log('🎛️ Created track:', track.name.getValue())
+                    
+                    // Find or create AudioFileBox
+                    const audioFileBox = boxGraph.findBox(audioUUID).unwrapOrElse(() => 
+                        AudioFileBox.create(boxGraph, audioUUID, box => {
+                            box.fileName.setValue(audioSample.name)
+                            box.startInSeconds.setValue(0)
+                            box.endInSeconds.setValue(audioSample.duration)
+                        })
+                    )
+                    
+                    // Add audio as a region on the track
                     const trackBoxAdapter = project.boxAdapters.adapterFor(track, TrackBoxAdapter)
                     const duration = Math.round(PPQN.secondsToPulses(audioSample.duration, audioSample.bpm || 120))
                     
@@ -455,12 +494,13 @@ async function importRoomAudioFiles(service: StudioService, tracks: any[], roomI
 // Function to import room audio files from a list (when no track data exists)
 async function importRoomAudioFilesFromList(service: StudioService, audioFiles: any[], roomId: string) {
     try {
-        console.log('🎵 Starting audio import for', audioFiles.length, 'audio files...')
+        console.log('🎵 Starting AUTOMATIC audio import for', audioFiles.length, 'audio files...')
         console.log('📋 Audio files to import:', audioFiles.map(f => ({
             name: f.originalName || f.filename,
             path: f.filePath,
             id: f.id
         })))
+        console.log('🎯 AUTOMATIC IMPORT: This will create tracks automatically for each audio file')
         
         // Get token from URL parameters or storage
         const urlParams = new URLSearchParams(window.location.search)
@@ -493,7 +533,7 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
                     continue
                 }
                 
-                console.log('📁 Importing audio file:', audioFileData.originalName, 'from', audioFileData.filePath)
+                console.log('📁 AUTOMATIC IMPORT: Processing audio file:', audioFileData.originalName, 'from', audioFileData.filePath)
                 
                 // Download the audio file
                 const apiBaseUrl = await getWorkingApiBaseUrl(token)
@@ -502,14 +542,16 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
                     continue
                 }
                 
-                const audioResponse = await fetch(`${apiBaseUrl}${audioFileData.filePath}`, {
+                const audioResponse = await fetch(`${apiBaseUrl}/api/audio/stream/${audioFileData.id}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 })
                 
                 if (!audioResponse.ok) {
-                    console.error('❌ Failed to download audio file:', audioFileData.filePath)
+                    console.error('❌ AUTOMATIC IMPORT FAILED: Cannot download audio file:', audioFileData.originalName)
+                    console.error('❌ Response status:', audioResponse.status, audioResponse.statusText)
+                    console.error('❌ File path attempted:', `${apiBaseUrl}/api/audio/stream/${audioFileData.id}`)
                     continue
                 }
                 
@@ -534,35 +576,36 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
                     sampleRate: audioSample.sampleRate
                 })
                 
-                // Create a Tape device/track for this audio
-                console.log('🎯 DEBUG: About to create Tape device/track')
-                const {device, track} = Instruments.create(project, Instruments.Tape, {
-                    name: audioFileData.originalName || audioFileData.filename
-                })
-                
-                console.log('🎛️ Created track:', track.name.getValue())
-                console.log('🎯 DEBUG: Track details:', {
-                    name: track.name.getValue(),
-                    uuid: track.uuid.getValue(),
-                    device: device,
-                    hasTrack: !!track
-                })
-                
                 // Get the audio file UUID
                 const audioUUID = UUID.parse(audioSample.uuid)
                 
-                // Find or create AudioFileBox
-                const audioFileBox = boxGraph.findBox(audioUUID).unwrapOrElse(() => 
-                    AudioFileBox.create(boxGraph, audioUUID, box => {
-                        box.fileName.setValue(audioSample.name)
-                        box.startInSeconds.setValue(0)
-                        box.endInSeconds.setValue(audioSample.duration)
-                    })
-                )
-                
-                // Add audio as a region on the track
+                // Create track, audio file box, and region within a single transaction
+                console.log('🎯 DEBUG: About to create Tape device/track in transaction')
                 let audioRegion = null
                 editing.modify(() => {
+                    // Create a Tape device/track for this audio
+                    const {device, track} = Instruments.create(project, Instruments.Tape, {
+                        name: audioFileData.originalName || audioFileData.filename
+                    })
+                    
+                    console.log('🎛️ Created track:', track.name.getValue())
+                    console.log('🎯 DEBUG: Track details:', {
+                        name: track.name.getValue(),
+                        uuid: track.uuid.getValue(),
+                        device: device,
+                        hasTrack: !!track
+                    })
+                    
+                    // Find or create AudioFileBox
+                    const audioFileBox = boxGraph.findBox(audioUUID).unwrapOrElse(() => 
+                        AudioFileBox.create(boxGraph, audioUUID, box => {
+                            box.fileName.setValue(audioSample.name)
+                            box.startInSeconds.setValue(0)
+                            box.endInSeconds.setValue(audioSample.duration)
+                        })
+                    )
+                    
+                    // Add audio as a region on the track
                     const trackBoxAdapter = project.boxAdapters.adapterFor(track, TrackBoxAdapter)
                     const duration = Math.round(PPQN.secondsToPulses(audioSample.duration, audioSample.bpm || 120))
                     
@@ -595,63 +638,65 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
                 
                 // CRITICAL: Trigger UI subscription updates after editing transaction completes
                 setTimeout(() => {
-                    try {
-                        console.log('🔄 Triggering UI subscription updates for track:', audioSample.name)
-                        const trackBoxAdapter = project.boxAdapters.adapterFor(track, TrackBoxAdapter)
-                        
-                        // Force region subscription update to trigger UI rendering
-                        if (trackBoxAdapter && trackBoxAdapter.regions && trackBoxAdapter.regions.dispatchChange) {
-                            trackBoxAdapter.regions.dispatchChange()
-                            console.log('✅ Dispatched region changes for track:', track.name.getValue())
-                        }
-                        
-                        // Force audio unit subscription update  
+                    (async () => {
                         try {
-                            const { AudioUnitBoxAdapter } = await import('@/audio-engine-shared/adapters/RootBoxAdapter')
-                            const audioUnitAdapter = project.boxAdapters.adapterFor(track.audioUnit, AudioUnitBoxAdapter)
-                            if (audioUnitAdapter && audioUnitAdapter.tracks) {
-                                // Trigger track subscription updates
-                                audioUnitAdapter.tracks.adapters().forEach(adapter => {
-                                    if (adapter.regions && adapter.regions.dispatchChange) {
-                                        adapter.regions.dispatchChange()
-                                    }
-                                })
-                                console.log('✅ Dispatched audio unit track changes')
+                            console.log('🔄 Triggering UI subscription updates for track:', audioSample.name)
+                            const trackBoxAdapter = project.boxAdapters.adapterFor(track, TrackBoxAdapter)
+                            
+                            // Force region subscription update to trigger UI rendering
+                            if (trackBoxAdapter && trackBoxAdapter.regions && trackBoxAdapter.regions.dispatchChange) {
+                                trackBoxAdapter.regions.dispatchChange()
+                                console.log('✅ Dispatched region changes for track:', track.name.getValue())
                             }
+                            
+                            // Force audio unit subscription update  
+                            try {
+                                const { AudioUnitBoxAdapter } = await import('@/audio-engine-shared/adapters/RootBoxAdapter')
+                                const audioUnitAdapter = project.boxAdapters.adapterFor(track.audioUnit, AudioUnitBoxAdapter)
+                                if (audioUnitAdapter && audioUnitAdapter.tracks) {
+                                    // Trigger track subscription updates
+                                    audioUnitAdapter.tracks.adapters().forEach(adapter => {
+                                        if (adapter.regions && adapter.regions.dispatchChange) {
+                                            adapter.regions.dispatchChange()
+                                        }
+                                    })
+                                    console.log('✅ Dispatched audio unit track changes')
+                                }
+                            } catch (error) {
+                                console.warn('⚠️ Could not access AudioUnitBoxAdapter:', error)
+                            }
+                            
+                            // Force timeline manager updates if available
+                            if (service.timeline) {
+                                // Try to trigger timeline refresh through various possible methods
+                                if (service.timeline.manager && service.timeline.manager.invalidateOrder) {
+                                    service.timeline.manager.invalidateOrder()
+                                    console.log('✅ Invalidated timeline order')
+                                }
+                                
+                                if (service.timeline.requestUpdate) {
+                                    service.timeline.requestUpdate()
+                                    console.log('✅ Requested timeline update')
+                                }
+                                
+                                if (service.timeline.invalidate) {
+                                    service.timeline.invalidate()
+                                    console.log('✅ Invalidated timeline')
+                                }
+                            }
+                            
+                            // Trigger window resize event to force canvas repainting
+                            const resizeEvent = new Event('resize')
+                            window.dispatchEvent(resizeEvent)
+                            console.log('✅ Dispatched resize event for canvas repaint')
+                            
                         } catch (error) {
-                            console.warn('⚠️ Could not access AudioUnitBoxAdapter:', error)
+                            console.warn('⚠️ Could not trigger UI subscription updates:', error)
                         }
-                        
-                        // Force timeline manager updates if available
-                        if (service.timeline) {
-                            // Try to trigger timeline refresh through various possible methods
-                            if (service.timeline.manager && service.timeline.manager.invalidateOrder) {
-                                service.timeline.manager.invalidateOrder()
-                                console.log('✅ Invalidated timeline order')
-                            }
-                            
-                            if (service.timeline.requestUpdate) {
-                                service.timeline.requestUpdate()
-                                console.log('✅ Requested timeline update')
-                            }
-                            
-                            if (service.timeline.invalidate) {
-                                service.timeline.invalidate()
-                                console.log('✅ Invalidated timeline')
-                            }
-                        }
-                        
-                        // Trigger window resize event to force canvas repainting
-                        const resizeEvent = new Event('resize')
-                        window.dispatchEvent(resizeEvent)
-                        console.log('✅ Dispatched resize event for canvas repaint')
-                        
-                    } catch (error) {
-                        console.warn('⚠️ Could not trigger UI subscription updates:', error)
-                    }
+                    })()
                 }, 100) // Small delay to ensure editing transaction is complete
                 
-                console.log('✅ Successfully added', audioSample.name, 'to timeline')
+                console.log('✅ AUTOMATIC IMPORT SUCCESS: Added', audioSample.name, 'to timeline as a new track')
                 
                 // Detailed track and region verification
                 try {
@@ -754,10 +799,10 @@ async function forceTimelineUIUpdate(project: any) {
             console.log(`🎵 Processing Audio Unit ${index}:`, audioUnit.name.getValue())
             
             // Force audio unit track subscription updates
-            if (audioUnit.tracks) {
+            if (audioUnit.tracks && audioUnit.tracks.adapters) {
                 audioUnit.tracks.adapters().forEach((track, trackIndex) => {
-                    const regions = track.regions.size()
-                    console.log(`  📍 Track ${trackIndex}:`, track.name.getValue(), 
+                    const regions = track.regions && track.regions.size ? track.regions.size() : 0
+                    console.log(`  📍 Track ${trackIndex}:`, track.name ? track.name.getValue() : 'Unknown', 
                         'regions:', regions, 'index:', track.listIndex)
                     
                     // CRITICAL: Force region subscription dispatch for each track
@@ -824,11 +869,12 @@ async function forceTimelineUIUpdate(project: any) {
         
         // Final verification - log the state after updates
         const finalTrackCount = audioUnits.adapters()
-            .reduce((total, unit) => total + unit.tracks.size(), 0)
+            .reduce((total, unit) => total + (unit.tracks && unit.tracks.size ? unit.tracks.size() : 0), 0)
         const finalRegionCount = audioUnits.adapters()
             .reduce((total, unit) => {
+                if (!unit.tracks || !unit.tracks.adapters) return total
                 return total + unit.tracks.adapters()
-                    .reduce((trackTotal, track) => trackTotal + track.regions.size(), 0)
+                    .reduce((trackTotal, track) => trackTotal + (track.regions && track.regions.size ? track.regions.size() : 0), 0)
             }, 0)
         
         console.log('🏁 Final state - Tracks:', finalTrackCount, 'Regions:', finalRegionCount)
@@ -854,7 +900,7 @@ export function updateProjectInfoPanel(projectName?: string, additionalInfo?: an
     if (!roomId) return
     
     const currentProjectData = (window as any).currentProjectData
-    const displayName = projectName || currentProjectData?.name || `Room ${roomId} Project`
+    const displayName = projectName || currentProjectData?.name || `test${roomId}`
     const userDisplayName = decodeURIComponent(userName || 'Unknown User')
     
     // Build audio files info
