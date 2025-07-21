@@ -211,21 +211,73 @@ if (isCollaborative && projectId && userId) {
 
 // Create a proxy agent that routes to the current agent
 const proxyAgent = new class implements OpfsProtocol {
-    write(path: string, data: Uint8Array): Promise<void> {
+    async write(path: string, data: Uint8Array): Promise<void> {
         console.log(`📝 OPFS Write (${collaborationInitialized ? 'COLLABORATIVE' : 'LOCAL'}): ${path}`)
-        return currentOpfsAgent.write(path, data)
+        try {
+            const result = await currentOpfsAgent.write(path, data)
+            console.log(`✅ OPFS Write success: ${path}`)
+            return result
+        } catch (error) {
+            console.error(`❌ OPFS Write failed: ${path}`, error)
+            console.error(`❌ OPFS Write error details:`, {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+                path: path
+            })
+            throw error
+        }
     }
-    read(path: string): Promise<Uint8Array> {
+    async read(path: string): Promise<Uint8Array> {
         console.log(`📖 OPFS Read (${collaborationInitialized ? 'COLLABORATIVE' : 'LOCAL'}): ${path}`)
-        return currentOpfsAgent.read(path)
+        try {
+            const result = await currentOpfsAgent.read(path)
+            console.log(`✅ OPFS Read success: ${path} (${result.length} bytes)`)
+            return result
+        } catch (error) {
+            console.error(`❌ OPFS Read failed: ${path}`, error)
+            console.error(`❌ OPFS Read error details:`, {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+                path: path
+            })
+            throw error
+        }
     }
-    delete(path: string): Promise<void> {
+    async delete(path: string): Promise<void> {
         console.log(`🗑️ OPFS Delete (${collaborationInitialized ? 'COLLABORATIVE' : 'LOCAL'}): ${path}`)
-        return currentOpfsAgent.delete(path)
+        try {
+            const result = await currentOpfsAgent.delete(path)
+            console.log(`✅ OPFS Delete success: ${path}`)
+            return result
+        } catch (error) {
+            console.error(`❌ OPFS Delete failed: ${path}`, error)
+            console.error(`❌ OPFS Delete error details:`, {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+                path: path
+            })
+            throw error
+        }
     }
-    list(path: string): Promise<ReadonlyArray<Entry>> {
+    async list(path: string): Promise<ReadonlyArray<Entry>> {
         console.log(`📋 OPFS List (${collaborationInitialized ? 'COLLABORATIVE' : 'LOCAL'}): ${path}`)
-        return currentOpfsAgent.list(path)
+        try {
+            const result = await currentOpfsAgent.list(path)
+            console.log(`✅ OPFS List success: ${path} (${result.length} items)`)
+            return result
+        } catch (error) {
+            console.error(`❌ OPFS List failed: ${path}`, error)
+            console.error(`❌ OPFS List error details:`, {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+                path: path
+            })
+            throw error
+        }
     }
 }
 

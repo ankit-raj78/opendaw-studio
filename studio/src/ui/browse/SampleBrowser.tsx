@@ -63,7 +63,18 @@ export const SampleBrowser = ({lifecycle, service}: Construct) => {
                         <Await factory={async () => {
                             switch (location.getValue()) {
                                 case SampleLocation.Local:
-                                    return AudioStorage.list()
+                                    // 获取当前房间ID
+                                    const urlParams = new URLSearchParams(window.location.search)
+                                    const projectId = urlParams.get('projectId')
+                                    const roomId = projectId?.startsWith('room-') ? projectId.substring(5) : null
+                                    
+                                    if (roomId) {
+                                        console.log(`🎵 SampleBrowser: Loading samples for room ${roomId}`)
+                                        return AudioStorage.listRoom(roomId)  // 只加载当前房间的文件
+                                    } else {
+                                        console.log(`🎵 SampleBrowser: Loading global samples (non-room mode)`)
+                                        return AudioStorage.list()  // 回退到全局列表（非房间模式）
+                                    }
                                 case SampleLocation.Cloud:
                                     return SampleApi.all()
                             }

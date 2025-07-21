@@ -24,10 +24,57 @@ export interface UserSession {
 
 export class DatabaseService {
   private baseUrl: string = 'https://localhost:8443/api'
+  private authToken: string | null = null
 
   constructor(connectionString?: string) {
     // Connection string is ignored in browser mode
     // Database operations are proxied through the WebSocket/HTTP server
+    
+    // Try to get auth token from various sources
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlAuthToken = urlParams.get('auth_token') // Note: using 'auth_token' not 'authToken'
+    
+    this.authToken = urlAuthToken ? atob(urlAuthToken) : null // Decode base64 token from URL
+    if (!this.authToken) {
+      this.authToken = sessionStorage.getItem('synxsphere_token') || localStorage.getItem('token')
+    }
+    
+    // Also try parent window token (for iframe scenarios)
+    if (!this.authToken) {
+      try {
+        if (window.parent && window.parent !== window) {
+          const parentToken = window.parent.localStorage.getItem('token');
+          if (parentToken) {
+            this.authToken = parentToken;
+            console.log('[DatabaseService] Using token from parent window')
+          }
+        }
+      } catch (e) {
+        console.warn('[DatabaseService] Could not access parent window token:', e.message)
+      }
+    }
+    
+    if (this.authToken) {
+      console.log('[DatabaseService] Authentication token found')
+    } else {
+      console.warn('[DatabaseService] No authentication token found')
+    }
+  }
+  
+  private getAuthHeaders(): HeadersInit {
+    const headers: HeadersInit = { 'Content-Type': 'application/json' }
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`
+    }
+    return headers
+  }
+  
+  private getAuthHeadersGetOnly(): HeadersInit {
+    const headers: HeadersInit = {}
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`
+    }
+    return headers
   }
 
   async connect(): Promise<void> {
@@ -45,9 +92,18 @@ export class DatabaseService {
 
   async saveProject(projectId: string, projectData: any): Promise<void> {
     try {
-      await fetch(`${this.baseUrl}/projects/${projectId}`, {
+      // Check if this is a room-based project
+      let apiUrl = `${this.baseUrl}/projects/${projectId}`
+      if (projectId.startsWith('room-')) {
+        // For room projects, use the rooms API endpoint
+        const roomId = projectId.replace('room-', '')
+        apiUrl = `${this.baseUrl}/rooms/${roomId}/studio-project`
+        console.log(`[DatabaseService] Saving room project to: ${apiUrl}`)
+      }
+      
+      await fetch(apiUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify(projectData)
       })
     } catch (error) {
@@ -57,10 +113,28 @@ export class DatabaseService {
 
   async loadProject(projectId: string): Promise<any | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/projects/${projectId}`)
+      // Check if this is a room-based project
+      let apiUrl = `${this.baseUrl}/projects/${projectId}`
+      if (projectId.startsWith('room-')) {
+        // For room projects, use the rooms API endpoint
+        const roomId = projectId.replace('room-', '')
+        apiUrl = `${this.baseUrl}/rooms/${roomId}/studio-project`
+        console.log(`[DatabaseService] Loading room project from: ${apiUrl}`)
+      }
+      
+      const response = await fetch(apiUrl, {
+        headers: this.getAuthHeadersGetOnly()
+      })
       if (response.ok) {
         return await response.json()
       }
+      
+      if (response.status === 404) {
+        console.log(`[DatabaseService] Project not found (404): ${projectId}`)
+        return null
+      }
+      
+      console.error(`[DatabaseService] Failed to load project ${projectId}: ${response.status} ${response.statusText}`)
       return null
     } catch (error) {
       console.error('Failed to load project:', error)
@@ -72,7 +146,7 @@ export class DatabaseService {
     try {
       const response = await fetch(`${this.baseUrl}/boxes/acquire`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify({ projectId, boxId, userId })
       })
       return response.ok
@@ -86,7 +160,7 @@ export class DatabaseService {
     try {
       await fetch(`${this.baseUrl}/boxes/release`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify({ projectId, boxId, userId })
       })
     } catch (error) {
@@ -96,7 +170,9 @@ export class DatabaseService {
 
   async getBoxOwnership(projectId: string, boxId: string): Promise<string | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/boxes/owner/${projectId}/${boxId}`)
+      const response = await fetch(`${this.baseUrl}/boxes/owner/${projectId}/${boxId}`, {
+        headers: this.getAuthHeadersGetOnly()
+      })
       if (response.ok) {
         const data = await response.json()
         return data.userId || null
@@ -110,7 +186,9 @@ export class DatabaseService {
 
   async getAllBoxOwnerships(projectId: string): Promise<{ [boxId: string]: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/boxes/ownerships/${projectId}`)
+      const response = await fetch(`${this.baseUrl}/boxes/ownerships/${projectId}`, {
+        headers: this.getAuthHeadersGetOnly()
+      })
       if (response.ok) {
         return await response.json()
       }
@@ -145,7 +223,7 @@ export class DatabaseService {
     try {
       await fetch(`${this.baseUrl}/boxes/release-any`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify({ projectId, boxId: boxUuid })
       })
       return true
@@ -190,7 +268,7 @@ export class DatabaseService {
     try {
       await fetch(`${this.baseUrl}/sessions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify(session)
       })
     } catch (error) {
@@ -204,7 +282,7 @@ export class DatabaseService {
     try {
       await fetch(`${this.baseUrl}/sessions/${sessionId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify({ lastSeen: new Date() })
       })
       return true
@@ -217,7 +295,8 @@ export class DatabaseService {
   async removeUserSession(sessionId: string): Promise<boolean> {
     try {
       await fetch(`${this.baseUrl}/sessions/${sessionId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: this.getAuthHeadersGetOnly()
       })
       return true
     } catch (error) {
@@ -228,7 +307,9 @@ export class DatabaseService {
 
   async getActiveSessions(projectId: string): Promise<UserSession[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/sessions/${projectId}`)
+      const response = await fetch(`${this.baseUrl}/sessions/${projectId}`, {
+        headers: this.getAuthHeadersGetOnly()
+      })
       if (response.ok) {
         return await response.json()
       }
@@ -244,6 +325,7 @@ export class DatabaseService {
       // Simple connectivity test by attempting to fetch from the API
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
+        headers: this.getAuthHeadersGetOnly(),
         // Set a short timeout
         signal: AbortSignal.timeout(5000)
       })

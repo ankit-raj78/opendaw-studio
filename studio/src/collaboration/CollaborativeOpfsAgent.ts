@@ -364,10 +364,19 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
     }
 
     // Perform the actual delete operation
-    await this.localOpfs.delete(path)
-
-    // Mark that there are pending changes for auto-save
-    this.markPendingChanges()
+    try {
+      await this.localOpfs.delete(path)
+      // Mark that there are pending changes for auto-save
+      this.markPendingChanges()
+    } catch (error) {
+      // If it's a "not found" error, ignore it (already deleted)
+      if (error.name === 'NotFoundError') {
+        console.log(`[CollabOpfs] Path ${path} already deleted or doesn't exist, skipping`)
+        return
+      }
+      // Re-throw other errors
+      throw error
+    }
   }
 
   async list(path: string): Promise<ReadonlyArray<Entry>> {

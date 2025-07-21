@@ -24,8 +24,8 @@ import {AnimationFrame, Browser, Events, Keyboard} from "dom"
 import {AudioOutputDevice} from "@/audio/AudioOutputDevice"
 import {FontLoader} from "@/ui/FontLoader"
 import {AudioWorklets} from "@/audio-engine/AudioWorklets"
-import {ErrorHandler} from "@/errors/ErrorHandler.ts"
-import {initializeSynxSphereIntegration, startAutoSave} from "@/synxsphere-integration.ts"
+import {ErrorHandler} from "@/errors/ErrorHandler"
+import {initializeSynxSphereIntegration, startAutoSave} from "@/synxsphere-integration"
 
 window.name = "main"
 
