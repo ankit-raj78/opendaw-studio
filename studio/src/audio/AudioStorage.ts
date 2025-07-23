@@ -213,31 +213,19 @@ export namespace AudioStorage {
     // Helper function to download sample from database and import to OPFS
     const downloadSampleFromDatabase = async (roomId: string, sampleUuid: string, context: AudioContext): Promise<[AudioData, Peaks, AudioMetaData] | null> => {
         try {
-            // Get auth token
-            const urlParams = new URLSearchParams(window.location.search)
-            let token = urlParams.get('auth_token') ? atob(urlParams.get('auth_token')!) : null
-            if (!token) {
-                token = sessionStorage.getItem('synxsphere_token') || localStorage.getItem('token')
-            }
-            
-            // Also try parent window token (for iframe scenarios)
-            if (!token) {
-                try {
-                    if (window.parent && window.parent !== window) {
-                        const parentToken = window.parent.localStorage.getItem('token');
-                        if (parentToken) {
-                            token = parentToken;
-                            console.log('🔄 DOWNLOAD: Using token from parent window')
-                        }
-                    }
-                } catch (e) {
-                    console.warn('⚠️ DOWNLOAD: Could not access parent window token:', e.message)
-                }
-            }
+            // Get auth token using unified function
+            const { token, source } = getAuthTokenForStorage()
             
             if (!token) {
-                console.error(`❌ DOWNLOAD: No auth token found for sample ${sampleUuid}`)
+                console.error(`❌ DOWNLOAD: No auth token found for sample ${sampleUuid} (source: ${source})`)
                 return null
+            }
+            
+            console.log(`🔄 DOWNLOAD: Using token from ${source}`)
+            
+            // Check if token is valid by length/format
+            if (token.length < 10) {
+                console.warn('⚠️ DOWNLOAD: Token appears too short, might be invalid')
             }
             
             // Determine API base URL
@@ -306,41 +294,73 @@ export namespace AudioStorage {
         return OpfsAgent.delete(`${path}`)
     }
 
+    // Unified token getter function to avoid duplication
+    const getAuthTokenForStorage = (): { token: string | null, source: string } => {
+        const urlParams = new URLSearchParams(window.location.search)
+        
+        // Try URL parameter first (base64 encoded)
+        const urlToken = urlParams.get('auth_token')
+        if (urlToken) {
+            try {
+                const decoded = atob(urlToken)
+                if (decoded) {
+                    return { token: decoded, source: 'URL parameter' }
+                }
+            } catch (e) {
+                console.warn('⚠️ STORAGE-AUTH: Invalid base64 auth_token in URL:', e.message)
+            }
+        }
+        
+        // Try sessionStorage
+        const sessionToken = sessionStorage.getItem('synxsphere_token')
+        if (sessionToken) {
+            return { token: sessionToken, source: 'sessionStorage' }
+        }
+        
+        // Try localStorage
+        const localToken = localStorage.getItem('token')
+        if (localToken) {
+            return { token: localToken, source: 'localStorage' }
+        }
+        
+        // Try parent window (for iframe scenarios)
+        try {
+            if (window.parent && window.parent !== window) {
+                const parentToken = window.parent.localStorage.getItem('token')
+                if (parentToken) {
+                    return { token: parentToken, source: 'parent window' }
+                }
+            }
+        } catch (e) {
+            console.warn('⚠️ STORAGE-AUTH: Could not access parent window token:', e.message)
+        }
+        
+        return { token: null, source: 'none' }
+    }
+
     // Helper function to sync database samples to OPFS
     const syncDatabaseToOpfs = async (roomId: string): Promise<ReadonlyArray<AudioSample>> => {
         console.log(`🔄 SYNC: Checking database for room ${roomId} samples...`)
         
         try {
-            // Get auth token from various sources
-            const urlParams = new URLSearchParams(window.location.search)
-            let token = urlParams.get('auth_token') ? atob(urlParams.get('auth_token')!) : null
-            if (!token) {
-                token = sessionStorage.getItem('synxsphere_token') || localStorage.getItem('token')
-            }
-            
-            // Also try parent window token (for iframe scenarios)
-            if (!token) {
-                try {
-                    if (window.parent && window.parent !== window) {
-                        const parentToken = window.parent.localStorage.getItem('token');
-                        if (parentToken) {
-                            token = parentToken;
-                            console.log('🔄 SYNC: Using token from parent window')
-                        }
-                    }
-                } catch (e) {
-                    console.warn('⚠️ SYNC: Could not access parent window token:', e.message)
-                }
-            }
+            // Get auth token using unified function
+            const { token, source } = getAuthTokenForStorage()
             
             if (!token) {
-                console.log(`🔄 SYNC: No auth token found, skipping database sync`)
+                console.log(`🔄 SYNC: No auth token found (source: ${source}), skipping database sync`)
                 console.log('📋 SYNC: Checked locations:')
-                console.log('  - URL auth_token parameter:', !!urlParams.get('auth_token'))
+                console.log('  - URL auth_token parameter:', !!new URLSearchParams(window.location.search).get('auth_token'))
                 console.log('  - sessionStorage synxsphere_token:', !!sessionStorage.getItem('synxsphere_token'))
                 console.log('  - localStorage token:', !!localStorage.getItem('token'))
                 console.log('  - Parent window token:', 'checked')
                 return []
+            }
+            
+            console.log(`🔄 SYNC: Using token from ${source}`)
+            
+            // Check if token is valid by length/format
+            if (token.length < 10) {
+                console.warn('⚠️ SYNC: Token appears too short, might be invalid')
             }
             
             // Determine API base URL

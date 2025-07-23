@@ -1,6 +1,36 @@
 // SynxSphere Integration for OpenDAW
 // This file handles loading room projects when OpenDAW is opened from SynxSphere
 
+// Global error handler for string.replace debugging
+let globalErrorCount = 0
+window.addEventListener('error', (event) => {
+    if (event.error && event.error.message && event.error.message.includes('replace')) {
+        globalErrorCount++
+        console.error(`🚨 GLOBAL ERROR #${globalErrorCount}: Caught string.replace error:`, {
+            message: event.error.message,
+            stack: event.error.stack,
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            timestamp: new Date().toISOString()
+        })
+        console.error('🔍 Current event target:', event.target)
+        console.error('🔍 Event details:', event)
+    }
+})
+
+// Also catch unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason && event.reason.message && event.reason.message.includes('replace')) {
+        globalErrorCount++
+        console.error(`🚨 GLOBAL PROMISE REJECTION #${globalErrorCount}: Caught string.replace error:`, {
+            reason: event.reason,
+            promise: event.promise,
+            timestamp: new Date().toISOString()
+        })
+    }
+})
+
 import { StudioService } from './service/StudioService'
 import { setStudioServiceForCollaboration } from './service/agents'
 import { Option } from 'std'
@@ -19,7 +49,8 @@ const AUTO_DRAG_CONFIG = {
     sequentialPlacement: true, // Place samples sequentially on timeline
     trackSpacing: 120 * 4, // 4 beats spacing between tracks (in pulses)
     startPosition: 0, // Starting position for first sample (in pulses)
-    showVisualFeedback: true // Show visual feedback during auto-drag
+    showVisualFeedback: true, // Show visual feedback during auto-drag
+    maxTracks: 5             // Maximum number of tracks to auto-create
 }
 
 // Function to get the working API base URL
@@ -35,6 +66,50 @@ async function getWorkingApiBaseUrl(token: string): Promise<string | null> {
     return defaultHost
 }
 
+// Unified token getter function to avoid duplication and race conditions
+function getAuthToken(): { token: string | null, source: string } {
+    const urlParams = new URLSearchParams(window.location.search)
+    
+    // Try URL parameter first (base64 encoded)
+    const urlToken = urlParams.get('auth_token')
+    if (urlToken) {
+        try {
+            const decoded = atob(urlToken)
+            if (decoded) {
+                return { token: decoded, source: 'URL parameter' }
+            }
+        } catch (e) {
+            console.warn('⚠️ AUTH: Invalid base64 auth_token in URL:', e.message)
+        }
+    }
+    
+    // Try sessionStorage
+    const sessionToken = sessionStorage.getItem('synxsphere_token')
+    if (sessionToken) {
+        return { token: sessionToken, source: 'sessionStorage' }
+    }
+    
+    // Try localStorage
+    const localToken = localStorage.getItem('token')
+    if (localToken) {
+        return { token: localToken, source: 'localStorage' }
+    }
+    
+    // Try parent window (for iframe scenarios)
+    try {
+        if (window.parent && window.parent !== window) {
+            const parentToken = window.parent.localStorage.getItem('token')
+            if (parentToken) {
+                return { token: parentToken, source: 'parent window' }
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ AUTH: Could not access parent window token:', e.message)
+    }
+    
+    return { token: null, source: 'none' }
+}
+
 export async function initializeSynxSphereIntegration(service: StudioService) {
     console.log('🔗 MODIFIED VERSION: Initializing SynxSphere integration...')
     console.log('🎯 DEBUG: Integration function called, service:', service)
@@ -42,15 +117,45 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
     
     // Set the service reference for collaboration
     setStudioServiceForCollaboration(service)
-    
+
     // Check URL parameters
     const urlParams = new URLSearchParams(window.location.search)
     const projectId = urlParams.get('projectId')
     const roomId = projectId?.startsWith('room-') ? projectId.substring(5) : null
     const userId = urlParams.get('userId')
     const userName = urlParams.get('userName')
-    const authToken = urlParams.get('auth_token')
     
+    console.log('🔍 DEBUG: URL parameters:', {
+        projectId,
+        roomId,
+        userId
+    })
+
+    // Get auth token using unified function
+    const { token: authToken, source: tokenSource } = getAuthToken()
+    console.log('🔐 AUTH: Token obtained from:', tokenSource, '| Available:', !!authToken)
+    
+    // Add detailed token validation for test2 room debugging
+    if (roomId === '614dddc9-e5bd-4e43-8949-f6e3ffd03068') {
+        console.log('🔍 TEST2-DEBUG: Detailed token analysis for test2 room')
+        console.log('  - Token length:', authToken?.length || 0)
+        console.log('  - Token starts with:', authToken?.substring(0, 10) + '...' || 'N/A')
+        console.log('  - Token source:', tokenSource)
+        
+        // Check all possible token locations
+        const urlParams = new URLSearchParams(window.location.search)
+        console.log('🔍 TEST2-DEBUG: Token location check:')
+        console.log('  - URL auth_token param exists:', !!urlParams.get('auth_token'))
+        console.log('  - sessionStorage synxsphere_token:', !!sessionStorage.getItem('synxsphere_token'))
+        console.log('  - localStorage token:', !!localStorage.getItem('token'))
+        
+        try {
+            const parentHasToken = window.parent && window.parent !== window && window.parent.localStorage.getItem('token')
+            console.log('  - parent window token:', !!parentHasToken)
+        } catch (e) {
+            console.log('  - parent window token: cross-origin blocked')
+        }
+    }
     console.log('🔍 URL Parameters:', { projectId, roomId, userId, userName, hasToken: !!authToken })
     
     if (roomId && userId) {
@@ -74,27 +179,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
             console.log('📁 Loading room project:', roomId)
             
             // Try to fetch the studio project bundle from SynxSphere
-            let token = authToken ? atob(authToken) : null // Decode base64 token from URL
-            if (!token) {
-                token = sessionStorage.getItem('synxsphere_token') || localStorage.getItem('token')
-            }
+            let token = authToken
+            console.log('🔐 Token status:', { source: tokenSource, available: !!token })
             
-            console.log('🔐 Token status:', { fromURL: !!authToken, fromStorage: !authToken && !!token, available: !!token })
-            
-            // TEMPORARY FIX: Try to get token from parent window (SyncSphere)
-            if (!token) {
-                try {
-                    if (window.parent && window.parent !== window) {
-                        const parentToken = window.parent.localStorage.getItem('token');
-                        if (parentToken) {
-                            token = parentToken;
-                            console.log('🔑 Got token from parent window (SyncSphere)');
-                        }
-                    }
-                } catch (e) {
-                    console.log('Cannot access parent window (cross-origin)');
-                }
-            }
             
             if (token) {
                 console.log('🔑 Token found, attempting to get API base URL...')
@@ -200,12 +287,18 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                 
                 if (projectResponse && projectResponse.ok) {
                     projectData = await projectResponse.json()
-                    console.log(`✅ AUTOMATIC IMPORT: Successfully loaded studio project`)
+                    console.log(`✅ AUTOMATIC IMPORT: Successfully loaded studio project for room ${roomId}`)
                     console.log('🔍 AUTOMATIC IMPORT: Project data structure:', {
+                        roomId: roomId,
                         hasAudioFiles: !!(projectData.audioFiles && projectData.audioFiles.length),
                         audioFilesCount: projectData.audioFiles ? projectData.audioFiles.length : 0,
                         hasProjectData: !!projectData.projectData
                     })
+                    
+                    // Special debug for test2 room
+                    if (roomId && roomId.includes('test2')) {
+                        console.log('🔍 TEST2 DEBUG: Full project data for test2 room:', JSON.stringify(projectData, null, 2))
+                    }
                 } else if (projectResponse) {
                     console.error(`❌ AUTOMATIC IMPORT: Failed to load studio project: ${projectResponse.status}`)
                     return
@@ -413,9 +506,18 @@ async function loadProjectFromJSON(service: StudioService, projectData: any, roo
             }
             
             // Always import audio files as samples only (no automatic track creation)
+            console.log('🔍 DATA CHECK: projectData.audioFiles exists?', !!(projectData.audioFiles))
+            console.log('🔍 DATA CHECK: projectData.audioFiles length:', projectData.audioFiles?.length || 0)
+            console.log('🔍 DATA CHECK: data.tracks exists?', !!(data.tracks))
+            console.log('🔍 DATA CHECK: data.tracks length:', data.tracks?.length || 0)
+            
             if (projectData.audioFiles && projectData.audioFiles.length > 0) {
                 console.log('🎵 SAMPLE-ONLY IMPORT: Importing', projectData.audioFiles.length, 'audio files as samples only')
-                console.log('📋 Audio files list:', projectData.audioFiles.map(f => f.originalName || f.filename))
+                console.log('📋 Audio files list:', projectData.audioFiles.map(f => ({
+                    id: f.id,
+                    originalName: f.originalName,
+                    filename: f.filename
+                })))
                 console.log('🎯 USER WORKFLOW: These will appear in locally stored samples for manual use')
                 await importRoomAudioFilesToSamples(service, projectData.audioFiles, roomId)
             } else if (data.tracks && data.tracks.length > 0) {
@@ -451,13 +553,9 @@ async function importRoomAudioFiles(service: StudioService, tracks: any[], roomI
     try {
         console.log('🎵 Starting audio import for', tracks.length, 'tracks...')
         
-        // Get token from URL parameters or storage
-        const urlParams = new URLSearchParams(window.location.search)
-        const authToken = urlParams.get('auth_token')
-        let token = authToken ? atob(authToken) : null
-        if (!token) {
-            token = sessionStorage.getItem('synxsphere_token') || localStorage.getItem('token')
-        }
+        // Get token using unified function
+        const { token, source } = getAuthToken()
+        console.log(`🔐 Using token from ${source}`)
         
         if (!token) {
             console.warn('❌ No token available for audio file download')
@@ -571,16 +669,26 @@ async function importRoomAudioFiles(service: StudioService, tracks: any[], roomI
     }
 }
 
-// Function to import room audio files to samples only (no tracks created)
+// Function to import room audio files to locally stored samples AND room OPFS  
 async function importRoomAudioFilesToSamples(service: StudioService, audioFiles: any[], roomId: string) {
     try {
-        console.log('🎵 Starting SAMPLE-ONLY import for', audioFiles.length, 'audio files...')
-        console.log('📋 Audio files to import as samples:', audioFiles.map(f => ({
+        console.log('🎵 IMPORT-TO-SAMPLES: Starting room audio files sync for', audioFiles.length, 'audio files...')
+        console.log('🎯 IMPORT-TO-SAMPLES: Room ID:', roomId)
+        console.log('📋 IMPORT-TO-SAMPLES: Audio files to process:', audioFiles.map(f => ({
             name: f.originalName || f.filename,
-            path: f.filePath,
-            id: f.id
+            path: f.filePath,  
+            id: f.id,
+            filePath: f.filePath
         })))
-        console.log('🎯 SAMPLE IMPORT: This will add files to locally stored samples for manual use')
+        console.log('🎯 SYNC TARGET: Import to locally stored samples + store in room OPFS')
+        
+        // First, cleanup any samples with messy names from previous versions
+        try {
+            const { AudioStorage } = await import('@/audio/AudioStorage')
+            await AudioStorage.cleanupMessySampleNames()
+        } catch (cleanupError) {
+            console.warn('⚠️ Failed to cleanup messy sample names:', cleanupError)
+        }
         
         // Check current OPFS samples for this room before import and filter out already existing ones
         let existingSamples = []
@@ -619,6 +727,12 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
             }
             
             console.log('🔍 Existing sample names:', existingSamples.map(s => s.name || s.uuid))
+            console.log('🔍 Existing sample details:', existingSamples.map(s => ({ 
+                name: s.name, 
+                uuid: s.uuid, 
+                fileId: (s as any).fileId, 
+                originalName: (s as any).originalName 
+            })))
             
             // Filter out audio files that already exist in OPFS for this room
             // Since we now use room-specific storage, we only need to check within this room's samples
@@ -626,8 +740,12 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
             for (const audioFile of audioFiles) {
                 let alreadyExists = false
                 
+                console.log(`🔍 CHECKING: Audio file "${audioFile.originalName}" (ID: ${audioFile.id})`)
+                
                 // Check if sample already exists by looking for file identifiers in this room
                 for (const existingSample of existingSamples) {
+                    console.log(`🔍 COMPARE with sample: "${existingSample.name}" (fileId: ${(existingSample as any).fileId}, originalName: ${(existingSample as any).originalName})`)
+                    
                     // Check if this sample matches the current file ID or original name
                     if ((existingSample as any).fileId === audioFile.id || 
                         (existingSample as any).originalName === audioFile.originalName) {
@@ -640,6 +758,8 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 if (!alreadyExists) {
                     audioFilesToImport.push(audioFile)
                     console.log(`📥 WILL IMPORT: "${audioFile.originalName}" (not found in room ${roomId} OPFS)`)
+                } else {
+                    console.log(`⏭️ SKIP: "${audioFile.originalName}" already exists in room ${roomId}`)
                 }
             }
             
@@ -684,13 +804,9 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
             }
         }
         
-        // Get token from URL parameters or storage
-        const urlParams = new URLSearchParams(window.location.search)
-        const authToken = urlParams.get('auth_token')
-        let token = authToken ? atob(authToken) : null
-        if (!token) {
-            token = sessionStorage.getItem('synxsphere_token') || localStorage.getItem('token')
-        }
+        // Get token using unified function
+        const { token, source } = getAuthToken()
+        console.log(`🔐 Using token from ${source}`)
         
         if (!token) {
             console.warn('❌ No token available for audio file download')
@@ -729,157 +845,176 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 const arrayBuffer = await audioResponse.arrayBuffer()
                 console.log('📦 Downloaded audio file:', arrayBuffer.byteLength, 'bytes')
                 
-                // Import the audio sample into OpenDAW samples ONLY with truly unique name
-                const timestamp = Date.now()
-                const randomSuffix = Math.random().toString(36).substring(2, 8)
-                const uniqueName = `${audioFileData.originalName || audioFileData.filename}_room${roomId}_${audioFileData.id}_${timestamp}_${randomSuffix}`
-                console.log('🎯 SAMPLE IMPORT: About to import to samples with unique name:', uniqueName)
-                console.log('🎯 This sample should persist in OPFS and not be overwritten')
+                // Create a clean, readable name for the imported sample
+                const originalName = String(audioFileData.originalName || audioFileData.filename || 'Unknown')
+                // Ensure we have a valid string before calling replace
+                const nameString = typeof originalName === 'string' ? originalName : String(originalName)
+                const cleanName = nameString.replace(/\.(wav|mp3|flac|aac)$/i, '') // Remove file extension
+                const shortRoomId = String(roomId).substring(0, 8) // Use first 8 chars of room ID
+                const uniqueName = `${cleanName} (Room ${shortRoomId})`
+                
+                console.log('🎯 SAMPLE IMPORT: About to import to samples with clean name:', uniqueName)
+                console.log('🎯 Original file:', originalName, 'Room:', shortRoomId)
                 
                 // Add delay between imports to prevent race conditions
                 await new Promise(resolve => setTimeout(resolve, 100))
                 
-                // Clone arrayBuffer to prevent detachment issues
-                const arrayBufferClone = arrayBuffer.slice()
+                // Generate unique UUID for each audio file using multiple identifiers  
+                const { UUID } = await import('std')
                 
-                // Debug: Log file info
-                console.log('🔍 PROCESSING AUDIO FILE:', {
-                    originalName: audioFileData.originalName,
+                // Debug log the audioFileData structure before UUID generation
+                console.log('🔍 AUDIO FILE DATA STRUCTURE:', {
                     id: audioFileData.id,
-                    arrayBufferSize: arrayBuffer.byteLength,
-                    arrayBufferHash: await crypto.subtle.digest('SHA-256', arrayBuffer.slice(0, 1024)).then(hash => 
-                        Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16)
-                    )
+                    originalName: audioFileData.originalName,  
+                    filename: audioFileData.filename,
+                    filePath: audioFileData.filePath,
+                    roomId: roomId,
+                    fullData: audioFileData
                 })
                 
-                // Generate unique UUID for each audio file using multiple identifiers
-                const { UUID } = await import('std')
+                // Validate required fields
+                if (!audioFileData.id) {
+                    console.error('❌ audioFileData.id is missing or undefined:', audioFileData)
+                    continue
+                }
+                if (!audioFileData.originalName && !audioFileData.filename) {
+                    console.error('❌ Both originalName and filename are missing:', audioFileData)
+                    continue
+                }
+                
                 const audioTimestamp = Date.now().toString()
                 const randomValue = Math.random().toString()
                 const uniqueString = `audiofile-${audioFileData.id}-${audioFileData.originalName}-${roomId}-${audioTimestamp}-${randomValue}`
-                const audioFileUuid = await UUID.sha256(new TextEncoder().encode(uniqueString))
                 
-                const audioSample = await service.importSample({
+                // 1) UUID object for low-level storage  2) string for OpenDAW APIs / metadata
+                const audioFileUuidObj = await UUID.sha256(new TextEncoder().encode(uniqueString))
+                const audioFileUuid    = UUID.toString(audioFileUuidObj).toLowerCase()
+                
+                console.log('🔍 PROCESSING AUDIO FILE:', {
+                    originalName: audioFileData.originalName,
+                    id: audioFileData.id,
+                    uuid: audioFileUuid,
+                    arrayBufferSize: arrayBuffer.byteLength
+                })
+                
+                // Decode audio data directly using AudioContext
+                console.log('🔍 Decoding audio data...')
+                const audioBuffer = await service.context.decodeAudioData(arrayBuffer.slice())
+                console.log('✅ Audio decoded successfully:', {
+                    duration: audioBuffer.duration,
+                    sampleRate: audioBuffer.sampleRate,
+                    channels: audioBuffer.numberOfChannels
+                })
+                
+                // Convert AudioBuffer to AudioData format
+                const frames = []
+                for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+                    frames.push(audioBuffer.getChannelData(channel))
+                }
+                
+                const { AudioData } = await import('@/audio/AudioData')
+                const audioData = AudioData.from(audioBuffer)
+                console.log('✅ AudioData created')
+                
+                // Generate peaks data using AudioPeaks utility (async, off-thread)
+                console.log('🔍 Generating peaks...')
+                const { AudioPeaks } = await import('@/audio/AudioPeaks')
+                const peaksBuffer = await AudioPeaks.generate(audioData, () => {})
+                console.log('✅ Peaks generated, size:', peaksBuffer.byteLength, 'bytes')
+                
+                // Create metadata for the sample
+                const sampleMetadata = {
                     uuid: audioFileUuid,
                     name: uniqueName,
-                    arrayBuffer: arrayBufferClone,
-                    progressHandler: (progress) => {
-                        console.log(`🔄 Importing sample ${audioFileData.originalName}: ${(progress * 100).toFixed(1)}%`)
-                    }
-                })
-                
-                // Verify the sample was imported correctly
-                console.log('✅ SAMPLE IMPORTED:', audioSample.name, 'UUID:', audioSample.uuid)
-                console.log('🎯 Sample details:', {
-                    name: audioSample.name,
-                    uuid: audioSample.uuid,
-                    duration: audioSample.duration,
-                    bpm: audioSample.bpm,
-                    sampleRate: audioSample.sampleRate,
-                    sample_rate: audioSample.sample_rate
-                })
-                
-                // Force sample persistence to room-specific OPFS using AudioStorage
-                console.log(`🔄 Forcing sample persistence to room ${roomId} OPFS manually...`)
-                try {
-                    // Get sample data and manually write to room-specific OPFS
-                    const { AudioStorage } = await import('@/audio/AudioStorage')
-                    
-                    // Create sample metadata
-                    const sampleMetadata = {
-                        uuid: audioSample.uuid,
-                        name: audioSample.name,
-                        duration: audioSample.duration,
-                        bpm: audioSample.bpm || 120, // Include BPM field
-                        sample_rate: audioSample.sample_rate || audioSample.sampleRate, // Use correct field name
-                        channels: audioSample.channels || 2,
-                        originalName: audioFileData.originalName,
-                        roomId: roomId,
-                        fileId: audioFileData.id,
-                        createdAt: new Date().toISOString()
-                    }
-                    
-                    // Write sample metadata to room-specific OPFS path
-                    const roomPath = AudioStorage.getRoomFolder(roomId)
-                    const samplePath = `${roomPath}/${audioSample.uuid}`
-                    console.log(`💾 Writing sample to room-specific OPFS path: ${samplePath}`)
-                    
-                    // Use direct OpfsAgent for room-specific storage to match AudioStorage structure
-                    const { OpfsAgent } = await import('@/service/agents')
-                    
-                    // Save metadata (ensure proper Uint8Array format)
-                    const metadataString = JSON.stringify(sampleMetadata, null, 2)
-                    const metadataArray = new TextEncoder().encode(metadataString)
-                    console.log('📝 Metadata size:', metadataArray.length, 'bytes')
-                    await OpfsAgent.write(`${samplePath}/meta.json`, metadataArray)
-                    
-                    // Save the audio data (ensure proper Uint8Array format)
-                    const audioArray = new Uint8Array(arrayBuffer)
-                    console.log('🎵 Audio data size:', audioArray.length, 'bytes')
-                    await OpfsAgent.write(`${samplePath}/audio.bin`, audioArray)
-                    
-                    console.log(`✅ Sample manually persisted to room ${roomId} OPFS:`, samplePath)
-                    
-                } catch (saveError) {
-                    console.warn(`⚠️ Could not manually persist sample to room ${roomId} OPFS:`, saveError)
-                    
-                    // Fallback: The sample is already imported into OpenDAW's memory
-                    // OpenDAW should handle persistence automatically
-                    console.log('📝 FALLBACK: Sample exists in OpenDAW memory, relying on automatic persistence')
-                    console.log('🎯 Sample should still be available in locally stored samples UI')
-                    
-                    // Note: Even if OPFS manual save fails, the sample should still appear in UI
-                    // because service.importSample() already added it to OpenDAW's sample manager
+                    duration: audioBuffer.duration,
+                    bpm: 120, // Default BPM
+                    sample_rate: audioBuffer.sampleRate,
+                    channels: audioBuffer.numberOfChannels,
+                    originalName: audioFileData.originalName,
+                    roomId: roomId,
+                    fileId: audioFileData.id,
+                    createdAt: new Date().toISOString()
                 }
                 
-                // Wait longer to ensure the import is fully processed and saved
-                await new Promise(resolve => setTimeout(resolve, 500))
+                // STEP 1: Import to locally stored samples using service.importSample
+                console.log(`📥 Step 1: Importing to locally stored samples...`)
+                console.log(`🔍 Import parameters:`, {
+                    uuid: audioFileUuid,
+                    name: uniqueName,
+                    arrayBufferSize: arrayBuffer.byteLength
+                })
                 
-                // Verify sample exists in room-specific OPFS with detailed debugging
+                const importedSample = await service.importSample({
+                    uuid: audioFileUuid,
+                    name: uniqueName,
+                    arrayBuffer: arrayBuffer,
+                    progressHandler: (progress) => {
+                        console.log(`🔄 Importing ${audioFileData.originalName}: ${(progress * 100).toFixed(1)}%`)
+                    }
+                })
+                
+                console.log(`✅ Step 1 completed: Imported to locally stored samples`)
+                console.log(`🔍 Imported sample details:`, {
+                    uuid: importedSample.uuid,
+                    name: importedSample.name,
+                    duration: importedSample.duration,
+                    bpm: importedSample.bpm
+                })
+                
+                // STEP 2: Also store in room-specific OPFS for faster room-based access
+                console.log(`💾 Step 2: Storing in room ${roomId} OPFS...`)
+                const { AudioStorage } = await import('@/audio/AudioStorage')
+                
                 try {
-                    const { AudioStorage } = await import('@/audio/AudioStorage')
-                    console.log(`🔍 Attempting to list room ${roomId} OPFS samples...`)
+                    await AudioStorage.storeInRoom(roomId, audioFileUuidObj, audioData, peaksBuffer, sampleMetadata)
+                    // ALSO store a global copy so core UI (which looks in samples/v2) can find the files
+                    try {
+                        await AudioStorage.store(audioFileUuidObj, audioData, peaksBuffer, sampleMetadata)
+                    } catch (globalStoreErr) {
+                        console.warn('⚠️ Failed to store global sample copy:', globalStoreErr)
+                    }
+                    console.log(`✅ Step 2 completed: Stored in room ${roomId} OPFS`)
                     
+                } catch (storeError) {
+                    console.error(`❌ Step 2 failed - room OPFS storage error:`, storeError)
+                    // Don't fail the whole import if room storage fails
+                    console.warn(`⚠️ Continuing with locally stored sample only`)
+                }
+                
+                // Verify sample exists in room-specific OPFS
+                console.log(`🔍 Verifying sample storage in room ${roomId}...`)
+                try {
                     const roomSamples = await AudioStorage.listRoom(roomId)
-                    console.log(`🔍 Current samples in room ${roomId} OPFS after import:`, roomSamples.length)
-                    console.log('🔍 Sample names:', roomSamples.map(s => s.name || s.uuid))
+                    console.log(`🔍 Current samples in room ${roomId} after import:`, roomSamples.length)
                     
                     // Check if our sample is in the room's sample list
-                    const searchTerms = [audioSample.uuid, audioFileData.id, audioFileData.originalName]
-                    let ourSample = null
-                    
-                    console.log('🔍 Searching for sample with terms:', searchTerms)
-                    console.log('🔍 Available sample names/UUIDs:', roomSamples.map(s => ({ name: s.name, uuid: s.uuid })))
-                    
-                    // First try to find by exact UUID match
-                    ourSample = roomSamples.find(s => s.uuid === audioSample.uuid)
+                    const ourSample = roomSamples.find(s => s.uuid === audioFileUuid)
                     if (ourSample) {
-                        console.log(`✅ SAMPLE VERIFIED IN ROOM ${roomId} OPFS (found by UUID):`, ourSample.uuid)
+                        console.log(`✅ SAMPLE VERIFIED: ${audioFileData.originalName} stored in room ${roomId}`)
+                        console.log(`🎯 Sample UUID: ${audioFileUuid}`)
                     } else {
-                        // Then try by metadata fields
-                        ourSample = roomSamples.find(s => 
-                            (s as any).fileId === audioFileData.id || 
-                            (s as any).originalName === audioFileData.originalName
-                        )
-                        if (ourSample) {
-                            console.log(`✅ SAMPLE VERIFIED IN ROOM ${roomId} OPFS (found by metadata):`, ourSample.uuid)
-                        }
+                        console.warn(`⚠️ Sample not found in room listing, but storeInRoom succeeded - may need time to propagate`)
                     }
-                    
-                    if (!ourSample) {
-                        console.warn(`⚠️ Sample not found in room ${roomId} OPFS list - checking search terms:`, searchTerms)
-                        console.warn('⚠️ Available samples:', roomSamples.map(s => s.uuid))
-                    }
-                    
-                } catch (opfsError) {
-                    console.error(`❌ Room ${roomId} OPFS verification failed:`, opfsError)
-                    console.error('❌ This suggests room-specific OPFS access is not working')
+                } catch (verifyError) {
+                    console.error(`❌ Room ${roomId} OPFS verification failed:`, verifyError)
                 }
                 
-                console.log('✅ SAMPLE AVAILABLE: User can now manually drag', audioSample.name, 'from locally stored samples')
+                console.log(`✅ SAMPLE AVAILABLE: ${audioFileData.originalName} ready for use in room ${roomId}`)
                 
             } catch (error) {
-                console.error('❌ Failed to import sample:', audioFileData.originalName, error)
+                console.error('❌ IMPORT-TO-SAMPLES FAILED: Failed to import sample:', audioFileData.originalName)
+                console.error('❌ ERROR DETAILS:', {
+                    error: error,
+                    message: error.message,
+                    stack: error.stack,
+                    roomId: roomId,
+                    audioFileName: audioFileData.originalName,
+                    audioFilePath: audioFileData.filePath,
+                    audioFileId: audioFileData.id
+                })
+                
+                // Continue with next file instead of stopping
+                console.warn(`⚠️ Skipping failed file ${audioFileData.originalName}, continuing with remaining files...`)
             }
         }
         
@@ -896,7 +1031,16 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
         }
         
     } catch (error) {
-        console.error('❌ Error during sample import:', error)
+        console.error('❌ CRITICAL ERROR: importRoomAudioFilesToSamples failed completely')
+        console.error('❌ CRITICAL ERROR DETAILS:', {
+            error: error,
+            message: error.message,
+            stack: error.stack,
+            roomId: roomId,
+            audioFilesCount: audioFiles?.length || 0
+        })
+        console.error('❌ This means NO samples were imported to locally stored samples!')
+        throw error // Re-throw to prevent silent failures
     }
 }
 
@@ -907,7 +1051,11 @@ async function autoDragRoomSamplesToTimeline(service: StudioService, roomId: str
         
         // Get all samples in this room
         const { AudioStorage } = await import('@/audio/AudioStorage')
-        const roomSamples = await AudioStorage.listRoom(roomId)
+        let roomSamples = await AudioStorage.listRoom(roomId)
+        
+        // Filter out bogus entries (e.g., projectId or 'undefined' strings)
+        roomSamples = roomSamples.filter(s => isValidUuidStr(String(s.uuid || '')))
+        console.log(`🎯 AUTO-DRAG: After filtering invalid UUIDs, ${roomSamples.length} samples remain`)
         
         if (roomSamples.length === 0) {
             console.log(`🎯 AUTO-DRAG: No samples found in room ${roomId}`)
@@ -917,12 +1065,37 @@ async function autoDragRoomSamplesToTimeline(service: StudioService, roomId: str
         console.log(`🎯 AUTO-DRAG: Found ${roomSamples.length} samples to auto-drag`)
         console.log(`📋 AUTO-DRAG: Samples:`, roomSamples.map(s => s.name || s.uuid))
         
+        // Track already imported samples to prevent duplicates
+        const importedSampleUuids = new Set<string>()
+        const projectSamples = await AudioStorage.list()
+        projectSamples.forEach(sample => {
+            importedSampleUuids.add(sample.uuid)
+        })
+        console.log(`🔍 AUTO-DRAG: Found ${importedSampleUuids.size} existing samples in project`)
+        
+        // Filter out already imported samples
+        const samplesToImport = roomSamples.filter(sample => {
+            const isAlreadyImported = importedSampleUuids.has(sample.uuid)
+            if (isAlreadyImported) {
+                console.log(`⏭️ AUTO-DRAG: Skipping already imported sample: ${sample.name} (${sample.uuid})`)
+            }
+            return !isAlreadyImported
+        })
+        
+        if (samplesToImport.length === 0) {
+            console.log('✅ AUTO-DRAG: All samples already imported to project')
+            showAutoDragFeedback('✅ All samples already imported', 'success')
+            return
+        }
+        
+        console.log(`📥 AUTO-DRAG: Will process ${samplesToImport.length} samples (${roomSamples.length - samplesToImport.length} already imported)`)
+        
         // Show initial feedback
-        showAutoDragFeedback(`🎵 Auto-dragging ${roomSamples.length} samples to timeline...`, 'info')
+        showAutoDragFeedback(`🎵 Auto-dragging ${samplesToImport.length} samples to timeline...`, 'info')
         
         // Check if any samples might need re-importing from server
         let missingFiles = 0
-        for (const sample of roomSamples) {
+        for (const sample of samplesToImport) {
             try {
                 await AudioStorage.loadFromRoom(roomId, UUID.parse(sample.uuid), service.context)
             } catch (opfsError) {
@@ -945,12 +1118,13 @@ async function autoDragRoomSamplesToTimeline(service: StudioService, roomId: str
         const { editing } = project
         
         // Sort samples by name for consistent ordering
-        const sortedSamples = roomSamples.sort((a, b) => {
+        let sortedSamples = samplesToImport.sort((a, b) => {
             const nameA = (a as any).originalName || a.name || a.uuid
             const nameB = (b as any).originalName || b.name || b.uuid
             return nameA.localeCompare(nameB)
         })
         
+        // No track limit – drag all samples
         let currentPosition = AUTO_DRAG_CONFIG.startPosition // Starting position in pulses
         const trackSpacing = AUTO_DRAG_CONFIG.trackSpacing // Spacing between tracks
         
@@ -961,55 +1135,205 @@ async function autoDragRoomSamplesToTimeline(service: StudioService, roomId: str
             try {
                 console.log(`🎵 AUTO-DRAG: Processing sample ${i + 1}/${sortedSamples.length}: ${sampleName}`)
                 
-                // Check if audio file exists in OPFS before attempting to load
-                // Check if audio data is already available in OPFS
-                let audioData = null
-                let shouldImport = true
+                // NEW APPROACH: Search for sample in locally stored samples first
+                console.log(`🔍 AUTO-DRAG: Searching for ${sampleName} in locally stored samples...`)
                 
-                // Try to load from OPFS using a generated UUID based on sample ID
-                let sampleUuid
+                // Get all locally stored samples using AudioStorage
+                const { AudioStorage } = await import('@/audio/AudioStorage')
+                let rawLocalSamples = []
                 try {
-                    sampleUuid = UUID.parse(sample.uuid)
-                    console.log(`✅ AUTO-DRAG: Using existing UUID for ${sampleName}: ${sample.uuid}`)
-                } catch {
-                    // If not a valid UUID, generate a consistent one based on the sample ID
-                    sampleUuid = UUID.generate()
-                    console.log(`🔄 AUTO-DRAG: Generated new UUID for ${sampleName}: ${UUID.toString(sampleUuid)}`)
-                    // Store the generated UUID back to the sample for consistency
-                    sample.uuid = UUID.toString(sampleUuid)
+                    rawLocalSamples = await AudioStorage.list()
+                    console.log(`📋 AUTO-DRAG: Found ${rawLocalSamples.length} total locally stored samples`)
+                } catch (listError) {
+                    console.warn(`⚠️ AUTO-DRAG: Error listing locally stored samples:`, listError)
+                    console.warn(`⚠️ AUTO-DRAG: Continuing with empty sample list`)
+                    rawLocalSamples = []
                 }
                 
-                try {
-                    audioData = await AudioStorage.loadFromRoom(roomId, sampleUuid, service.context)
-                    console.log(`✅ AUTO-DRAG: Found existing audio data in OPFS for ${sampleName}`)
-                    shouldImport = false
-                } catch (opfsError) {
-                    console.log(`📥 AUTO-DRAG: Audio file not found in OPFS for ${sampleName}, will import from server...`)
-                }
-                
-                // If not found in OPFS, import from server and save to OPFS
-                if (shouldImport) {
-                    console.log(`🔄 AUTO-DRAG: Importing ${sampleName} from server to OPFS...`)
-                    const reImportedSample = await reImportSampleFromServer(service, sample, roomId)
-                    if (reImportedSample) {
-                        // Now the sample is permanently stored in OPFS
-                        console.log(`✅ AUTO-DRAG: Successfully imported and stored ${sampleName} in OPFS`)
-                        await simulateDragToTimeline(service, reImportedSample, currentPosition, i)
-                        showAutoDragFeedback(`✅ Imported and placed "${sampleName}"`, 'success')
-                    } else {
-                        throw new Error(`Failed to import sample ${sampleName}`)
+                // Process samples and try to fix ones with empty names, ensure UUID is string
+                const allLocalSamples = rawLocalSamples.map(sample => {
+                    // First normalize the sample to ensure all fields are strings
+                    const normalizedSample = {
+                        ...sample,
+                        uuid: String(sample.uuid || ''),
+                        name: String(sample.name || '')
                     }
+                    
+                    const hasValidName = normalizedSample.name && normalizedSample.name.trim() !== ''
+                    const hasValidUuid = normalizedSample.uuid && normalizedSample.uuid.trim() !== ''
+                    
+                    // If UUID is invalid, filter out completely
+                    if (!hasValidUuid) {
+                        console.error(`❌ INVALID SAMPLE: Sample has invalid UUID, filtering out:`, {
+                            uuid: normalizedSample.uuid,
+                            name: normalizedSample.name,
+                            uuidType: typeof normalizedSample.uuid
+                        })
+                        return null
+                    }
+                    
+                    // If name is empty but UUID is valid, try to create a recovery name
+                    if (!hasValidName) {
+                        const recoveryName = `Recovered Sample ${normalizedSample.uuid.substring(0, 8)}`
+                        console.warn(`⚠️ RECOVERY: Sample ${normalizedSample.uuid} has empty name, using recovery name: "${recoveryName}"`)
+                        
+                        // Try to permanently fix the meta.json file (async, don't wait for it)
+                        const fixMetaFile = async () => {
+                            try {
+                                const { UUID } = await import('std')
+                                const parsedUuid = UUID.parse(normalizedSample.uuid)
+                                const updatedMeta = {
+                                    ...normalizedSample,
+                                    name: recoveryName
+                                }
+                                // Remove uuid from metadata before storing
+                                const { uuid: _, ...metaOnly } = updatedMeta
+                                await AudioStorage.updateMeta(parsedUuid, metaOnly)
+                                console.log(`✅ RECOVERY: Successfully updated meta.json for sample ${normalizedSample.uuid}`)
+                            } catch (updateError) {
+                                console.warn(`⚠️ RECOVERY: Failed to update meta.json for sample ${normalizedSample.uuid}:`, updateError)
+                            }
+                        }
+                        fixMetaFile() // Don't await, let it run in background
+                        
+                        // Create a new sample object with recovery name
+                        return {
+                            ...normalizedSample,
+                            name: recoveryName
+                        }
+                    }
+                    
+                    return normalizedSample
+                }).filter(Boolean) // Remove null entries
+                
+                console.log(`📋 AUTO-DRAG: After filtering, ${allLocalSamples.length} valid samples remain`)
+                
+                // Log all valid sample names for debugging
+                console.log('📋 Valid locally stored sample names:')
+                allLocalSamples.forEach((localSample, index) => {
+                    console.log(`  ${index + 1}. "${localSample.name}" (UUID: ${localSample.uuid})`)
+                })
+                
+                // Find matching sample by name with new clean naming format  
+                let targetOriginalName, cleanTargetName, expectedName, shortRoomId
+                try {
+                    targetOriginalName = String((sample as any).originalName || sample.name || '')
+                    cleanTargetName = String(targetOriginalName).replace(/\.(wav|mp3|flac|aac)$/i, '')
+                    shortRoomId = String(roomId).substring(0, 8)
+                    expectedName = `${cleanTargetName} (Room ${shortRoomId})`
+                    
+                    console.log(`🔍 Processing sample:`, {
+                        originalName: (sample as any).originalName,
+                        sampleName: sample.name,
+                        targetOriginalName,
+                        cleanTargetName,
+                        expectedName
+                    })
+                } catch (nameError) {
+                    console.error('❌ Error processing sample name:', nameError)
+                    console.error('❌ Sample data:', sample)
+                    continue // Skip this sample
+                }
+                
+                const matchingSample = allLocalSamples.find(localSample => {
+                    const localName = String(localSample.name || '')
+                    
+                    // Strategy 1: Match by UUID if available
+                    const uuidMatch = localSample.uuid === sample.uuid
+                    
+                    // Strategy 2: Match by exact expected name format
+                    const exactMatch = localName === expectedName
+                    
+                    // Strategy 3: Match by original name (simple)
+                    const simpleMatch = localName === targetOriginalName || localName === cleanTargetName
+                    
+                    // Strategy 4: Partial name matching with room info
+                    const containsName = localName.includes(String(cleanTargetName))
+                    const containsRoom = localName.includes(`Room ${String(shortRoomId)}`) || localName.includes(String(roomId))
+                    const partialMatch = containsName && containsRoom
+                    
+                    // Strategy 5: Fuzzy matching - remove special characters and compare
+                    const normalizeForFuzzy = (str) => str.replace(/[^\w\s]/g, '').toLowerCase().trim()
+                    const fuzzyLocalName = normalizeForFuzzy(localName)
+                    const fuzzyTargetName = normalizeForFuzzy(targetOriginalName)
+                    const fuzzyMatch = fuzzyLocalName.includes(fuzzyTargetName) || fuzzyTargetName.includes(fuzzyLocalName)
+                    
+                    const matches = uuidMatch || exactMatch || simpleMatch || partialMatch || fuzzyMatch
+                    
+                    if (matches) {
+                        console.log(`✅ MATCH FOUND: "${localName}" matches target "${expectedName}"`)
+                        console.log(`  - UUID: ${uuidMatch}, Exact: ${exactMatch}, Simple: ${simpleMatch}, Partial: ${partialMatch}, Fuzzy: ${fuzzyMatch}`)
+                    }
+                    
+                    return matches
+                })
+                
+                if (matchingSample) {
+                    // Ensure sample files exist in OPFS; re-import if missing
+                    try {
+                        const { AudioStorage } = await import('@/audio/AudioStorage')
+                        const { UUID } = await import('std')
+
+                        try {
+                            await AudioStorage.loadFromRoom(roomId, UUID.parse(matchingSample.uuid), service.context)
+                        } catch (missingErr) {
+                            console.warn(`⚠️ OPFS files missing for ${sampleName}, attempting re-import...`)
+                            const reImported = await reImportSampleFromServer(service, matchingSample, roomId)
+                            if (!reImported) {
+                                console.error(`❌ Re-import failed for ${sampleName}, skipping drag.`)
+                                continue // Skip this sample if still unavailable
+                            }
+                        }
+                    } catch (checkErr) {
+                        console.error('❌ Error verifying OPFS sample availability:', checkErr)
+                    }
+
+                    console.log(`✅ AUTO-DRAG: Found matching sample in locally stored: ${matchingSample.name}`)
+                    console.log(`🎯 AUTO-DRAG: Using sample UUID: ${matchingSample.uuid}`)
+                    
+                    // Validate that the sample has required fields before using it
+                    if (!matchingSample.name || matchingSample.name.trim() === '') {
+                        console.error(`❌ AUTO-DRAG: Sample ${matchingSample.uuid} has empty name, skipping:`, matchingSample)
+                        throw new Error(`Sample ${matchingSample.uuid} has no valid name`)
+                    }
+                    
+                    if (!matchingSample.uuid || typeof matchingSample.uuid !== 'string') {
+                        console.error(`❌ AUTO-DRAG: Sample has invalid UUID, skipping:`, matchingSample)
+                        throw new Error(`Sample has invalid UUID: ${matchingSample.uuid}`)
+                    }
+                    
+                    // Use the existing locally stored sample (it should already conform to AudioSample interface)
+                    await simulateDragToTimeline(service, matchingSample, currentPosition, i)
+                    console.log(`✅ AUTO-DRAG: Successfully placed ${sampleName} from locally stored samples`)
+                    showAutoDragFeedback(`✅ Placed "${sampleName}" from local storage`, 'success')
+                    
                 } else {
-                    // Use existing OPFS data
-                    const openDAWSample = {
-                        uuid: UUID.toString(sampleUuid),
-                        name: sampleName,
-                        duration: sample.duration || 0,
-                        bpm: sample.bpm || 120
+                    console.warn(`⚠️ AUTO-DRAG: Sample ${sampleName} not found in locally stored samples`)
+                    console.log(`🔍 Target details:`)
+                    console.log(`  - Sample UUID: "${sample.uuid}"`)
+                    console.log(`  - Original name: "${targetOriginalName}"`)
+                    console.log(`  - Clean name: "${cleanTargetName}"`)
+                    console.log(`  - Expected name: "${expectedName}"`)
+                    console.log(`  - Room ID: ${roomId} (short: ${shortRoomId})`)
+                    console.log(`🔍 Available samples (ALL ${allLocalSamples.length} samples):`)
+                    allLocalSamples.forEach((s, i) => {
+                        console.log(`  ${i + 1}. "${s.name}" (UUID: ${s.uuid})`)
+                    })
+                    showAutoDragFeedback(`⚠️ Sample "${sampleName}" not found locally`, 'error')
+                    
+                    // Try to directly match by UUID as fallback
+                    console.log(`🔍 AUTO-DRAG: Attempting UUID-based fallback search...`)
+                    const uuidFallbackSample = allLocalSamples.find(s => s.uuid === sample.uuid)
+                    if (uuidFallbackSample) {
+                        console.log(`✅ AUTO-DRAG: Found sample by UUID fallback: ${uuidFallbackSample.name}`)
+                        await simulateDragToTimeline(service, uuidFallbackSample, currentPosition, i)
+                        console.log(`✅ AUTO-DRAG: Successfully placed ${sampleName} via UUID fallback`)
+                        showAutoDragFeedback(`✅ Placed "${sampleName}" via UUID match`, 'success')
+                    } else {
+                        console.error(`❌ AUTO-DRAG: UUID fallback also failed for ${sampleName}`)
+                        // Continue to next sample instead of trying to import
+                        continue
                     }
-                    await simulateDragToTimeline(service, openDAWSample, currentPosition, i)
-                    console.log(`✅ AUTO-DRAG: Used existing OPFS data for ${sampleName}`)
-                    showAutoDragFeedback(`✅ Placed "${sampleName}" from cache`, 'success')
                 }
                 
                 // Update position for next sample
@@ -1026,7 +1350,19 @@ async function autoDragRoomSamplesToTimeline(service: StudioService, roomId: str
                 
             } catch (dragError) {
                 console.error(`❌ AUTO-DRAG: Failed to auto-drag sample ${sampleName}:`, dragError)
-                showAutoDragFeedback(`❌ Failed to place "${sampleName}"`, 'error')
+                
+                // Provide more specific error information
+                if (dragError.message?.includes('NotFoundError')) {
+                    console.error(`❌ AUTO-DRAG: Sample files not found in OPFS for ${sampleName}`)
+                    showAutoDragFeedback(`❌ Sample "${sampleName}" files missing`, 'error')
+                } else if (dragError.message?.includes('Sample not found')) {
+                    console.error(`❌ AUTO-DRAG: Sample ${sampleName} not found in cloud or database`)
+                    showAutoDragFeedback(`❌ Sample "${sampleName}" not available`, 'error')
+                } else {
+                    console.error(`❌ AUTO-DRAG: Unexpected error for sample ${sampleName}:`, dragError.message)
+                    showAutoDragFeedback(`❌ Failed to place "${sampleName}"`, 'error')
+                }
+                
                 // Continue with next sample on error
                 
                 // Still update position to maintain spacing
@@ -1058,41 +1394,14 @@ async function reImportSampleFromServer(service: StudioService, sample: any, roo
     try {
         console.log(`🔄 RE-IMPORT: Attempting to re-import ${sample.name || sample.uuid} from server...`)
         
-        // Use the same token retrieval logic as the main integration
-        const urlParams = new URLSearchParams(window.location.search)
-        const authToken = urlParams.get('auth_token') // Note: using 'auth_token' not 'authToken'
-        
-        let token = authToken ? atob(authToken) : null // Decode base64 token from URL
-        if (!token) {
-            token = sessionStorage.getItem('synxsphere_token') || localStorage.getItem('token')
-        }
-        
-        // Also try parent window token (for iframe scenarios)
-        if (!token) {
-            try {
-                if (window.parent && window.parent !== window) {
-                    const parentToken = window.parent.localStorage.getItem('token');
-                    if (parentToken) {
-                        token = parentToken;
-                        console.log('🔄 RE-IMPORT: Using token from parent window')
-                    }
-                }
-            } catch (e) {
-                console.warn('⚠️ RE-IMPORT: Could not access parent window token:', e.message)
-            }
-        }
+        // Get token using unified function
+        const { token, source } = getAuthToken()
+        console.log(`🔐 Using token from ${source}`)
         
         if (!token) {
             console.error('❌ RE-IMPORT: No authentication token found')
-            console.log('📋 RE-IMPORT: Checked locations:')
-            console.log('  - URL auth_token parameter:', !!authToken)
-            console.log('  - sessionStorage synxsphere_token:', !!sessionStorage.getItem('synxsphere_token'))
-            console.log('  - localStorage token:', !!localStorage.getItem('token'))
-            console.log('  - Parent window token:', 'checked')
             return null
         }
-        
-        console.log('✅ RE-IMPORT: Found authentication token')
         
         const apiBaseUrl = await getWorkingApiBaseUrl(token)
         if (!apiBaseUrl) {
@@ -1133,15 +1442,51 @@ async function reImportSampleFromServer(service: StudioService, sample: any, roo
         const arrayBuffer = await response.arrayBuffer()
         console.log(`✅ RE-IMPORT: Downloaded ${originalName} (${arrayBuffer.byteLength} bytes)`)
         
+        // Validate UUID before importing - if invalid, let AudioImporter generate a new one
+        let validUuid: UUID.Format | undefined
+        try {
+            if (sample.uuid && typeof sample.uuid === 'string' && !sample.uuid.includes('undefined') && !sample.uuid.includes('NaN')) {
+                validUuid = UUID.parse(sample.uuid)
+                console.log(`✅ RE-IMPORT: Using existing valid UUID: ${sample.uuid}`)
+            } else {
+                console.warn(`⚠️ RE-IMPORT: Invalid UUID detected: ${sample.uuid}, will generate new one`)
+                validUuid = undefined // Let AudioImporter generate a new one
+            }
+        } catch (uuidError) {
+            console.warn(`⚠️ RE-IMPORT: Failed to parse UUID ${sample.uuid}, will generate new one:`, uuidError)
+            validUuid = undefined
+        }
+        
         // Import the sample into OpenDAW
         const openDAWSample = await service.importSample({
-            uuid: sample.uuid,
+            uuid: validUuid,
             name: originalName,
             arrayBuffer: arrayBuffer,
             progressHandler: (progress) => {
                 console.log(`🔄 Re-importing ${originalName}: ${(progress * 100).toFixed(1)}%`)
             }
         })
+        
+        // Update the sample with the correct UUID for consistency
+        sample.uuid = openDAWSample.uuid
+        console.log(`🔄 RE-IMPORT: Updated sample UUID to: ${openDAWSample.uuid}`)
+        
+        // Also store the sample in the room-specific OPFS folder for future access
+        try {
+            console.log(`🔄 RE-IMPORT: Storing sample in room ${roomId} OPFS folder...`)
+            const { AudioStorage } = await import('@/audio/AudioStorage')
+            const { UUID } = await import('std')
+            
+            // Load the sample data from the main storage
+            const [audioData, peaks, metadata] = await AudioStorage.load(UUID.parse(openDAWSample.uuid), service.context)
+            
+            // Store in room-specific folder
+            await AudioStorage.storeInRoom(roomId, UUID.parse(openDAWSample.uuid), audioData, peaks.buffer, metadata)
+            console.log(`✅ RE-IMPORT: Successfully stored sample in room ${roomId} OPFS folder`)
+        } catch (roomStoreError) {
+            console.warn(`⚠️ RE-IMPORT: Failed to store sample in room OPFS folder:`, roomStoreError)
+            // Don't fail the entire import if room storage fails
+        }
         
         console.log(`✅ RE-IMPORT: Successfully re-imported ${originalName} into OpenDAW`)
         showAutoDragFeedback(`✅ Re-imported "${originalName}" from server`, 'success')
@@ -1201,11 +1546,26 @@ async function simulateDragToTimeline(service: StudioService, sample: any, posit
         const project = service.project
         const { boxGraph, editing, boxAdapters } = project
         
+        // Ensure sample has valid string properties and UUID is properly formatted
+        const uuidString = String(sample.uuid || '')
+        console.log('🔍 DRAG: Original UUID:', sample.uuid, 'Type:', typeof sample.uuid)
+        console.log('🔍 DRAG: Converted UUID:', uuidString, 'Type:', typeof uuidString)
+        
+        const safeSample = {
+            uuid: uuidString,
+            name: String(sample.name || sample.originalName || 'Unknown Sample'),
+            duration: Number(sample.duration) || 0,
+            bpm: Number(sample.bpm) || 120,
+            sample_rate: Number(sample.sample_rate) || 44100
+        }
+        
+        console.log('🔧 DRAG: Normalized sample data:', safeSample)
+        
         // Create track and simulate drag-drop in a single transaction
         editing.modify(() => {
             // Create new audio track
             const result = Instruments.create(project, Instruments.Tape, {
-                name: sample.name
+                name: safeSample.name
             })
             const track = result.track
             const device = result.device
@@ -1214,35 +1574,45 @@ async function simulateDragToTimeline(service: StudioService, sample: any, posit
             const trackBoxAdapter = boxAdapters.adapterFor(track, TrackBoxAdapter)
             
             // Create AudioFileBox for the sample
-            // Generate a valid UUID if the sample uuid is not in UUID format
+            // Parse the sample UUID - ensure it's a valid string first
             let uuid
             try {
-                uuid = UUID.parse(sample.uuid)
+                // Additional validation: ensure UUID is not empty and has proper format
+                if (!safeSample.uuid || safeSample.uuid.trim() === '' || safeSample.uuid === 'undefined' || safeSample.uuid === 'null') {
+                    throw new Error(`Empty or invalid UUID: ${safeSample.uuid}`)
+                }
+                uuid = UUID.parse(safeSample.uuid)
+                console.log(`✅ DRAG: Using sample UUID: ${safeSample.uuid}`)
             } catch (uuidError) {
-                console.warn(`⚠️ DRAG: Invalid UUID format for sample ${sample.name}: ${sample.uuid}, generating new UUID`)
+                console.warn(`⚠️ DRAG: Invalid UUID format for sample ${safeSample.name}: ${safeSample.uuid}, generating new UUID`)
+                console.warn(`⚠️ DRAG: UUID error details:`, uuidError.message)
                 uuid = UUID.generate()
-                console.log(`✅ DRAG: Generated new UUID for sample ${sample.name}: ${UUID.toString(uuid)}`)
+                console.log(`✅ DRAG: Generated new UUID for sample ${safeSample.name}: ${UUID.toString(uuid)}`)
+                // Update the safeSample object with the new UUID for consistency
+                safeSample.uuid = UUID.toString(uuid)
             }
             
             const audioFileBox = boxGraph.findBox(uuid).unwrapOrElse(() => 
                 AudioFileBox.create(boxGraph, uuid, box => {
-                    box.fileName.setValue(sample.name)
+                    box.fileName.setValue(safeSample.name)
                     box.startInSeconds.setValue(0)
-                    box.endInSeconds.setValue(sample.duration || 0)
+                    box.endInSeconds.setValue(safeSample.duration)
                 })
             )
             
             // Create audio region at specified position
-            const duration = Math.round(PPQN.secondsToPulses(sample.duration || 0, sample.bpm || 120))
-            AudioRegionBox.create(boxGraph, UUID.generate(), box => {
+            const duration = Math.round(PPQN.secondsToPulses(safeSample.duration, safeSample.bpm))
+            const audioRegion = AudioRegionBox.create(boxGraph, UUID.generate(), box => {
                 box.position.setValue(position)
                 box.duration.setValue(duration)
-                box.regions.refer(trackBoxAdapter.box.regions)
-                box.label.setValue(sample.name)
+                box.label.setValue(safeSample.name)
                 box.file.refer(audioFileBox)
                 box.mute.setValue(false)
                 box.gain.setValue(1.0)
             })
+            
+            // Add the region to the track's regions
+            track.regions.add(audioRegion)
             
             console.log(`🎵 AUTO-DRAG: Created track "${sample.name}" with region at position ${position}`)
         })
@@ -1260,7 +1630,11 @@ async function autoLoadTracksFromRoomSamples(service: StudioService, roomId: str
         
         // Get all samples in this room
         const { AudioStorage } = await import('@/audio/AudioStorage')
-        const roomSamples = await AudioStorage.listRoom(roomId)
+        let roomSamples = await AudioStorage.listRoom(roomId)
+        
+        // Filter out bogus entries (e.g., projectId or 'undefined' strings)
+        roomSamples = roomSamples.filter(s => isValidUuidStr(String(s.uuid || '')))
+        console.log(`🎯 AUTO-LOAD TRACKS: After filtering invalid UUIDs, ${roomSamples.length} samples remain`)
         
         if (roomSamples.length === 0) {
             console.log(`🎯 AUTO-LOAD TRACKS: No samples found in room ${roomId}`)
@@ -1290,8 +1664,8 @@ async function autoLoadTracksFromRoomSamples(service: StudioService, roomId: str
         
         console.log(`🎯 AUTO-LOAD TRACKS: Creating tracks in sorted order...`)
         
-        // First, re-import all samples into OpenDAW memory
-        console.log(`🎯 AUTO-LOAD TRACKS: Re-importing samples into OpenDAW memory...`)
+        // Use already imported samples from OpenDAW memory instead of re-importing
+        console.log(`🎯 AUTO-LOAD TRACKS: Looking up samples in OpenDAW memory...`)
         const openDAWSamples = []
         
         for (let i = 0; i < sortedSamples.length; i++) {
@@ -1299,62 +1673,40 @@ async function autoLoadTracksFromRoomSamples(service: StudioService, roomId: str
             const sampleName = (sample as any).originalName || sample.name || sample.uuid
             
             try {
-                console.log(`📥 AUTO-LOAD TRACKS: Re-importing sample ${i + 1}/${sortedSamples.length}: ${sampleName}`)
+                console.log(`🔍 AUTO-LOAD TRACKS: Looking up sample ${i + 1}/${sortedSamples.length}: ${sampleName}`)
                 
-                let openDAWSample
+                // Look for the sample in OpenDAW's imported samples using AudioStorage
+                const { AudioStorage } = await import('@/audio/AudioStorage')
+                const rawLocalSamples = await AudioStorage.list()
                 
-                try {
-                    // Load audio data from room-specific OPFS
-                    const audioData = await AudioStorage.loadFromRoom(roomId, UUID.parse(sample.uuid), service.context)
-                    const [audioDataObj, peaks, metadata] = audioData
-                    
-                    // Convert audio data to ArrayBuffer for importSample
-                    const sampleRate = metadata.sample_rate || (sample as any).sample_rate || 44100
-                    const channels = metadata.channels || (sample as any).channels || 2
-                    const frames = audioDataObj.frames
-                    
-                    // Create WAV data
-                    const { encodeWavFloat } = await import('@/wav')
-                    const wavBuffer = encodeWavFloat({
-                        channels: frames,
-                        numFrames: audioDataObj.numberOfFrames,
-                        sampleRate: sampleRate
+                // Normalize all samples to ensure UUID is string format
+                const allLocalSamples = rawLocalSamples.map(s => ({
+                    ...s,
+                    uuid: String(s.uuid || ''),
+                    name: String(s.name || 'Unknown Sample')
+                }))
+                
+                // Ensure UUID comparison is done with string values
+                const sampleUuidString = String(sample.uuid)
+                const openDAWSample = allLocalSamples.find(s => s.uuid === sampleUuidString)
+                
+                if (openDAWSample) {
+                    openDAWSamples.push({
+                        openDAWSample,
+                        originalSample: sample,
+                        sampleName
                     })
-                    
-                    // Re-import into OpenDAW
-                    openDAWSample = await service.importSample({
-                        uuid: sample.uuid,
-                        name: sampleName,
-                        arrayBuffer: wavBuffer,
-                        progressHandler: (progress) => {
-                            console.log(`🔄 Re-importing ${sampleName}: ${(progress * 100).toFixed(1)}%`)
-                        }
-                    })
-                    
-                } catch (opfsError) {
-                    console.warn(`⚠️ AUTO-LOAD TRACKS: Audio file not found in OPFS for ${sampleName}, attempting to fetch from server...`)
-                    
-                    // Try to re-download and import the sample from server
-                    openDAWSample = await reImportSampleFromServer(service, sample, roomId)
-                    if (!openDAWSample) {
-                        throw new Error(`Failed to re-import sample ${sampleName} from server`)
-                    }
+                    console.log(`✅ AUTO-LOAD TRACKS: Found sample in memory: ${sampleName}`)
+                } else {
+                    console.warn(`⚠️ AUTO-LOAD TRACKS: Sample ${sampleName} not found in OpenDAW memory, skipping...`)
                 }
                 
-                openDAWSamples.push({
-                    openDAWSample,
-                    originalSample: sample,
-                    sampleName
-                })
-                
-                console.log(`✅ AUTO-LOAD TRACKS: Re-imported sample: ${sampleName}`)
-                
-            } catch (importError) {
-                console.error(`❌ AUTO-LOAD TRACKS: Failed to re-import sample ${sampleName}:`, importError)
+            } catch (lookupError) {
+                console.error(`❌ AUTO-LOAD TRACKS: Failed to lookup sample ${sampleName}:`, lookupError)
             }
         }
         
-        console.log(`🎯 AUTO-LOAD TRACKS: Successfully re-imported ${openDAWSamples.length} samples, now creating tracks...`)
+        console.log(`🎯 AUTO-LOAD TRACKS: Found ${openDAWSamples.length} samples in memory, now creating tracks...`)
         
         for (let i = 0; i < openDAWSamples.length; i++) {
             const { openDAWSample, originalSample, sampleName } = openDAWSamples[i]
@@ -1368,6 +1720,7 @@ async function autoLoadTracksFromRoomSamples(service: StudioService, roomId: str
                 // Create track and region in a single transaction
                 let track, device, audioFileBox, trackBoxAdapter
                 
+                // Create everything in a single transaction to avoid validation issues
                 editing.modify(() => {
                     // Create track within transaction
                     const result = Instruments.create(project, Instruments.Tape, {
@@ -1375,6 +1728,10 @@ async function autoLoadTracksFromRoomSamples(service: StudioService, roomId: str
                     })
                     track = result.track
                     device = result.device
+                    
+                    // Get track box adapter within the same transaction
+                    trackBoxAdapter = project.boxAdapters.adapterFor(track, TrackBoxAdapter)
+                    const duration = Math.round(PPQN.secondsToPulses(openDAWSample.duration || 0, openDAWSample.bpm || 120))
                     
                     // Create or find AudioFileBox for this sample
                     audioFileBox = boxGraph.findBox(sampleUUID).unwrapOrElse(() => 
@@ -1384,15 +1741,8 @@ async function autoLoadTracksFromRoomSamples(service: StudioService, roomId: str
                             box.endInSeconds.setValue(openDAWSample.duration || 0)
                         })
                     )
-                })
-                
-                // Get track box adapter AFTER transaction completes
-                trackBoxAdapter = project.boxAdapters.adapterFor(track, TrackBoxAdapter)
-                const duration = Math.round(PPQN.secondsToPulses(openDAWSample.duration || 0, openDAWSample.bpm || 120))
-                
-                // Create audio region in a separate transaction
-                editing.modify(() => {
-                    // Create audio region starting at 0 seconds
+                    
+                    // Create audio region in the same transaction to ensure proper edge connections
                     AudioRegionBox.create(boxGraph, UUID.generate(), box => {
                         box.position.setValue(0)  // All tracks start at 0s
                         box.duration.setValue(duration)
@@ -1451,6 +1801,12 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
             existingSamples = await AudioStorage.listRoom(roomId)
             console.log(`🔍 OPFS samples for room ${roomId} BEFORE import:`, existingSamples.length)
             console.log('🔍 Existing sample names:', existingSamples.map(s => s.name || s.uuid))
+            console.log('🔍 Existing sample details:', existingSamples.map(s => ({ 
+                name: s.name, 
+                uuid: s.uuid, 
+                fileId: (s as any).fileId, 
+                originalName: (s as any).originalName 
+            })))
             
             // Filter out audio files that already exist in OPFS for this room
             // Since we now use room-specific storage, we only need to check within this room's samples
@@ -1458,8 +1814,12 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
             for (const audioFile of audioFiles) {
                 let alreadyExists = false
                 
+                console.log(`🔍 CHECKING: Audio file "${audioFile.originalName}" (ID: ${audioFile.id})`)
+                
                 // Check if sample already exists by looking for file identifiers in this room
                 for (const existingSample of existingSamples) {
+                    console.log(`🔍 COMPARE with sample: "${existingSample.name}" (fileId: ${(existingSample as any).fileId}, originalName: ${(existingSample as any).originalName})`)
+                    
                     // Check if this sample matches the current file ID or original name
                     if ((existingSample as any).fileId === audioFile.id || 
                         (existingSample as any).originalName === audioFile.originalName) {
@@ -1472,6 +1832,8 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
                 if (!alreadyExists) {
                     audioFilesToImport.push(audioFile)
                     console.log(`📥 WILL IMPORT: "${audioFile.originalName}" (not found in room ${roomId} OPFS)`)
+                } else {
+                    console.log(`⏭️ SKIP: "${audioFile.originalName}" already exists in room ${roomId}`)
                 }
             }
             
@@ -1516,13 +1878,9 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
             }
         }
         
-        // Get token from URL parameters or storage
-        const urlParams = new URLSearchParams(window.location.search)
-        const authToken = urlParams.get('auth_token')
-        let token = authToken ? atob(authToken) : null
-        if (!token) {
-            token = sessionStorage.getItem('synxsphere_token') || localStorage.getItem('token')
-        }
+        // Get token using unified function
+        const { token, source } = getAuthToken()
+        console.log(`🔐 Using token from ${source}`)
         
         if (!token) {
             console.warn('❌ No token available for audio file download')
@@ -1542,6 +1900,25 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
         
         for (const audioFileData of audioFilesToImport) {
             try {
+                // Debug log the audioFileData structure
+                console.log('🔍 AUTOMATIC IMPORT - AUDIO FILE DATA STRUCTURE:', {
+                    id: audioFileData.id,
+                    originalName: audioFileData.originalName,  
+                    filename: audioFileData.filename,
+                    filePath: audioFileData.filePath,
+                    roomId: roomId,
+                    fullData: audioFileData
+                })
+                
+                // Validate required fields
+                if (!audioFileData.id) {
+                    console.error('❌ audioFileData.id is missing or undefined:', audioFileData)
+                    continue
+                }
+                if (!audioFileData.originalName && !audioFileData.filename) {
+                    console.error('❌ Both originalName and filename are missing:', audioFileData)
+                    continue
+                }
                 if (!audioFileData.filePath) {
                     console.warn('⚠️ Audio file has no file path:', audioFileData.originalName)
                     continue
@@ -1819,7 +2196,13 @@ async function forceTimelineUIUpdate(project: any) {
         
         // Force subscription updates for all audio units, tracks, and regions
         audioUnits.adapters().forEach((audioUnit, index) => {
-            console.log(`🎵 Processing Audio Unit ${index}:`, audioUnit.name.getValue())
+            let audioUnitName = 'Unknown'
+            try {
+                audioUnitName = audioUnit.name ? audioUnit.name.getValue() : `AudioUnit ${index}`
+            } catch (nameError) {
+                audioUnitName = `AudioUnit ${index}`
+            }
+            console.log(`🎵 Processing Audio Unit ${index}:`, audioUnitName)
             
             // Force audio unit track subscription updates
             if (audioUnit.tracks && audioUnit.tracks.adapters) {
@@ -1846,9 +2229,31 @@ async function forceTimelineUIUpdate(project: any) {
                     // Log region details for verification
                     if (regions > 0) {
                         track.regions.adapters().forEach((region, regionIndex) => {
-                            console.log(`    🎶 Region ${regionIndex}:`, region.label?.getValue?.() || 'Unknown', 
-                                'position:', region.position?.getValue?.() || 0,
-                                'duration:', region.duration?.getValue?.() || 0)
+                            let regionLabel = 'Unknown'
+                            let regionPosition = 0
+                            let regionDuration = 0
+                            
+                            try {
+                                regionLabel = region.label && region.label.getValue ? region.label.getValue() : 'Unknown'
+                            } catch (e) {
+                                regionLabel = 'Unknown'
+                            }
+                            
+                            try {
+                                regionPosition = region.position && region.position.getValue ? region.position.getValue() : 0
+                            } catch (e) {
+                                regionPosition = 0
+                            }
+                            
+                            try {
+                                regionDuration = region.duration && region.duration.getValue ? region.duration.getValue() : 0
+                            } catch (e) {
+                                regionDuration = 0
+                            }
+                            
+                            console.log(`    🎶 Region ${regionIndex}:`, regionLabel, 
+                                'position:', regionPosition,
+                                'duration:', regionDuration)
                         })
                     }
                 })
@@ -2023,12 +2428,8 @@ export async function saveProjectToRoom(service: StudioService) {
         }
         
         // Send to SynxSphere
-        const urlParams = new URLSearchParams(window.location.search)
-        const authToken = urlParams.get('auth_token')
-        let token = authToken ? atob(authToken) : null
-        if (!token) {
-            token = sessionStorage.getItem('synxsphere_token') || localStorage.getItem('token')
-        }
+        const { token, source } = getAuthToken()
+        console.log(`🔐 Using token from ${source}`)
         
         if (token) {
             const apiBaseUrl = await getWorkingApiBaseUrl(token)
@@ -2137,14 +2538,18 @@ function debugTimelineDOM() {
         let regionRelatedElements = 0
         
         allElements.forEach(el => {
-            const text = el.textContent?.toLowerCase() || ''
-            const className = el.className?.toLowerCase() || ''
-            
-            if (text.includes('track') || className.includes('track')) {
-                trackRelatedElements++
-            }
-            if (text.includes('region') || className.includes('region') || text.includes('clip')) {
-                regionRelatedElements++
+            try {
+                const text = el.textContent?.toLowerCase() || ''
+                const className = (typeof el.className === 'string' ? el.className : el.className?.toString?.() || '').toLowerCase()
+                
+                if (text.includes('track') || className.includes('track')) {
+                    trackRelatedElements++
+                }
+                if (text.includes('region') || className.includes('region') || text.includes('clip')) {
+                    regionRelatedElements++
+                }
+            } catch (error) {
+                // Skip problematic elements
             }
         })
         
@@ -2160,4 +2565,21 @@ function debugTimelineDOM() {
     } catch (error) {
         console.warn('⚠️ Error during DOM debugging:', error)
     }
+}
+
+// ---------- Utility ----------
+function normalizeUuid(id: any): string {
+    try {
+        if (typeof id === 'string') {
+            return id.toLowerCase()
+        }
+        const { UUID } = require('std')
+        return UUID ? UUID.toString(id).toLowerCase() : String(id).toLowerCase()
+    } catch {
+        return String(id).toLowerCase()
+    }
+}
+
+function isValidUuidStr(str: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
 }

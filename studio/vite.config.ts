@@ -28,7 +28,7 @@ export default defineConfig(({mode, command}) => {
                 name: "spa",
                 configureServer(server) {
                     server.middlewares.use((req, res, next) => {
-                        const url: string | undefined = req.url
+                        const urlw: string | undefined = req.url
                         if (url !== undefined && url.indexOf(".") === -1 && !url.startsWith("/@vite/")) {
                             const indexPath = path.resolve(__dirname, "index.html")
                             res.end(readFileSync(indexPath))
@@ -43,7 +43,19 @@ export default defineConfig(({mode, command}) => {
             })
         ],
         resolve: {
-            alias: {"@": resolve(__dirname, "./src")}
+            alias: {
+                "@": resolve(__dirname, "./src"),
+                // map local workspace libraries
+                "std": resolve(__dirname, "../lib/std/dist/index.mjs"),
+                "box": resolve(__dirname, "../lib/box/dist/index.mjs"),
+                "dom": resolve(__dirname, "../lib/dom/dist/index.mjs"),
+                "dsp": resolve(__dirname, "../lib/dsp/dist/index.mjs"),
+                "fusion": resolve(__dirname, "../lib/fusion/dist/index.mjs"),
+                "jsx": resolve(__dirname, "../lib/jsx/dist/index.mjs"),
+                "runtime": resolve(__dirname, "../lib/runtime/dist/index.mjs"),
+                // handle runtime-imported absolute path like "/app/lib/..."
+                "/app/lib": resolve(__dirname, "../lib")
+            }
         },
         build: {
             target: "esnext",

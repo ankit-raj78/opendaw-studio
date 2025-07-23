@@ -28,9 +28,25 @@ export namespace AudioImporter {
             frames: Arrays.create(index => audioBuffer.getChannelData(index), audioBuffer.numberOfChannels)
         }
         const peaks = await AudioPeaks.generate(audioData, progressHandler)
+        // Clean and process the sample name safely
+        let cleanName = name || 'Unknown Sample'
+        
+        // Remove file extension if present
+        const lastDotIndex = cleanName.lastIndexOf(".")
+        if (lastDotIndex > 0) {
+            cleanName = cleanName.substring(0, lastDotIndex)
+        }
+        
+        // Ensure we have a non-empty name
+        if (!cleanName || cleanName.trim() === '') {
+            cleanName = 'Imported Sample'
+        }
+        
+        console.log('🔍 AudioImporter: Processing name:', name, '→', cleanName)
+        
         const meta: AudioMetaData = {
             bpm: estimateBpm(audioBuffer.duration),
-            name: name.substring(0, name.lastIndexOf(".")),
+            name: cleanName,
             duration: audioBuffer.duration,
             sample_rate: audioBuffer.sampleRate
         }
