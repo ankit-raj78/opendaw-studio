@@ -34,14 +34,24 @@ window.addEventListener('unhandledrejection', (event) => {
 import { StudioService } from './service/StudioService'
 import { setStudioServiceForCollaboration } from './service/agents'
 import { Option } from 'std'
+import { UUID } from 'std'
 import { Modifier } from './ui/Modifier'
 import { AudioUnitType } from './data/enums'
 import { AudioUnitBoxAdapter } from './audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter'
+import { AudioRegionBox, TrackBox } from './data/boxes'
 import { ColorCodes } from './ui/mixer/ColorCodes'
 import { IconSymbol } from './IconSymbol'
+import { AudioRegionBoxAdapter } from './audio-engine-shared/adapters/timeline/region/AudioRegionBoxAdapter'
+import { TrackBoxAdapter } from './audio-engine-shared/adapters/timeline/TrackBoxAdapter'
+import { TrackType } from './audio-engine-shared/adapters/timeline/TrackType'
+// ⬇️  realtime collaboration client from collab mvp project
+import { WSClient } from '../../opendaw-collab-mvp/src/websocket/WSClient'
+import { createCollabMessage } from '../../opendaw-collab-mvp/src/websocket/MessageTypes'
 
 // Global variable to store the working API base URL
 let workingApiBaseUrl: string | null = null
+// Global ws variable for this tab
+let wsClient: WSClient | null = null
 
 // Auto-drag configuration
 const AUTO_DRAG_CONFIG = {
@@ -361,6 +371,10 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                             await autoLoadTracksFromRoomSamples(service, roomId)
                         }
                         
+                        // 🔄 After samples imported, broadcast sample count for quick consistency check
+                        if (wsClient && wsClient.isConnected) {
+                            wsClient.send(createCollabMessage.sampleSync(roomId, userId, { sampleCount: projectData.audioFiles.length }))
+                        }
                     } else {
                         console.log('📄 Loading project from JSON data (no audio files)')
                         await loadProjectFromJSON(service, projectData, roomId)
@@ -381,6 +395,343 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         bundleSize: 0
                     }), 1500)
                     
+                    // 🟢 Start collaboration WebSocket after project ready
+                    if (!wsClient) {
+                        wsClient = new WSClient('wss://localhost:8443/ws', roomId, userId)
+                        await wsClient.connect().catch(console.error)
+
+                        // Listen for sample sync from others
+                        wsClient.onMessage('SAMPLE_SYNC' as any, (msg: any) => {
+                            const expected = (msg.data?.sampleCount) as number
+                            const local = projectData.audioFiles?.length || 0
+                            if (expected !== local) {
+                                console.warn('⚠️ Sample count mismatch, reloading to sync…')
+                                window.location.reload()
+                            }
+                        })
+
+                        // Expose helpers for track drag/update (UI must call these)
+                        wsClient.onDragTrack = (trackId, newIndex) => {
+                            try {
+                                (service as any).timeline?.reorderTrack(trackId, newIndex)
+                            } catch (e) {
+                                console.error('Failed to apply remote drag', e)
+                            }
+                        }
+                        wsClient.onUpdateTrack = (track) => {
+                            try {
+                                (service as any).tracks?.applyRemoteUpdate?.(track)
+                            } catch (e) {
+                                console.error('Failed to apply remote track update', e)
+                            }
+                        }
+                        
+                        // Handle region creation from remote users
+                        wsClient.onRegionCreated = async (payload, fromUser) => {
+                            console.log('[SyncSphere] Region created by', fromUser, payload)
+                            const { regionId, trackId, startTime, duration, sampleId } = payload
+                            
+                            try {
+                                // Parse UUID strings
+                                const regionUuid = UUID.parse(regionId)
+                                const trackUuid = UUID.parse(trackId)
+                                const sampleUuid = (sampleId && sampleId !== 'unknown') ? UUID.parse(sampleId) : undefined
+                                
+                                // Find boxes via Option
+                                let targetTrackOpt = service.project.boxGraph.findBox(trackUuid)
+                                const sampleFileOpt = sampleUuid ? service.project.boxGraph.findBox(sampleUuid) : Option.None
+                                
+                                // If track doesn't exist, create it
+                                if (targetTrackOpt.isEmpty()) {
+                                    console.log('[SyncSphere] Track not found, creating new track:', trackId)
+                                    
+                                    // Find the first audio unit to attach the track to
+                                    const audioUnits = service.project.rootBoxAdapter.audioUnits.adapters()
+                                    if (audioUnits.length === 0) {
+                                        console.error('[SyncSphere] No audio units found, cannot create track')
+                                        return
+                                    }
+                                    
+                                    // Use the first audio unit (typically the master/output)
+                                    const audioUnit = audioUnits[0]
+                                    
+                                    // Debug: Show current tracks before creating new one
+                                    const currentTracks = audioUnit.tracks.values()
+                                    console.log('[SyncSphere] Current tracks before creation:', currentTracks.map((t: any) => ({
+                                        uuid: UUID.toString(t.address.uuid),
+                                        index: t.regionIndex || 'no-index',
+                                        label: t.regionLabel || 'no-label'
+                                    })))
+                                    
+                                    // Create the track with the specific UUID using proper index allocation
+                                    service.project.editing.modify(() => {
+                                        TrackBox.create(service.project.boxGraph, trackUuid, (box: any) => {
+                                            box.type?.setValue(TrackType.Audio)
+                                            box.tracks?.refer(audioUnit.box.tracks)
+                                            box.target?.refer(audioUnit.box)
+                                            // Use the same method as TrackHeaderMenu: audioUnit.tracks.values().length
+                                            // This should give consistent ordering
+                                            box.index?.setValue(audioUnit.tracks.values().length)
+                                            box.label?.setValue('Remote Track')
+                                        })
+                                        
+                                        console.log('[SyncSphere] Track created with UUID:', UUID.toString(trackUuid), 'at index:', audioUnit.tracks.values().length)
+                                    })
+                                    
+                                    // Debug: Show tracks after creation
+                                    const updatedTracks = audioUnit.tracks.values()
+                                    console.log('[SyncSphere] Tracks after creation:', updatedTracks.map((t: any) => ({
+                                        uuid: UUID.toString(t.address.uuid),
+                                        index: t.regionIndex || 'no-index',
+                                        label: t.regionLabel || 'no-label'
+                                    })))
+                                    
+                                    // Try to find the track again
+                                    targetTrackOpt = service.project.boxGraph.findBox(trackUuid)
+                                    if (targetTrackOpt.isEmpty()) {
+                                        console.error('[SyncSphere] Failed to create track')
+                                        return
+                                    } else {
+                                        console.log('[SyncSphere] ✅ Track successfully created and found')
+                                    }
+                                }
+                                
+                                const targetTrack = targetTrackOpt.unwrap()
+                                const sampleFile = sampleFileOpt.nonEmpty() ? sampleFileOpt.unwrap() : undefined
+                                
+                                if (targetTrack) {
+                                    // Check if we have a valid sample file - AudioRegionBox requires a file reference
+                                    if (!sampleFile && sampleUuid) {
+                                        console.log('[SyncSphere] Sample file not found locally, attempting to create from online sample. sampleId:', sampleId)
+                                        
+                                        // Try to get the online sample info and create AudioFileBox
+                                        try {
+                                            const { SampleApi } = await import('./service/SampleApi')
+                                            const { AudioFileBox } = await import('./data/boxes')
+                                            
+                                            // Get sample info from API
+                                            const sampleInfo = await SampleApi.get(sampleUuid)
+                                            console.log('[SyncSphere] Retrieved online sample info:', sampleInfo)
+                                            
+                                            // Create or find AudioFileBox with the same UUID (like normal drag and drop)
+                                            service.project.editing.modify(() => {
+                                                const newAudioFileBox = service.project.boxGraph.findBox(sampleUuid)
+                                                    .unwrapOrElse(() => AudioFileBox.create(service.project.boxGraph, sampleUuid, (box: any) => {
+                                                        box.fileName?.setValue(sampleInfo.name)
+                                                        box.startInSeconds?.setValue(0)
+                                                        box.endInSeconds?.setValue(sampleInfo.duration)
+                                                    }))
+                                                
+                                                console.log('[SyncSphere] Created/found AudioFileBox for online sample:', newAudioFileBox)
+                                                console.log('[SyncSphere] AudioFileBox UUID:', UUID.toString(newAudioFileBox.address.uuid))
+                                                
+                                                // Now try to find it again
+                                                const createdSampleFileOpt = service.project.boxGraph.findBox(sampleUuid)
+                                                if (createdSampleFileOpt.nonEmpty()) {
+                                                    const createdSampleFile = createdSampleFileOpt.unwrap()
+                                                    
+                                                    // Create the region with the newly created sample file
+                                                    const trackAdapter = service.project.boxAdapters.adapterFor(targetTrack, TrackBoxAdapter)
+                                                    const newRegion = AudioRegionBox.create(service.project.boxGraph, regionUuid, (box: any) => {
+                                                        box.position?.setValue(startTime)
+                                                        box.duration?.setValue(duration)
+                                                        box.loopDuration?.setValue(duration)
+                                                        box.regions?.refer(trackAdapter.box.regions)
+                                                        box.label?.setValue(`Remote: ${sampleInfo.name}`)
+                                                        box.file?.refer(createdSampleFile)
+                                                    })
+                                                    
+                                                    // Add region to track collection
+                                                    trackAdapter.regions.collection.add(
+                                                        service.project.boxAdapters.adapterFor(newRegion, AudioRegionBoxAdapter)
+                                                    )
+                                                    
+                                                    console.log('[SyncSphere] ✅ Region created with online sample')
+                                                    
+                                                    // Resume AudioContext if suspended to ensure remote region can be played
+                                                    if (service.context && service.context.state === 'suspended') {
+                                                        console.log('🔊 [SyncSphere] AudioContext is suspended, resuming for remote region playback...')
+                                                        service.context.resume().then(() => {
+                                                            console.log('✅ [SyncSphere] AudioContext resumed for remote region with online sample')
+                                                        }).catch(err => {
+                                                            console.warn('❌ [SyncSphere] Failed to resume AudioContext:', err)
+                                                        })
+                                                    } else {
+                                                        console.log('🔊 [SyncSphere] AudioContext state:', service.context?.state || 'undefined')
+                                                    }
+                                                    
+                                                    // Force audio data loading for the newly created sample
+                                                    try {
+                                                        console.log('[SyncSphere] Pre-loading audio data for region playbook...')
+                                                        console.log('[SyncSphere] Sample UUID for audio loading:', UUID.toString(sampleUuid))
+                                                        console.log('[SyncSphere] Sample info for loading:', sampleInfo)
+                                                        
+                                                        const audioLoader = service.project.audioManager.getOrCreateAudioLoader(sampleUuid)
+                                                        console.log('[SyncSphere] AudioLoader created/retrieved:', audioLoader)
+                                                        console.log('[SyncSphere] AudioLoader UUID:', UUID.toString(audioLoader.uuid))
+                                                        
+                                                        // Check if already loaded
+                                                        if (audioLoader.state.type === "loaded") {
+                                                            console.log('[SyncSphere] ✅ Audio data already loaded for remote sample:', sampleInfo.name)
+                                                        } else {
+                                                            console.log('[SyncSphere] Current audio loader state:', audioLoader.state.type)
+                                                            console.log('[SyncSphere] AudioLoader has data:', audioLoader.data.nonEmpty())
+                                                            console.log('[SyncSphere] AudioLoader has meta:', audioLoader.meta.nonEmpty())
+                                                            console.log('[SyncSphere] AudioLoader has peaks:', audioLoader.peaks.nonEmpty())
+                                                            
+                                                            // Wait for loading to complete
+                                                            const loadPromise = new Promise<void>((resolve, reject) => {
+                                                                const subscription = audioLoader.subscribe(state => {
+                                                                    console.log('[SyncSphere] Audio loader state changed to:', state.type)
+                                                                    
+                                                                    if (state.type === "loaded") {
+                                                                        console.log('[SyncSphere] ✅ Audio data loaded for remote sample:', sampleInfo.name)
+                                                                        console.log('[SyncSphere] Audio data details:', {
+                                                                            hasData: audioLoader.data.nonEmpty(),
+                                                                            hasMeta: audioLoader.meta.nonEmpty(),
+                                                                            hasPeaks: audioLoader.peaks.nonEmpty()
+                                                                        })
+                                                                        subscription.terminate()
+                                                                        resolve()
+                                                                    } else if (state.type === "error") {
+                                                                        console.error('[SyncSphere] ❌ Failed to load audio data for remote sample:', state.reason || state.error)
+                                                                        subscription.terminate()
+                                                                        reject(new Error(state.reason || 'Audio loading failed'))
+                                                                    } else if (state.type === "progress") {
+                                                                        console.log('[SyncSphere] Loading progress:', Math.round(state.progress * 100) + '%')
+                                                                    }
+                                                                })
+                                                            })
+                                                            
+                                                            // Don't await to avoid blocking, but log the result
+                                                            loadPromise.catch(error => {
+                                                                console.warn('[SyncSphere] Audio loading promise rejected:', error)
+                                                            })
+                                                        }
+                                                    } catch (loadError) {
+                                                        console.warn('[SyncSphere] Could not pre-load audio data:', loadError)
+                                                    }
+                                                } else {
+                                                    console.error('[SyncSphere] Failed to create AudioFileBox for online sample')
+                                                }
+                                            })
+                                            return
+                                        } catch (error) {
+                                            console.error('[SyncSphere] Failed to get online sample info:', error)
+                                            return
+                                        }
+                                    }
+                                    
+                                    if (!sampleFile) {
+                                        console.warn('[SyncSphere] Cannot create region without sample file, sampleId:', sampleId)
+                                        return
+                                    }
+                                    
+                                    // Obtain track adapter once
+                                    const trackAdapter = service.project.boxAdapters.adapterFor(targetTrack, TrackBoxAdapter)
+
+                                    service.project.editing.modify(() => {
+                                        const newRegion = AudioRegionBox.create(service.project.boxGraph, regionUuid, (box: any) => {
+                                            box.position?.setValue(startTime)
+                                            box.duration?.setValue(duration)
+                                            box.loopDuration?.setValue(duration)
+                                            box.regions?.refer(trackAdapter.box.regions)
+                                            box.label?.setValue('Remote Region')
+                                            box.file?.refer(sampleFile)
+                                        })
+                                        // After creation, add region to track collection to ensure edge
+                                        trackAdapter.regions.collection.add(
+                                            service.project.boxAdapters.adapterFor(newRegion, AudioRegionBoxAdapter)
+                                        )
+                                        
+                                        console.log('[SyncSphere] ✅ Region created successfully')
+                                    })
+                                    
+                                    // Resume AudioContext if suspended to ensure remote region can be played
+                                    if (service.context && service.context.state === 'suspended') {
+                                        console.log('🔊 [SyncSphere] AudioContext is suspended, resuming for remote region playback...')
+                                        service.context.resume().then(() => {
+                                            console.log('✅ [SyncSphere] AudioContext resumed for remote region')
+                                        }).catch(err => {
+                                            console.warn('❌ [SyncSphere] Failed to resume AudioContext:', err)
+                                        })
+                                    } else {
+                                        console.log('🔊 [SyncSphere] AudioContext state:', service.context?.state || 'undefined')
+                                    }
+                                    
+                                    // Force audio data loading for the existing sample (same as online sample logic)
+                                    if (sampleUuid) {
+                                        try {
+                                            console.log('[SyncSphere] Pre-loading audio data for existing sample region...')
+                                            const audioLoader = service.project.audioManager.getOrCreateAudioLoader(sampleUuid)
+                                            
+                                            // Check if already loaded
+                                            if (audioLoader.state.type === "loaded") {
+                                                console.log('[SyncSphere] ✅ Audio data already loaded for existing sample')
+                                            } else {
+                                                console.log('[SyncSphere] Current audio loader state for existing sample:', audioLoader.state.type)
+                                                
+                                                // Wait for loading to complete
+                                                const loadPromise = new Promise<void>((resolve, reject) => {
+                                                    const subscription = audioLoader.subscribe(state => {
+                                                        console.log('[SyncSphere] Audio loader state changed to:', state.type)
+                                                        
+                                                        if (state.type === "loaded") {
+                                                            console.log('[SyncSphere] ✅ Audio data loaded for existing sample')
+                                                            console.log('[SyncSphere] Audio data details:', {
+                                                                hasData: audioLoader.data.nonEmpty(),
+                                                                hasMeta: audioLoader.meta.nonEmpty(),
+                                                                hasPeaks: audioLoader.peaks.nonEmpty()
+                                                            })
+                                                            subscription.terminate()
+                                                            resolve()
+                                                        } else if (state.type === "error") {
+                                                            console.error('[SyncSphere] ❌ Failed to load audio data for existing sample:', state.reason || state.error)
+                                                            subscription.terminate()
+                                                            reject(new Error(state.reason || 'Audio loading failed'))
+                                                        } else if (state.type === "progress") {
+                                                            console.log('[SyncSphere] Loading progress:', Math.round(state.progress * 100) + '%')
+                                                        }
+                                                    })
+                                                })
+                                                
+                                                // Don't await to avoid blocking, but log the result
+                                                loadPromise.catch(error => {
+                                                    console.warn('[SyncSphere] Audio loading promise rejected for existing sample:', error)
+                                                })
+                                            }
+                                        } catch (loadError) {
+                                            console.warn('[SyncSphere] Could not pre-load audio data for existing sample:', loadError)
+                                        }
+                                    }
+                                } else {
+                                    console.warn('[SyncSphere] Target track not found:', trackId)
+                                }
+                            } catch (error) {
+                                console.error('[SyncSphere] Failed to create region:', error)
+                            }
+                        }
+
+                        // Expose for other components
+                        ;(window as any).wsClient = wsClient
+
+                        const reorderById = (trackId: string, newIndex: number) => {
+                            try {
+                                const audioUnits = service.project.rootBoxAdapter.audioUnits
+                                const adapters = audioUnits.adapters()
+                                const currentIndex = adapters.findIndex((a: any) => a.uuid === trackId)
+                                if (currentIndex === -1) return
+                                const delta = newIndex - currentIndex
+                                if (delta !== 0) {
+                                    service.project.editing.modify(() => audioUnits.moveIndex(currentIndex, delta))
+                                }
+                            } catch (e) {
+                                console.error('Failed to reorder track', e)
+                            }
+                        }
+
+                        wsClient.onDragTrack = (trackId, newIndex) => reorderById(trackId, newIndex)
+                    }
                 } else {
                     console.log('ℹ️ AUTOMATIC IMPORT: No existing project found for room')
                     console.log('✅ AUTOMATIC IMPORT: Project already created, workspace already loaded')
@@ -938,7 +1289,7 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 
                 // STEP 1: Import to locally stored samples using service.importSample
                 console.log(`📥 Step 1: Importing to locally stored samples...`)
-                console.log(`🔍 Import parameters:`, {
+                console.log(`�� Import parameters:`, {
                     uuid: audioFileUuid,
                     name: uniqueName,
                     arrayBufferSize: arrayBuffer.byteLength
@@ -2156,15 +2507,17 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
         // Force final UI update to ensure all tracks and regions are visible
         await forceTimelineUIUpdate(project)
         
-        // Try to resume audio context if needed
+        // Try to resume audio context if needed (required for audio playback after remote region creation)
         if (service.context && service.context.state === 'suspended') {
-            console.log('🔊 Resuming audio context...')
+            console.log('🔊 [SyncSphere] AudioContext is suspended, resuming for remote region playback...')
             try {
                 await service.context.resume()
-                console.log('✅ Audio context resumed')
+                console.log('✅ [SyncSphere] AudioContext resumed successfully')
             } catch (error) {
-                console.warn('⚠️ Could not resume audio context:', error)
+                console.warn('❌ [SyncSphere] Failed to resume AudioContext:', error)
             }
+        } else {
+            console.log('🔊 [SyncSphere] AudioContext state:', service.context?.state || 'undefined')
         }
         
     } catch (error) {

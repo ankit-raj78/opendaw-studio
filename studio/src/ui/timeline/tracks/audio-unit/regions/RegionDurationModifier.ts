@@ -113,6 +113,29 @@ export class RegionDurationModifier implements RegionModifier {
             solver()
         })
         RegionClipResolver.validateTracks(modifiedTracks)
+        
+        // 🚀 Broadcast region resize to collaborators
+        try {
+            const ws: any = (window as any).wsClient
+            if (ws?.isConnected && typeof ws.sendRegionResized === 'function') {
+                result.forEach(({region, duration}) => {
+                    const regionIdStr = region?.uuid ? UUID.toString(region.uuid) : 'unknown'
+                    const trackIdStr = region?.trackBoxAdapter?.unwrap()?.uuid ? UUID.toString(region.trackBoxAdapter.unwrap().uuid) : 'unknown'
+                    const startTime = region.position
+                    
+                    console.log('[RegionDurationModifier] Broadcasting region resize:', {
+                        regionId: regionIdStr,
+                        trackId: trackIdStr,
+                        startTime,
+                        duration
+                    })
+                    
+                    ws.sendRegionResized(regionIdStr, trackIdStr, startTime, duration)
+                })
+            }
+        } catch (err) {
+            console.error('[RegionDurationModifier] ❌ Failed to broadcast region resize:', err)
+        }
     }
 
     cancel(): void {

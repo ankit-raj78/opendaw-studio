@@ -175,6 +175,36 @@ export class ClipMoveModifier implements ClipModifier {
                 }
             })
         })
+        
+        // 🚀 Broadcast clip moves to collaborators
+        try {
+            const ws: any = (window as any).wsClient
+            if (ws?.isConnected) {
+                moveTasks.forEach(({adapter, newClipIndex, newTrack}) => {
+                    const originalTrackId = adapter.trackBoxAdapter.unwrap().uuid
+                    const newTrackId = newTrack.trackBoxAdapter.uuid
+                    const clipId = adapter.uuid
+                    
+                    console.log('[ClipMoveModifier] Broadcasting clip move:', {
+                        clipId, 
+                        originalTrackId, 
+                        newTrackId: newTrackId !== originalTrackId ? newTrackId : undefined,
+                        startTime: newClipIndex
+                    })
+                    
+                    if (typeof ws.sendClipMoved === 'function') {
+                        ws.sendClipMoved(
+                            clipId, 
+                            originalTrackId, 
+                            newClipIndex, 
+                            newTrackId !== originalTrackId ? newTrackId : undefined
+                        )
+                    }
+                })
+            }
+        } catch (err) {
+            console.error('[ClipMoveModifier] ❌ Failed to broadcast clip move:', err)
+        }
     }
 
     cancel(): void {this.#dispatchChange()}

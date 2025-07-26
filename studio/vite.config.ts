@@ -28,7 +28,7 @@ export default defineConfig(({mode, command}) => {
                 name: "spa",
                 configureServer(server) {
                     server.middlewares.use((req, res, next) => {
-                        const urlw: string | undefined = req.url
+                        const url: string | undefined = req.url
                         if (url !== undefined && url.indexOf(".") === -1 && !url.startsWith("/@vite/")) {
                             const indexPath = path.resolve(__dirname, "index.html")
                             res.end(readFileSync(indexPath))

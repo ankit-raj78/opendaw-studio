@@ -19,7 +19,9 @@ export class ClipSampleDragAndDrop extends TimelineDragAndDrop<ClipCaptureTarget
         const x = event.clientX - this.capturing.element.getBoundingClientRect().left
         const index = Math.floor(x / ClipWidth)
         const duration = Math.round(PPQN.secondsToPulses(durationInSeconds, bpm))
-        AudioClipBox.create(this.project.boxGraph, UUID.generate(), box => {
+        const clipId = UUID.generate()
+        
+        AudioClipBox.create(this.project.boxGraph, clipId, box => {
             box.index.setValue(index)
             box.duration.setValue(duration)
             box.clips.refer(trackBoxAdapter.box.clips)
@@ -27,5 +29,34 @@ export class ClipSampleDragAndDrop extends TimelineDragAndDrop<ClipCaptureTarget
             box.label.setValue(name)
             box.file.refer(audioFileBox)
         })
+        
+        // 🚀 Broadcast clip creation to collaborators
+        try {
+            const ws: any = (window as any).wsClient
+            if (ws?.isConnected && typeof ws.sendClipCreated === 'function') {
+                // Ensure all UUIDs are valid before converting
+                const clipIdStr = clipId ? UUID.toString(clipId) : 'unknown'
+                const trackIdStr = trackBoxAdapter?.uuid ? UUID.toString(trackBoxAdapter.uuid) : 'unknown'
+                const sampleIdStr = audioFileBox?.uuid ? UUID.toString(audioFileBox.uuid) : 'unknown'
+                
+                console.log('[ClipSampleDragAndDrop] Broadcasting clip creation:', {
+                    clipId: clipIdStr,
+                    trackId: trackIdStr,
+                    startTime: index,
+                    duration,
+                    sampleId: sampleIdStr
+                })
+                
+                ws.sendClipCreated(
+                    clipIdStr,
+                    trackIdStr,
+                    index,
+                    duration,
+                    sampleIdStr
+                )
+            }
+        } catch (err) {
+            console.error('[ClipSampleDragAndDrop] ❌ Failed to broadcast clip creation:', err)
+        }
     }
 }

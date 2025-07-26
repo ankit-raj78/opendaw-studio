@@ -181,6 +181,39 @@ export class RegionMoveModifier implements RegionModifyStrategies {
             solver()
         })
         RegionClipResolver.validateTracks(modifiedTracks)
+        
+        // 🚀 Broadcast region moves to collaborators
+        try {
+            const ws: any = (window as any).wsClient
+            if (ws?.isConnected) {
+                adapters.forEach(adapter => {
+                    const originalTrackId = adapter.trackBoxAdapter.unwrap().uuid
+                    const newTrackIndex = adapter.trackBoxAdapter.unwrap().listIndex + this.#deltaIndex
+                    const newTrack = this.#manager.getByIndex(newTrackIndex).unwrap().trackBoxAdapter
+                    const newTrackId = newTrack.uuid
+                    const regionId = adapter.uuid
+                    const newPosition = adapter.position + this.#deltaPosition
+                    
+                    console.log('[RegionMoveModifier] Broadcasting region move:', {
+                        regionId,
+                        originalTrackId,
+                        newTrackId: newTrackId !== originalTrackId ? newTrackId : undefined,
+                        startTime: newPosition
+                    })
+                    
+                    if (typeof ws.sendRegionMoved === 'function') {
+                        ws.sendRegionMoved(
+                            regionId,
+                            originalTrackId,
+                            newPosition,
+                            newTrackId !== originalTrackId ? newTrackId : undefined
+                        )
+                    }
+                })
+            }
+        } catch (err) {
+            console.error('[RegionMoveModifier] ❌ Failed to broadcast region move:', err)
+        }
     }
 
     cancel(): void {this.#dispatchChange()}

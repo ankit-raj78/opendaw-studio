@@ -86,13 +86,22 @@ export abstract class TimelineDragAndDrop<T extends (ClipCaptureTarget | RegionC
                 return panic("Illegal State")
             }
             const {uuid: uuidAsString, name, duration: durationInSeconds} = sample
+            console.log('[TimelineDragAndDrop] DEBUG - sample:', sample)
+            console.log('[TimelineDragAndDrop] DEBUG - uuidAsString:', uuidAsString)
+            
             const uuid = UUID.parse(uuidAsString)
+            console.log('[TimelineDragAndDrop] DEBUG - parsed uuid:', uuid)
+            
             const audioFileBox: AudioFileBox = boxGraph.findBox<AudioFileBox>(uuid)
                 .unwrapOrElse(() => AudioFileBox.create(boxGraph, uuid, box => {
                     box.fileName.setValue(name)
                     box.startInSeconds.setValue(0)
                     box.endInSeconds.setValue(durationInSeconds)
                 }))
+            
+            console.log('[TimelineDragAndDrop] DEBUG - audioFileBox:', audioFileBox)
+            console.log('[TimelineDragAndDrop] DEBUG - audioFileBox.address.uuid:', audioFileBox?.address?.uuid)
+            
             this.handleSample({event, trackBoxAdapter, audioFileBox, sample})
         })
     }
