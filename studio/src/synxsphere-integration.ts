@@ -445,54 +445,46 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                                 if (targetTrackOpt.isEmpty()) {
                                     console.log('[SyncSphere] Track not found, creating new track:', trackId)
                                     
-                                    // Find the first audio unit to attach the track to
-                                    const audioUnits = service.project.rootBoxAdapter.audioUnits.adapters()
-                                    if (audioUnits.length === 0) {
-                                        console.error('[SyncSphere] No audio units found, cannot create track')
-                                        return
-                                    }
+                                    // Import required modules
+                                    const { Instruments } = await import('./service/Instruments')
                                     
-                                    // Use the first audio unit (typically the master/output)
-                                    const audioUnit = audioUnits[0]
-                                    
-                                    // Debug: Show current tracks before creating new one
-                                    const currentTracks = audioUnit.tracks.values()
-                                    console.log('[SyncSphere] Current tracks before creation:', currentTracks.map((t: any) => ({
-                                        uuid: UUID.toString(t.address.uuid),
-                                        index: t.regionIndex || 'no-index',
-                                        label: t.regionLabel || 'no-label'
-                                    })))
-                                    
-                                    // Create the track with the specific UUID using proper index allocation
+                                    // Create track using Instruments.create to ensure proper audio routing
+                                    let createdTrack: any = null
                                     service.project.editing.modify(() => {
-                                        TrackBox.create(service.project.boxGraph, trackUuid, (box: any) => {
-                                            box.type?.setValue(TrackType.Audio)
-                                            box.tracks?.refer(audioUnit.box.tracks)
-                                            box.target?.refer(audioUnit.box)
-                                            // Use the same method as TrackHeaderMenu: audioUnit.tracks.values().length
-                                            // This should give consistent ordering
-                                            box.index?.setValue(audioUnit.tracks.values().length)
-                                            box.label?.setValue('Remote Track')
+                                        // Create a Tape instrument (for audio playback)
+                                        const result = Instruments.create(service.project, Instruments.Tape, {
+                                            name: 'Remote Track'
                                         })
+                                        createdTrack = result.track
+                                        const createdDevice = result.device
                                         
-                                        console.log('[SyncSphere] Track created with UUID:', UUID.toString(trackUuid), 'at index:', audioUnit.tracks.values().length)
+                                        // The Instruments.create already sets up the audio routing correctly
+                                        // The audio unit is created and connected automatically
+                                        console.log('[SyncSphere] Track and device created with Instruments.create')
+                                        console.log('[SyncSphere] Device:', createdDevice)
+                                        console.log('[SyncSphere] Track:', createdTrack)
+                                        
+                                        // Store mapping between remote UUID and local UUID
+                                        // This is safer than modifying the UUID directly
+                                        const localTrackUuid = createdTrack.address.uuid
+                                        console.log('[SyncSphere] Track created with UUID:', UUID.toString(localTrackUuid))
+                                        console.log('[SyncSphere] Remote track UUID:', UUID.toString(trackUuid))
+                                        
+                                        // Store the mapping for future reference
+                                        if (!(window as any).syncSphereTrackMapping) {
+                                            (window as any).syncSphereTrackMapping = new Map()
+                                        }
+                                        (window as any).syncSphereTrackMapping.set(UUID.toString(trackUuid), UUID.toString(localTrackUuid))
                                     })
                                     
-                                    // Debug: Show tracks after creation
-                                    const updatedTracks = audioUnit.tracks.values()
-                                    console.log('[SyncSphere] Tracks after creation:', updatedTracks.map((t: any) => ({
-                                        uuid: UUID.toString(t.address.uuid),
-                                        index: t.regionIndex || 'no-index',
-                                        label: t.regionLabel || 'no-label'
-                                    })))
-                                    
                                     // Try to find the track again
-                                    targetTrackOpt = service.project.boxGraph.findBox(trackUuid)
+                                    // Use the created track directly since we didn't modify its UUID
+                                    targetTrackOpt = Option.wrap(createdTrack)
                                     if (targetTrackOpt.isEmpty()) {
-                                        console.error('[SyncSphere] Failed to create track')
+                                        console.error('[SyncSphere] Failed to wrap created track')
                                         return
                                     } else {
-                                        console.log('[SyncSphere] ✅ Track successfully created and found')
+                                        console.log('[SyncSphere] ✅ Track successfully created with proper audio routing')
                                     }
                                 }
                                 
@@ -539,6 +531,10 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                                                         box.regions?.refer(trackAdapter.box.regions)
                                                         box.label?.setValue(`Remote: ${sampleInfo.name}`)
                                                         box.file?.refer(createdSampleFile)
+                                                        // Ensure region is not muted and has proper gain
+                                                        box.mute?.setValue(false)
+                                                        box.gain?.setValue(1.0)
+                                                        console.log('[SyncSphere] Region settings: mute=false, gain=1.0')
                                                     })
                                                     
                                                     // Add region to track collection
@@ -2507,17 +2503,15 @@ async function importRoomAudioFilesFromList(service: StudioService, audioFiles: 
         // Force final UI update to ensure all tracks and regions are visible
         await forceTimelineUIUpdate(project)
         
-        // Try to resume audio context if needed (required for audio playback after remote region creation)
+        // Try to resume audio context if needed
         if (service.context && service.context.state === 'suspended') {
-            console.log('🔊 [SyncSphere] AudioContext is suspended, resuming for remote region playback...')
+            console.log('🔊 Resuming audio context...')
             try {
                 await service.context.resume()
-                console.log('✅ [SyncSphere] AudioContext resumed successfully')
+                console.log('✅ Audio context resumed')
             } catch (error) {
-                console.warn('❌ [SyncSphere] Failed to resume AudioContext:', error)
+                console.warn('⚠️ Could not resume audio context:', error)
             }
-        } else {
-            console.log('🔊 [SyncSphere] AudioContext state:', service.context?.state || 'undefined')
         }
         
     } catch (error) {
