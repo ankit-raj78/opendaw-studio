@@ -124,6 +124,20 @@ function getAuthToken(): { token: string | null, source: string } {
 // Expose getAuthToken globally for other modules
 ;(window as any).getAuthToken = getAuthToken
 
+// Helper function to safely create a new project only if none exists
+function safeCreateNewProject(service: StudioService, reason: string): boolean {
+    const sessionOpt = service.sessionService.getValue()
+    if (sessionOpt.isEmpty()) {
+        console.log(`✅ Creating new project - Reason: ${reason}`)
+        service.cleanSlate()
+        return true
+    } else {
+        console.log(`⚠️ Project already exists, skipping initialization - Reason attempted: ${reason}`)
+        console.log(`📋 Existing project:`, sessionOpt.unwrap().meta.name)
+        return false
+    }
+}
+
 // Helper function to save initial project
 async function scheduleInitialProjectSave(service: StudioService, roomId: string) {
     console.log('⏰ Scheduling initial project save for room:', roomId)
@@ -264,7 +278,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
         try {
             // FORCE PROJECT CREATION FIRST - ensure we always have a working project
             console.log('🚀 FORCE PROJECT CREATION: Creating new project immediately')
-            service.cleanSlate()
+            safeCreateNewProject(service, 'Initial room load with roomId and userId')
             await new Promise(resolve => setTimeout(resolve, 1000))
             service.switchScreen("default")
             
@@ -364,8 +378,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                             } else {
                                 console.warn('⚠️ No audio files found in database for room:', roomId)
                                 // Create empty project
-                                service.cleanSlate()
-                                scheduleInitialProjectSave(service, roomId) // Add auto-save
+                                if (safeCreateNewProject(service, 'No audio files found in database')) {
+                                    scheduleInitialProjectSave(service, roomId) // Add auto-save
+                                }
                                 await new Promise(resolve => setTimeout(resolve, 500))
                                 service.switchScreen("default")
                                 return
@@ -373,8 +388,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         } else {
                             console.error('❌ Failed to fetch audio files from database:', audioFilesResponse.status)
                             // Create empty project
-                            service.cleanSlate()
-                            scheduleInitialProjectSave(service, roomId) // Add auto-save
+                            if (safeCreateNewProject(service, 'Failed to fetch audio files from database')) {
+                                scheduleInitialProjectSave(service, roomId) // Add auto-save
+                            }
                             await new Promise(resolve => setTimeout(resolve, 500))
                             service.switchScreen("default")
                             return
@@ -382,8 +398,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     } catch (audioError: any) {
                         console.error('❌ Error fetching audio files:', audioError)
                         // Create empty project
-                        service.cleanSlate()
-                        scheduleInitialProjectSave(service, roomId) // Add auto-save
+                        if (safeCreateNewProject(service, 'Error fetching audio files')) {
+                            scheduleInitialProjectSave(service, roomId) // Add auto-save
+                        }
                         await new Promise(resolve => setTimeout(resolve, 500))
                         service.switchScreen("default")
                         return
@@ -438,8 +455,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         if (bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
                             console.log('⚠️ Project bundle is not in ZIP format, skipping import')
                             console.log('📝 Creating new project instead')
-                            service.cleanSlate()
-                            scheduleInitialProjectSave(service, roomId) // Add auto-save
+                            if (safeCreateNewProject(service, 'Project bundle is not in ZIP format')) {
+                                scheduleInitialProjectSave(service, roomId) // Add auto-save
+                            }
                             return
                         }
                         
@@ -485,7 +503,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                             
                             console.error('❌ Falling back to creating new project')
                             // Fall back to creating new project
-                            service.cleanSlate()
+                            safeCreateNewProject(service, 'Failed to import project bundle')
                             
                             // Initialize timeline sync if WebSocket is connected
                             initializeTimelineSync(service)
@@ -497,7 +515,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         console.log('📊 No BoxGraph data found, creating new project')
                         // Create a session FIRST before switching screens
                         console.log('🎯 Creating new session before switching to workspace...')
-                        service.cleanSlate() // This creates a fresh session
+                        safeCreateNewProject(service, 'No BoxGraph data found') // This creates a fresh session
                         
                         // Initialize timeline sync if WebSocket is connected
                         initializeTimelineSync(service)
@@ -663,7 +681,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
             } else {
                 console.warn('⚠️ No authentication token found, but still creating project')
                 // Create project even without token
-                service.cleanSlate()
+                safeCreateNewProject(service, 'No authentication token found')
                 
                 // Switch to default workspace screen
                 service.switchScreen("default")
@@ -751,7 +769,7 @@ async function loadOpenDAWBundle(service: StudioService, bundleBuffer: Uint8Arra
         console.log('🔄 Falling back to JSON project loading...')
         
         // Fallback to clean slate
-        service.cleanSlate()
+        safeCreateNewProject(service, 'Error loading OpenDAW bundle')
     }
 }
 
@@ -761,7 +779,7 @@ async function loadProjectFromJSON(service: StudioService, projectData: any, roo
         console.log('📄 Loading project from JSON data...')
         
         // Create a new project
-        service.cleanSlate()
+        safeCreateNewProject(service, 'Loading project from JSON data')
         
         // Wait for project to be initialized
         await new Promise(resolve => setTimeout(resolve, 500))
@@ -819,7 +837,7 @@ async function loadProjectFromJSON(service: StudioService, projectData: any, roo
     } catch (error) {
         console.error('❌ Error loading project from JSON:', error)
         // Fallback to clean slate
-        service.cleanSlate()
+        safeCreateNewProject(service, 'Error loading project from JSON')
     }
 }
 

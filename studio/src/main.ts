@@ -57,8 +57,12 @@ requestAnimationFrame(async () => {
         }
         if (context.state === "suspended") {
             window.addEventListener("click",
-                async () => await context.resume().then(() =>
-                    console.debug(`AudioContext resumed (${context.state})`)), {capture: true, once: true})
+                async () => {
+                    if (context.state === "suspended") {
+                        await context.resume().then(() =>
+                            console.debug(`AudioContext resumed (${context.state})`))
+                    }
+                }, {capture: true})  // 移除 once: true，允许多次尝试恢复
         }
         const audioDevices = await AudioOutputDevice.create(context)
         const audioManager = new UIAudioManager({
