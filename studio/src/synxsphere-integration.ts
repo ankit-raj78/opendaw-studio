@@ -34,24 +34,25 @@ window.addEventListener('unhandledrejection', (event) => {
 import { StudioService } from './service/StudioService'
 import { setStudioServiceForCollaboration } from './service/agents'
 import { Option } from 'std'
-import { UUID } from 'std'
 import { Modifier } from './ui/Modifier'
 import { AudioUnitType } from './data/enums'
 import { AudioUnitBoxAdapter } from './audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter'
-import { AudioRegionBox, TrackBox } from './data/boxes'
 import { ColorCodes } from './ui/mixer/ColorCodes'
 import { IconSymbol } from './IconSymbol'
-import { AudioRegionBoxAdapter } from './audio-engine-shared/adapters/timeline/region/AudioRegionBoxAdapter'
-import { TrackBoxAdapter } from './audio-engine-shared/adapters/timeline/TrackBoxAdapter'
-import { TrackType } from './audio-engine-shared/adapters/timeline/TrackType'
 // ⬇️  realtime collaboration client from collab mvp project
+// @ts-ignore
 import { WSClient } from '../../opendaw-collab-mvp/src/websocket/WSClient'
+// @ts-ignore
 import { createCollabMessage } from '../../opendaw-collab-mvp/src/websocket/MessageTypes'
+// @ts-ignore
+import { UpdateBasedTimelineSync } from './lib/timeline-sync/UpdateBasedTimelineSync'
 
 // Global variable to store the working API base URL
 let workingApiBaseUrl: string | null = null
 // Global ws variable for this tab
 let wsClient: WSClient | null = null
+// Global timeline sync instance
+let timelineSync: UpdateBasedTimelineSync | null = null
 
 // Auto-drag configuration
 const AUTO_DRAG_CONFIG = {
@@ -99,8 +100,8 @@ function getAuthToken(): { token: string | null, source: string } {
         return { token: sessionToken, source: 'sessionStorage' }
     }
     
-    // Try localStorage
-    const localToken = localStorage.getItem('token')
+    // Try localStorage with both keys
+    const localToken = localStorage.getItem('synxsphere_token') || localStorage.getItem('token')
     if (localToken) {
         return { token: localToken, source: 'localStorage' }
     }
@@ -113,14 +114,105 @@ function getAuthToken(): { token: string | null, source: string } {
                 return { token: parentToken, source: 'parent window' }
             }
         }
-    } catch (e) {
+    } catch (e: any) {
         console.warn('⚠️ AUTH: Could not access parent window token:', e.message)
     }
     
     return { token: null, source: 'none' }
 }
 
+// Expose getAuthToken globally for other modules
+;(window as any).getAuthToken = getAuthToken
+
+// Helper function to save initial project
+async function scheduleInitialProjectSave(service: StudioService, roomId: string) {
+    console.log('⏰ Scheduling initial project save for room:', roomId)
+    setTimeout(async () => {
+        try {
+            console.log('📝 Starting initial project save after 3 seconds...')
+            const sessionOpt = service.sessionService.getValue()
+            if (sessionOpt.nonEmpty()) {
+                const session = sessionOpt.unwrap()
+                console.log('✅ Session found:', session.meta.name, 'UUID:', session.uuid)
+                
+                const { Projects } = await import('@/project/Projects')
+
+                // Use a dummy progress observable value
+                const bundleBuffer = await Projects.exportBundle(session, { setValue: () => {} } as any)
+                const bundleData = Array.from(new Uint8Array(bundleBuffer))
+
+                console.log(`💾 Saving initial project bundle (${bundleData.length} bytes) to database...`)
+
+                // Use unified auth token function
+                const { token, source: tokenSource } = getAuthToken()
+                console.log('🔑 Using token from:', tokenSource, 'Token exists:', !!token, 'Length:', token?.length || 0)
+                
+                if (!token) {
+                    console.error('❌ No authentication token found!')
+                    console.error('❌ Checked: URL param, sessionStorage, localStorage, parent window')
+                    return
+                }
+                
+                // Get the correct API base URL
+                const apiBaseUrl = await getWorkingApiBaseUrl(token)
+                if (!apiBaseUrl) {
+                    console.error('❌ Cannot determine API base URL')
+                    return
+                }
+                
+                const apiUrl = `${apiBaseUrl}/api/rooms/${roomId}/studio-project`
+                console.log('📤 Sending PUT request to:', apiUrl)
+                
+                const res = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ boxGraphData: bundleData })
+                })
+                
+                console.log('📥 Response status:', res.status, 'OK:', res.ok)
+                
+                if (res.ok) {
+                    // Check content type before parsing
+                    const contentType = res.headers.get('content-type')
+                    console.log('📄 Response content-type:', contentType)
+                    
+                    if (contentType && contentType.includes('application/json')) {
+                        const responseData = await res.json()
+                        console.log('✅ Initial project saved to database successfully!')
+                        console.log('📋 Saved project details:', responseData)
+                    } else {
+                        // Response is not JSON - likely HTML
+                        const responseText = await res.text()
+                        console.error('❌ Expected JSON response but got:', contentType)
+                        console.error('❌ Response preview:', responseText.substring(0, 200) + '...')
+                        console.error('❌ This usually means the API endpoint is not configured correctly')
+                        console.error('💡 Check if the API route is properly set up at /api/rooms/[id]/studio-project')
+                    }
+                } else {
+                    const errorText = await res.text()
+                    console.error('❌ Failed to save initial project:', res.status)
+                    console.error('❌ Error response:', errorText)
+                }
+            } else {
+                console.warn('⚠️ scheduleInitialProjectSave: session is not ready yet')
+                console.warn('⚠️ Will retry in 2 seconds...')
+                // Retry after 2 more seconds
+                setTimeout(() => scheduleInitialProjectSave(service, roomId), 2000)
+            }
+        } catch (err: any) {
+            console.error('❌ Error during initial project save:', err)
+            console.error('❌ Error details:', err.message, err.stack)
+        }
+    }, 3000)
+}
+
 export async function initializeSynxSphereIntegration(service: StudioService) {
+    // 标记项目是否已从 bundle 加载
+    let projectLoadedFromBundle = false
+    
     console.log('🔗 MODIFIED VERSION: Initializing SynxSphere integration...')
     console.log('🎯 DEBUG: Integration function called, service:', service)
     console.log('🚀 FORCE PROJECT CREATION: This version will always create a project')
@@ -162,7 +254,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
         try {
             const parentHasToken = window.parent && window.parent !== window && window.parent.localStorage.getItem('token')
             console.log('  - parent window token:', !!parentHasToken)
-        } catch (e) {
+        } catch (e: any) {
             console.log('  - parent window token: cross-origin blocked')
         }
     }
@@ -228,7 +320,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     
                     console.log('🔍 AUTOMATIC IMPORT: Project response status:', projectResponse.status)
                     console.log('🔍 AUTOMATIC IMPORT: Response headers:', projectResponse.headers)
-                } catch (fetchError) {
+                } catch (fetchError: any) {
                     console.error('❌ AUTOMATIC IMPORT: Failed to fetch project:', fetchError)
                     console.error('❌ AUTOMATIC IMPORT: Error details:', {
                         name: fetchError.name,
@@ -273,6 +365,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                                 console.warn('⚠️ No audio files found in database for room:', roomId)
                                 // Create empty project
                                 service.cleanSlate()
+                                scheduleInitialProjectSave(service, roomId) // Add auto-save
                                 await new Promise(resolve => setTimeout(resolve, 500))
                                 service.switchScreen("default")
                                 return
@@ -281,14 +374,16 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                             console.error('❌ Failed to fetch audio files from database:', audioFilesResponse.status)
                             // Create empty project
                             service.cleanSlate()
+                            scheduleInitialProjectSave(service, roomId) // Add auto-save
                             await new Promise(resolve => setTimeout(resolve, 500))
                             service.switchScreen("default")
                             return
                         }
-                    } catch (audioError) {
+                    } catch (audioError: any) {
                         console.error('❌ Error fetching audio files:', audioError)
                         // Create empty project
                         service.cleanSlate()
+                        scheduleInitialProjectSave(service, roomId) // Add auto-save
                         await new Promise(resolve => setTimeout(resolve, 500))
                         service.switchScreen("default")
                         return
@@ -302,7 +397,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         roomId: roomId,
                         hasAudioFiles: !!(projectData.audioFiles && projectData.audioFiles.length),
                         audioFilesCount: projectData.audioFiles ? projectData.audioFiles.length : 0,
-                        hasProjectData: !!projectData.projectData
+                        hasProjectData: !!projectData.projectData,
+                        hasBoxGraphData: !!projectData.boxGraphData,
+                        boxGraphDataLength: projectData.boxGraphData ? projectData.boxGraphData.length : 0
                     })
                     
                     // Special debug for test2 room
@@ -311,19 +408,103 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     }
                 } else if (projectResponse) {
                     console.error(`❌ AUTOMATIC IMPORT: Failed to load studio project: ${projectResponse.status}`)
+                    const errorText = await projectResponse.text()
+                    console.error('❌ Error response:', errorText)
                     return
                 }
                 
                 if (projectData) {
                     console.log('✅ AUTOMATIC IMPORT: Room project data loaded')
-                    console.log('🔍 AUTOMATIC IMPORT: Full project data:', JSON.stringify(projectData, null, 2))
+                    console.log('🔍 AUTOMATIC IMPORT: Project details:', {
+                        id: projectData.id,
+                        name: projectData.name,
+                        roomId: projectData.roomId,
+                        hasBoxGraphData: !!projectData.boxGraphData,
+                        boxGraphDataSize: projectData.boxGraphData ? projectData.boxGraphData.length : 0,
+                        createdAt: projectData.createdAt,
+                        updatedAt: projectData.updatedAt
+                    })
                     
                     // Store project data globally for UI access
                     ;(window as any).currentProjectData = projectData.projectData
                     
-                    // Create a session FIRST before switching screens
-                    console.log('🎯 Creating new session before switching to workspace...')
-                    service.cleanSlate() // This creates a fresh session
+                    // Check if we have BoxGraph data to load
+                    if (projectData.boxGraphData && projectData.boxGraphData.length > 0) {
+                        console.log('📊 AUTOMATIC IMPORT: Found project bundle, loading shared project...')
+                        console.log('📊 Project bundle size:', projectData.boxGraphData.length, 'bytes')
+                        
+                        // Check if this is a valid .odb format (starts with PK)
+                        const bytes = new Uint8Array(projectData.boxGraphData)
+                        if (bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
+                            console.log('⚠️ Project bundle is not in ZIP format, skipping import')
+                            console.log('📝 Creating new project instead')
+                            service.cleanSlate()
+                            scheduleInitialProjectSave(service, roomId) // Add auto-save
+                            return
+                        }
+                        
+                        try {
+                            // Convert to Uint8Array
+                            const bundleBuffer = new Uint8Array(projectData.boxGraphData)
+                            
+                            // Import Projects module
+                            const { Projects } = await import('@/project/Projects')
+                            
+                            // Use OpenDAW's importBundle to load the .odb file
+                            const session = await Projects.importBundle(service, bundleBuffer.buffer as ArrayBuffer)
+                            
+                            // Set the loaded session as the current session
+                            service.sessionService.setValue(Option.wrap(session))
+                            
+                            console.log('✅ AUTOMATIC IMPORT: Project bundle loaded successfully')
+                            console.log('📝 Project name:', session.meta.name)
+                            console.log('🎵 Project UUID:', session.uuid)
+                            
+                            // Get box count for verification
+                            const boxCount = Array.from(session.project.boxGraph.boxes()).length
+                            console.log('📊 Loaded', boxCount, 'boxes from shared project')
+                            
+                            // 🎯 项目已成功加载，不需要再调用 loadProjectFromJSON
+                            console.log('✅ Project loaded from bundle, skipping JSON import')
+                            
+                            // 标记项目已从 bundle 加载
+                            projectLoadedFromBundle = true
+                        } catch (error) {
+                            console.error('❌ Failed to load project bundle:', error)
+                            console.error('❌ Error details:', error)
+                            
+                            // Check error type
+                            const errorMessage = error instanceof Error ? error.message : String(error)
+                            if (errorMessage.includes('asDefined failed')) {
+                                console.log('🔄 Project bundle is missing required files (likely missing uuid)')
+                                console.log('⚠️ This is an old format bundle. Please delete and recreate the room.')
+                            } else if (errorMessage.includes('Corrupt header')) {
+                                console.log('🔄 Data appears to be BoxGraph format, not .odb bundle')
+                                console.log('⚠️ Please refresh the page to create a new project')
+                            }
+                            
+                            console.error('❌ Falling back to creating new project')
+                            // Fall back to creating new project
+                            service.cleanSlate()
+                            
+                            // Initialize timeline sync if WebSocket is connected
+                            initializeTimelineSync(service)
+                            
+                            // Save the new project after creation
+                            scheduleInitialProjectSave(service, roomId)
+                        }
+                    } else {
+                        console.log('📊 No BoxGraph data found, creating new project')
+                        // Create a session FIRST before switching screens
+                        console.log('🎯 Creating new session before switching to workspace...')
+                        service.cleanSlate() // This creates a fresh session
+                        
+                        // Initialize timeline sync if WebSocket is connected
+                        initializeTimelineSync(service)
+                        
+                        // Save the new project after creation
+                        scheduleInitialProjectSave(service, roomId)
+                    }
                     
                     // Wait for session to be fully created
                     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -354,19 +535,33 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     
                     // Check if there are audio files to import
                     if (projectData.audioFiles && projectData.audioFiles.length > 0) {
-                        console.log('🎵 SAMPLE IMPORT: Found', projectData.audioFiles.length, 'audio files, importing to locally stored samples...')
-                        console.log('🎯 SAMPLE IMPORT: Audio files will be available in samples for manual use')
-                        console.log('📋 SAMPLE IMPORT: Files to import:', projectData.audioFiles.map(f => f.originalName).join(', '))
+                        console.log('🎵 SAMPLE IMPORT: Found', projectData.audioFiles.length, 'audio files')
                         
-                        // Import audio files as samples only
-                        await loadProjectFromJSON(service, projectData, roomId)
+                        // 只有在没有从 bundle 加载项目时才导入音频文件
+                        if (!projectLoadedFromBundle) {
+                            console.log('📋 SAMPLE IMPORT: Files to import:', projectData.audioFiles.map(f => f.originalName).join(', '))
+                            
+                            // Import audio files as samples only
+                            await loadProjectFromJSON(service, projectData, roomId)
+                            
+                            console.log('✅ Successfully imported audio files to locally stored samples')
+                        } else {
+                            console.log('📊 Project already loaded from bundle, skipping audio file import')
+                        }
                         
-                        console.log('✅ Successfully imported audio files to locally stored samples')
                         console.log('🎯 AUTO-DRAG: Now auto-dragging all samples to timeline...')
                         
                         // Auto-drag samples to timeline for all samples in this room
                         if (AUTO_DRAG_CONFIG.enabled) {
-                            await autoDragRoomSamplesToTimeline(service, roomId)
+                            // 在 auto-drag 之前检查当前项目状态
+                            const currentBoxCount = Array.from(service.project.boxGraph.boxes()).length
+                            console.log(`📊 Current box count before auto-drag: ${currentBoxCount}`)
+                            
+                            if (projectLoadedFromBundle && currentBoxCount > 6) {
+                                console.log('⚠️ Project already has content, skipping auto-drag to prevent overwrite')
+                            } else {
+                                await autoDragRoomSamplesToTimeline(service, roomId)
+                            }
                         } else {
                             await autoLoadTracksFromRoomSamples(service, roomId)
                         }
@@ -376,13 +571,25 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                             wsClient.send(createCollabMessage.sampleSync(roomId, userId, { sampleCount: projectData.audioFiles.length }))
                         }
                     } else {
-                        console.log('📄 Loading project from JSON data (no audio files)')
-                        await loadProjectFromJSON(service, projectData, roomId)
+                        console.log('📄 No audio files found')
+                        
+                        // 只有在没有从 bundle 加载项目时才创建新项目
+                        if (!projectLoadedFromBundle) {
+                            await loadProjectFromJSON(service, projectData, roomId)
+                        }
                         
                         // Even if no new files, check if there are existing samples to auto-drag
                         console.log('🎯 AUTO-DRAG: Checking for existing samples to auto-drag...')
                         if (AUTO_DRAG_CONFIG.enabled) {
-                            await autoDragRoomSamplesToTimeline(service, roomId)
+                            // 在 auto-drag 之前检查当前项目状态
+                            const currentBoxCount = Array.from(service.project.boxGraph.boxes()).length
+                            console.log(`📊 Current box count before auto-drag: ${currentBoxCount}`)
+                            
+                            if (projectLoadedFromBundle && currentBoxCount > 6) {
+                                console.log('⚠️ Project already has content, skipping auto-drag to prevent overwrite')
+                            } else {
+                                await autoDragRoomSamplesToTimeline(service, roomId)
+                            }
                         } else {
                             await autoLoadTracksFromRoomSamples(service, roomId)
                         }
@@ -399,6 +606,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     if (!wsClient) {
                         wsClient = new WSClient('wss://localhost:8443/ws', roomId, userId)
                         await wsClient.connect().catch(console.error)
+                        
+                        // 🔄 Initialize timeline sync after WebSocket connection
+                        initializeTimelineSync(service)
 
                         // Listen for sample sync from others
                         wsClient.onMessage('SAMPLE_SYNC' as any, (msg: any) => {
@@ -425,288 +635,6 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                                 console.error('Failed to apply remote track update', e)
                             }
                         }
-                        
-                        // Handle region creation from remote users
-                        wsClient.onRegionCreated = async (payload, fromUser) => {
-                            console.log('[SyncSphere] Region created by', fromUser, payload)
-                            const { regionId, trackId, startTime, duration, sampleId } = payload
-                            
-                            try {
-                                // Parse UUID strings
-                                const regionUuid = UUID.parse(regionId)
-                                const trackUuid = UUID.parse(trackId)
-                                const sampleUuid = (sampleId && sampleId !== 'unknown') ? UUID.parse(sampleId) : undefined
-                                
-                                // Find boxes via Option
-                                let targetTrackOpt = service.project.boxGraph.findBox(trackUuid)
-                                const sampleFileOpt = sampleUuid ? service.project.boxGraph.findBox(sampleUuid) : Option.None
-                                
-                                // If track doesn't exist, create it
-                                if (targetTrackOpt.isEmpty()) {
-                                    console.log('[SyncSphere] Track not found, creating new track:', trackId)
-                                    
-                                    // Import required modules
-                                    const { Instruments } = await import('./service/Instruments')
-                                    
-                                    // Create track using Instruments.create to ensure proper audio routing
-                                    let createdTrack: any = null
-                                    service.project.editing.modify(() => {
-                                        // Create a Tape instrument (for audio playback)
-                                        const result = Instruments.create(service.project, Instruments.Tape, {
-                                            name: 'Remote Track'
-                                        })
-                                        createdTrack = result.track
-                                        const createdDevice = result.device
-                                        
-                                        // The Instruments.create already sets up the audio routing correctly
-                                        // The audio unit is created and connected automatically
-                                        console.log('[SyncSphere] Track and device created with Instruments.create')
-                                        console.log('[SyncSphere] Device:', createdDevice)
-                                        console.log('[SyncSphere] Track:', createdTrack)
-                                        
-                                        // Store mapping between remote UUID and local UUID
-                                        // This is safer than modifying the UUID directly
-                                        const localTrackUuid = createdTrack.address.uuid
-                                        console.log('[SyncSphere] Track created with UUID:', UUID.toString(localTrackUuid))
-                                        console.log('[SyncSphere] Remote track UUID:', UUID.toString(trackUuid))
-                                        
-                                        // Store the mapping for future reference
-                                        if (!(window as any).syncSphereTrackMapping) {
-                                            (window as any).syncSphereTrackMapping = new Map()
-                                        }
-                                        (window as any).syncSphereTrackMapping.set(UUID.toString(trackUuid), UUID.toString(localTrackUuid))
-                                    })
-                                    
-                                    // Try to find the track again
-                                    // Use the created track directly since we didn't modify its UUID
-                                    targetTrackOpt = Option.wrap(createdTrack)
-                                    if (targetTrackOpt.isEmpty()) {
-                                        console.error('[SyncSphere] Failed to wrap created track')
-                                        return
-                                    } else {
-                                        console.log('[SyncSphere] ✅ Track successfully created with proper audio routing')
-                                    }
-                                }
-                                
-                                const targetTrack = targetTrackOpt.unwrap()
-                                const sampleFile = sampleFileOpt.nonEmpty() ? sampleFileOpt.unwrap() : undefined
-                                
-                                if (targetTrack) {
-                                    // Check if we have a valid sample file - AudioRegionBox requires a file reference
-                                    if (!sampleFile && sampleUuid) {
-                                        console.log('[SyncSphere] Sample file not found locally, attempting to create from online sample. sampleId:', sampleId)
-                                        
-                                        // Try to get the online sample info and create AudioFileBox
-                                        try {
-                                            const { SampleApi } = await import('./service/SampleApi')
-                                            const { AudioFileBox } = await import('./data/boxes')
-                                            
-                                            // Get sample info from API
-                                            const sampleInfo = await SampleApi.get(sampleUuid)
-                                            console.log('[SyncSphere] Retrieved online sample info:', sampleInfo)
-                                            
-                                            // Create or find AudioFileBox with the same UUID (like normal drag and drop)
-                                            service.project.editing.modify(() => {
-                                                const newAudioFileBox = service.project.boxGraph.findBox(sampleUuid)
-                                                    .unwrapOrElse(() => AudioFileBox.create(service.project.boxGraph, sampleUuid, (box: any) => {
-                                                        box.fileName?.setValue(sampleInfo.name)
-                                                        box.startInSeconds?.setValue(0)
-                                                        box.endInSeconds?.setValue(sampleInfo.duration)
-                                                    }))
-                                                
-                                                console.log('[SyncSphere] Created/found AudioFileBox for online sample:', newAudioFileBox)
-                                                console.log('[SyncSphere] AudioFileBox UUID:', UUID.toString(newAudioFileBox.address.uuid))
-                                                
-                                                // Now try to find it again
-                                                const createdSampleFileOpt = service.project.boxGraph.findBox(sampleUuid)
-                                                if (createdSampleFileOpt.nonEmpty()) {
-                                                    const createdSampleFile = createdSampleFileOpt.unwrap()
-                                                    
-                                                    // Create the region with the newly created sample file
-                                                    const trackAdapter = service.project.boxAdapters.adapterFor(targetTrack, TrackBoxAdapter)
-                                                    const newRegion = AudioRegionBox.create(service.project.boxGraph, regionUuid, (box: any) => {
-                                                        box.position?.setValue(startTime)
-                                                        box.duration?.setValue(duration)
-                                                        box.loopDuration?.setValue(duration)
-                                                        box.regions?.refer(trackAdapter.box.regions)
-                                                        box.label?.setValue(`Remote: ${sampleInfo.name}`)
-                                                        box.file?.refer(createdSampleFile)
-                                                        // Ensure region is not muted and has proper gain
-                                                        box.mute?.setValue(false)
-                                                        box.gain?.setValue(1.0)
-                                                        console.log('[SyncSphere] Region settings: mute=false, gain=1.0')
-                                                    })
-                                                    
-                                                    // Add region to track collection
-                                                    trackAdapter.regions.collection.add(
-                                                        service.project.boxAdapters.adapterFor(newRegion, AudioRegionBoxAdapter)
-                                                    )
-                                                    
-                                                    console.log('[SyncSphere] ✅ Region created with online sample')
-                                                    
-                                                    // Resume AudioContext if suspended to ensure remote region can be played
-                                                    if (service.context && service.context.state === 'suspended') {
-                                                        console.log('🔊 [SyncSphere] AudioContext is suspended, resuming for remote region playback...')
-                                                        service.context.resume().then(() => {
-                                                            console.log('✅ [SyncSphere] AudioContext resumed for remote region with online sample')
-                                                        }).catch(err => {
-                                                            console.warn('❌ [SyncSphere] Failed to resume AudioContext:', err)
-                                                        })
-                                                    } else {
-                                                        console.log('🔊 [SyncSphere] AudioContext state:', service.context?.state || 'undefined')
-                                                    }
-                                                    
-                                                    // Force audio data loading for the newly created sample
-                                                    try {
-                                                        console.log('[SyncSphere] Pre-loading audio data for region playbook...')
-                                                        console.log('[SyncSphere] Sample UUID for audio loading:', UUID.toString(sampleUuid))
-                                                        console.log('[SyncSphere] Sample info for loading:', sampleInfo)
-                                                        
-                                                        const audioLoader = service.project.audioManager.getOrCreateAudioLoader(sampleUuid)
-                                                        console.log('[SyncSphere] AudioLoader created/retrieved:', audioLoader)
-                                                        console.log('[SyncSphere] AudioLoader UUID:', UUID.toString(audioLoader.uuid))
-                                                        
-                                                        // Check if already loaded
-                                                        if (audioLoader.state.type === "loaded") {
-                                                            console.log('[SyncSphere] ✅ Audio data already loaded for remote sample:', sampleInfo.name)
-                                                        } else {
-                                                            console.log('[SyncSphere] Current audio loader state:', audioLoader.state.type)
-                                                            console.log('[SyncSphere] AudioLoader has data:', audioLoader.data.nonEmpty())
-                                                            console.log('[SyncSphere] AudioLoader has meta:', audioLoader.meta.nonEmpty())
-                                                            console.log('[SyncSphere] AudioLoader has peaks:', audioLoader.peaks.nonEmpty())
-                                                            
-                                                            // Wait for loading to complete
-                                                            const loadPromise = new Promise<void>((resolve, reject) => {
-                                                                const subscription = audioLoader.subscribe(state => {
-                                                                    console.log('[SyncSphere] Audio loader state changed to:', state.type)
-                                                                    
-                                                                    if (state.type === "loaded") {
-                                                                        console.log('[SyncSphere] ✅ Audio data loaded for remote sample:', sampleInfo.name)
-                                                                        console.log('[SyncSphere] Audio data details:', {
-                                                                            hasData: audioLoader.data.nonEmpty(),
-                                                                            hasMeta: audioLoader.meta.nonEmpty(),
-                                                                            hasPeaks: audioLoader.peaks.nonEmpty()
-                                                                        })
-                                                                        subscription.terminate()
-                                                                        resolve()
-                                                                    } else if (state.type === "error") {
-                                                                        console.error('[SyncSphere] ❌ Failed to load audio data for remote sample:', state.reason || state.error)
-                                                                        subscription.terminate()
-                                                                        reject(new Error(state.reason || 'Audio loading failed'))
-                                                                    } else if (state.type === "progress") {
-                                                                        console.log('[SyncSphere] Loading progress:', Math.round(state.progress * 100) + '%')
-                                                                    }
-                                                                })
-                                                            })
-                                                            
-                                                            // Don't await to avoid blocking, but log the result
-                                                            loadPromise.catch(error => {
-                                                                console.warn('[SyncSphere] Audio loading promise rejected:', error)
-                                                            })
-                                                        }
-                                                    } catch (loadError) {
-                                                        console.warn('[SyncSphere] Could not pre-load audio data:', loadError)
-                                                    }
-                                                } else {
-                                                    console.error('[SyncSphere] Failed to create AudioFileBox for online sample')
-                                                }
-                                            })
-                                            return
-                                        } catch (error) {
-                                            console.error('[SyncSphere] Failed to get online sample info:', error)
-                                            return
-                                        }
-                                    }
-                                    
-                                    if (!sampleFile) {
-                                        console.warn('[SyncSphere] Cannot create region without sample file, sampleId:', sampleId)
-                                        return
-                                    }
-                                    
-                                    // Obtain track adapter once
-                                    const trackAdapter = service.project.boxAdapters.adapterFor(targetTrack, TrackBoxAdapter)
-
-                                    service.project.editing.modify(() => {
-                                        const newRegion = AudioRegionBox.create(service.project.boxGraph, regionUuid, (box: any) => {
-                                            box.position?.setValue(startTime)
-                                            box.duration?.setValue(duration)
-                                            box.loopDuration?.setValue(duration)
-                                            box.regions?.refer(trackAdapter.box.regions)
-                                            box.label?.setValue('Remote Region')
-                                            box.file?.refer(sampleFile)
-                                        })
-                                        // After creation, add region to track collection to ensure edge
-                                        trackAdapter.regions.collection.add(
-                                            service.project.boxAdapters.adapterFor(newRegion, AudioRegionBoxAdapter)
-                                        )
-                                        
-                                        console.log('[SyncSphere] ✅ Region created successfully')
-                                    })
-                                    
-                                    // Resume AudioContext if suspended to ensure remote region can be played
-                                    if (service.context && service.context.state === 'suspended') {
-                                        console.log('🔊 [SyncSphere] AudioContext is suspended, resuming for remote region playback...')
-                                        service.context.resume().then(() => {
-                                            console.log('✅ [SyncSphere] AudioContext resumed for remote region')
-                                        }).catch(err => {
-                                            console.warn('❌ [SyncSphere] Failed to resume AudioContext:', err)
-                                        })
-                                    } else {
-                                        console.log('🔊 [SyncSphere] AudioContext state:', service.context?.state || 'undefined')
-                                    }
-                                    
-                                    // Force audio data loading for the existing sample (same as online sample logic)
-                                    if (sampleUuid) {
-                                        try {
-                                            console.log('[SyncSphere] Pre-loading audio data for existing sample region...')
-                                            const audioLoader = service.project.audioManager.getOrCreateAudioLoader(sampleUuid)
-                                            
-                                            // Check if already loaded
-                                            if (audioLoader.state.type === "loaded") {
-                                                console.log('[SyncSphere] ✅ Audio data already loaded for existing sample')
-                                            } else {
-                                                console.log('[SyncSphere] Current audio loader state for existing sample:', audioLoader.state.type)
-                                                
-                                                // Wait for loading to complete
-                                                const loadPromise = new Promise<void>((resolve, reject) => {
-                                                    const subscription = audioLoader.subscribe(state => {
-                                                        console.log('[SyncSphere] Audio loader state changed to:', state.type)
-                                                        
-                                                        if (state.type === "loaded") {
-                                                            console.log('[SyncSphere] ✅ Audio data loaded for existing sample')
-                                                            console.log('[SyncSphere] Audio data details:', {
-                                                                hasData: audioLoader.data.nonEmpty(),
-                                                                hasMeta: audioLoader.meta.nonEmpty(),
-                                                                hasPeaks: audioLoader.peaks.nonEmpty()
-                                                            })
-                                                            subscription.terminate()
-                                                            resolve()
-                                                        } else if (state.type === "error") {
-                                                            console.error('[SyncSphere] ❌ Failed to load audio data for existing sample:', state.reason || state.error)
-                                                            subscription.terminate()
-                                                            reject(new Error(state.reason || 'Audio loading failed'))
-                                                        } else if (state.type === "progress") {
-                                                            console.log('[SyncSphere] Loading progress:', Math.round(state.progress * 100) + '%')
-                                                        }
-                                                    })
-                                                })
-                                                
-                                                // Don't await to avoid blocking, but log the result
-                                                loadPromise.catch(error => {
-                                                    console.warn('[SyncSphere] Audio loading promise rejected for existing sample:', error)
-                                                })
-                                            }
-                                        } catch (loadError) {
-                                            console.warn('[SyncSphere] Could not pre-load audio data for existing sample:', loadError)
-                                        }
-                                    }
-                                } else {
-                                    console.warn('[SyncSphere] Target track not found:', trackId)
-                                }
-                            } catch (error) {
-                                console.error('[SyncSphere] Failed to create region:', error)
-                            }
-                        }
 
                         // Expose for other components
                         ;(window as any).wsClient = wsClient
@@ -716,7 +644,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                                 const audioUnits = service.project.rootBoxAdapter.audioUnits
                                 const adapters = audioUnits.adapters()
                                 const currentIndex = adapters.findIndex((a: any) => a.uuid === trackId)
-                                if (currentIndex === -1) return
+                                if (currentIndex === -1) {return}
                                 const delta = newIndex - currentIndex
                                 if (delta !== 0) {
                                     service.project.editing.modify(() => audioUnits.moveIndex(currentIndex, delta))
@@ -809,7 +737,7 @@ async function loadOpenDAWBundle(service: StudioService, bundleBuffer: Uint8Arra
         const { Projects } = await import('@/project/Projects')
         
         // Use OpenDAW's built-in bundle import functionality
-        const session = await Projects.importBundle(service, bundleBuffer.buffer)
+        const session = await Projects.importBundle(service, bundleBuffer.buffer as ArrayBuffer)
         
         // Set the loaded session as the current session
         service.sessionService.setValue(Option.wrap(session))
@@ -2929,4 +2857,22 @@ function normalizeUuid(id: any): string {
 
 function isValidUuidStr(str: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+}
+
+// Helper function to initialize timeline sync
+function initializeTimelineSync(service: StudioService): void {
+    if (!wsClient || timelineSync) {
+        return // No WebSocket or already initialized
+    }
+    
+    console.log('🔄 Initializing UpdateBasedTimelineSync...')
+    timelineSync = new UpdateBasedTimelineSync(service, wsClient)
+    
+    // Start timeline synchronization
+    timelineSync.start()
+    
+    // Expose globally for debugging
+    ;(window as any).timelineSync = timelineSync
+    
+    console.log('✅ UpdateBasedTimelineSync initialized and started')
 }
