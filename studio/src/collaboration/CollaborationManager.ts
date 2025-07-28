@@ -26,8 +26,8 @@ export class CollaborationManager {
 
   constructor(config: CollaborationConfig) {
     this.config = {
-      wsUrl: 'wss://localhost:8443/ws',
-      dbUrl: 'https://localhost:8443',
+      wsUrl: 'ws://localhost:3005',  // WebSocket server from our development setup
+      dbUrl: 'http://localhost:8000', // SynxSphere main app
       ...config
     }
   }
@@ -210,6 +210,12 @@ export class CollaborationManager {
       console.error('[Collaboration] Server error:', message.data)
       this.overlay!.updateConnectionStatus('disconnected')
     })
+
+    // Handle file upload events from the web interface
+    this.ws.onMessage('FILE_UPLOADED', (message) => {
+      console.log('[Collaboration] File uploaded:', message.data)
+      this.handleFileUploaded(message.data)
+    })
   }
 
   private async sendUserJoin(): Promise<void> {
@@ -227,6 +233,24 @@ export class CollaborationManager {
       
       console.log('[Collaboration] Sending USER_JOIN:', userJoinMessage)
       this.ws.send(userJoinMessage)
+    }
+  }
+
+  private async handleFileUploaded(fileData: any): Promise<void> {
+    try {
+      console.log('[Collaboration] Processing uploaded file:', fileData)
+      
+      if (!this.config.studioService || !this.collaborativeAgent) {
+        console.error('[Collaboration] StudioService or CollaborativeAgent not available')
+        return
+      }
+
+      // Import the uploaded file into OpenDAW's OPFS system
+      await this.collaborativeAgent.importAudioFileFromUpload(fileData)
+      
+      console.log('[Collaboration] ✅ File successfully imported into OpenDAW')
+    } catch (error) {
+      console.error('[Collaboration] ❌ Failed to import uploaded file:', error)
     }
   }
 
@@ -522,6 +546,52 @@ export class CollaborationManager {
     console.log('[Collaboration] ✅ Cleanup complete')
   }
 
+  // Public method to manually trigger file import (for testing/debugging)
+  async importFileFromUpload(fileData: any): Promise<void> {
+    if (!this.collaborativeAgent) {
+      throw new Error('Collaboration not initialized')
+    }
+    return this.collaborativeAgent.importAudioFileFromUpload(fileData)
+  }
+
+  // Public method to check room files and import any missing ones
+  async syncRoomFiles(): Promise<void> {
+    try {
+      if (!this.db) {
+        console.error('[Collaboration] Database not initialized')
+        return
+      }
+
+      console.log('[Collaboration] Syncing room files...')
+      
+      // Get all audio files for this room
+      const roomAudioFiles = await this.db.getRoomAudioFiles(this.config.projectId)
+      console.log(`[Collaboration] Found ${roomAudioFiles.length} room files`)
+      
+      // Import each file that's not already in OpenDAW
+      for (const audioFile of roomAudioFiles) {
+        try {
+          await this.handleFileUploaded({
+            fileId: audioFile.id,
+            fileName: audioFile.filename,
+            originalName: audioFile.originalName,
+            filePath: audioFile.filePath,
+            fileSize: Number(audioFile.fileSize),
+            mimeType: audioFile.mimeType,
+            roomId: this.config.projectId,
+            metadata: audioFile.metadata
+          })
+        } catch (error) {
+          console.error(`[Collaboration] Failed to import file ${audioFile.originalName}:`, error)
+        }
+      }
+      
+      console.log('[Collaboration] ✅ Room file sync completed')
+    } catch (error) {
+      console.error('[Collaboration] ❌ Failed to sync room files:', error)
+    }
+  }
+
   // Public API methods
 
   isActive(): boolean {
@@ -713,4 +783,26 @@ export const initializeCollaboration = async (originalOpfsAgent: any): Promise<a
 
 export const getCollaborationManager = (): CollaborationManager | null => {
   return globalCollaboration
+}
+
+// Global debug methods for browser console testing
+;(window as any).opendawDebug = {
+  ...((window as any).opendawDebug || {}),
+  collaboration: {
+    manager: () => globalCollaboration,
+    syncRoomFiles: async () => {
+      if (globalCollaboration) {
+        return globalCollaboration.syncRoomFiles()
+      } else {
+        console.error('Collaboration not initialized')
+      }
+    },
+    importFile: async (fileData: any) => {
+      if (globalCollaboration) {
+        return globalCollaboration.importFileFromUpload(fileData)
+      } else {
+        console.error('Collaboration not initialized')
+      }
+    }
+  }
 }

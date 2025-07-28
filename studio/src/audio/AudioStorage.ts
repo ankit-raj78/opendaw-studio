@@ -229,17 +229,24 @@ export namespace AudioStorage {
             }
             
             // Determine API base URL
-            let apiBaseUrl = 'https://localhost:8443'
+            let apiBaseUrl = 'http://localhost:8000' // SynxSphere main app
             try {
                 const testResponse = await fetch(`${apiBaseUrl}/api/health`, { 
                     headers: { 'Authorization': `Bearer ${token}` },
                     method: 'HEAD'
                 })
                 if (!testResponse.ok) {
-                    apiBaseUrl = 'http://localhost:3003'
+                    apiBaseUrl = 'https://localhost:8443' // Collaboration proxy fallback
+                    const fallbackResponse = await fetch(`${apiBaseUrl}/api/health`, { 
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        method: 'HEAD'
+                    })
+                    if (!fallbackResponse.ok) {
+                        apiBaseUrl = 'http://localhost:3003' // Direct collaboration service
+                    }
                 }
             } catch {
-                apiBaseUrl = 'http://localhost:3003'
+                apiBaseUrl = 'http://localhost:3003' // Direct collaboration service fallback
             }
             
             console.log(`📡 DOWNLOAD: Fetching sample ${sampleUuid} from ${apiBaseUrl}`)
@@ -364,17 +371,24 @@ export namespace AudioStorage {
             }
             
             // Determine API base URL
-            let apiBaseUrl = 'https://localhost:8443' // Default
+            let apiBaseUrl = 'http://localhost:8000' // SynxSphere main app
             try {
                 const testResponse = await fetch(`${apiBaseUrl}/api/health`, { 
                     headers: { 'Authorization': `Bearer ${token}` },
                     method: 'HEAD'
                 })
                 if (!testResponse.ok) {
-                    apiBaseUrl = 'http://localhost:3003' // Fallback
+                    apiBaseUrl = 'https://localhost:8443' // Collaboration proxy fallback
+                    const fallbackResponse = await fetch(`${apiBaseUrl}/api/health`, { 
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        method: 'HEAD'
+                    })
+                    if (!fallbackResponse.ok) {
+                        apiBaseUrl = 'http://localhost:3003' // Direct collaboration service
+                    }
                 }
             } catch {
-                apiBaseUrl = 'http://localhost:3003' // Fallback
+                apiBaseUrl = 'http://localhost:3003' // Direct collaboration service fallback
             }
             
             console.log(`🔄 SYNC: Using API base URL: ${apiBaseUrl}`)

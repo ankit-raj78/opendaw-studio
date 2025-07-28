@@ -525,6 +525,97 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
     }
   }
 
+  // Import uploaded audio file into OpenDAW's OPFS system
+  async importAudioFileFromUpload(fileData: any): Promise<void> {
+    try {
+      console.log(`[CollabOpfs] Importing uploaded file into OpenDAW:`, fileData)
+      
+      const studioService = globalStudioService
+      if (!studioService) {
+        throw new Error('StudioService not available')
+      }
+
+      // Download the audio file data from the server
+      const audioData = await this.downloadAudioFileFromServer(fileData.fileId)
+      if (!audioData) {
+        throw new Error(`Failed to download audio data for file: ${fileData.fileId}`)
+      }
+
+      // Use the file ID as UUID to ensure consistency
+      const audioUuid = fileData.fileId
+      
+      // Import the sample using StudioService which will store it in OPFS
+      const importedSample = await studioService.importSample({
+        uuid: audioUuid,
+        name: fileData.originalName || fileData.fileName,
+        arrayBuffer: audioData,
+        progressHandler: { report: () => {} } // Silent progress handler
+      })
+
+      console.log(`[CollabOpfs] ✅ Successfully imported file into OpenDAW OPFS:`, {
+        uuid: audioUuid,
+        name: importedSample.name,
+        duration: importedSample.duration
+      })
+
+    } catch (error) {
+      console.error(`[CollabOpfs] ❌ Failed to import uploaded file:`, error)
+      throw error
+    }
+  }
+
+  // Download audio file data from the server API
+  private async downloadAudioFileFromServer(fileId: string): Promise<ArrayBuffer | null> {
+    try {
+      // Get auth token for API request
+      const token = this.getAuthToken()
+      if (!token) {
+        console.error('[CollabOpfs] No auth token available for file download')
+        return null
+      }
+
+      const response = await fetch(`/api/audio/download/${fileId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        console.error(`[CollabOpfs] Failed to download file ${fileId}:`, response.status, response.statusText)
+        return null
+      }
+
+      return await response.arrayBuffer()
+    } catch (error) {
+      console.error(`[CollabOpfs] Error downloading file ${fileId}:`, error)
+      return null
+    }
+  }
+
+  // Get authentication token from various sources
+  private getAuthToken(): string | null {
+    // Try URL parameter first (base64 encoded)
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlToken = urlParams.get('auth_token')
+    if (urlToken) {
+      try {
+        return atob(urlToken)
+      } catch (e) {
+        console.warn('[CollabOpfs] Failed to decode URL token')
+      }
+    }
+    
+    // Try sessionStorage
+    const sessionToken = sessionStorage.getItem('synxsphere_token')
+    if (sessionToken) return sessionToken
+    
+    // Try localStorage
+    const localToken = localStorage.getItem('token')
+    if (localToken) return localToken
+    
+    return null
+  }
+
   // Clean up resources
   cleanup(): void {
     this.stopAutoSave()

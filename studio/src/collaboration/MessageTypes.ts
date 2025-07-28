@@ -20,6 +20,10 @@ export type CollabMessageType =
   | 'PROJECT_LOADED'
   | 'SYNC_REQUEST'
   | 'SYNC_RESPONSE'
+  | 'FILE_UPLOADED'
+  | 'REGION_CREATED'
+  | 'REGION_DELETED'
+  | 'CLIP_DELETED'
   | 'ERROR'
 
 export interface UserJoinData {
@@ -46,6 +50,17 @@ export interface BoxUpdatedData {
 
 export interface BoxDeletedData {
   boxUuid: string
+}
+
+export interface FileUploadedData {
+  fileId: string
+  fileName: string
+  originalName: string
+  filePath: string
+  fileSize: number
+  mimeType: string
+  roomId?: string
+  metadata?: any
 }
 
 export interface BoxOwnershipData {

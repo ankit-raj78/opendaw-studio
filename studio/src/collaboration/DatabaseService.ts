@@ -23,7 +23,7 @@ export interface UserSession {
 }
 
 export class DatabaseService {
-  private baseUrl: string = 'https://localhost:8443/api'
+  private baseUrl: string = 'http://localhost:8000/api' // SynxSphere main app
   private authToken: string | null = null
 
   constructor(connectionString?: string) {
@@ -316,6 +316,24 @@ export class DatabaseService {
       return []
     } catch (error) {
       console.error('Failed to get active sessions:', error)
+      return []
+    }
+  }
+
+  async getRoomAudioFiles(roomId: string): Promise<any[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/rooms/${roomId}/audio-files`, {
+        headers: this.getAuthHeaders()
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch room audio files: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      return data.files || []
+    } catch (error) {
+      console.error('Error fetching room audio files:', error)
       return []
     }
   }
