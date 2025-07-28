@@ -1,6 +1,7 @@
 import { Update, BoxGraph, Box, NewUpdate, PrimitiveUpdate, PointerUpdate, DeleteUpdate, Address, ValueSerialization, PrimitiveType } from 'box'
 import { ByteArrayOutput, ByteArrayInput, UUID, Option, Subscription } from 'std'
 import { WSClient } from '../../../../opendaw-collab-mvp/src/websocket/WSClient'
+import { CollabMessageType } from '../../../../opendaw-collab-mvp/src/websocket/MessageTypes'
 import { StudioService } from '../../service/StudioService'
 import { AudioSyncManager } from './AudioSyncManager'
 // @ts-ignore
@@ -27,7 +28,10 @@ export class UpdateBasedTimelineSync {
   constructor(
     private service: StudioService,
     private wsClient: WSClient
-  ) {}
+  ) {
+    // 暴露到全局以便测试
+    ;(window as any).testSaveProject = () => this.saveBoxGraphToServer()
+  }
   
   setAudioSyncManager(manager: AudioSyncManager) {
     this.audioSyncManager = manager
@@ -38,44 +42,51 @@ export class UpdateBasedTimelineSync {
     if (!this.isApplyingRemote) {
       console.log(`[UpdateSync] Local update detected: ${update.type} ${update.constructor.name}`)
       
-      // 对于重要的更新（新建、删除），立即保存到数据库
-      if (update.type === 'new' || update.type === 'delete') {
-        this.scheduleSaveToDatabase()
-      }
+      // 对于所有类型的更新都触发保存（带防抖）
+      // 包括：new（新建）、delete（删除）、primitive（属性修改）、pointer（引用修改）
+      this.scheduleSaveToDatabase()
     }
   }
   
   // 调度保存到数据库（带防抖）
   private scheduleSaveToDatabase() {
     const now = Date.now()
-    if (now - this.lastSaveTime < this.saveDebounceTime) {
-      console.log('[UpdateSync] Save debounced, waiting...')
-      return
+    
+    // 清除之前的定时器
+    if (this.sendTimeout) {
+      clearTimeout(this.sendTimeout as any)
     }
     
-    this.lastSaveTime = now
-    console.log('[UpdateSync] Scheduling save to database...')
-    
-    setTimeout(async () => {
+    // 设置新的定时器，1.5秒后执行保存
+    this.sendTimeout = setTimeout(async () => {
+      // 检查是否距离上次保存已经超过防抖时间
+      if (now - this.lastSaveTime < this.saveDebounceTime) {
+        console.log('[UpdateSync] Save debounced, rescheduling...')
+        this.scheduleSaveToDatabase()
+        return
+      }
+      
+      this.lastSaveTime = now
+      console.log('[UpdateSync] 💾 Executing save to database...')
+      
       await this.saveBoxGraphToServer()
       
       // 通知其他客户端重新加载
-      const message = (createCollabMessage as any).projectUpdated?.(
-        this.wsClient.projectId,
-        this.wsClient.userId,
-        { message: 'Project updated, please reload' }
-      ) || {
+      const message = {
         type: 'PROJECT_UPDATED',
         projectId: this.wsClient.projectId,
         userId: this.wsClient.userId,
         timestamp: Date.now(),
         data: {
-          message: 'Project updated, please reload'
+          message: 'Project updated, please reload',
+          updateType: 'full_project'
         }
       }
       
+      console.log('[UpdateSync] 📤 Sending PROJECT_UPDATED message:', message)
       this.wsClient.send(message)
-    }, 500)
+      console.log('[UpdateSync] 📢 Sent project update notification to other clients')
+    }, 1500) as any
   }
   
   // 保存当前BoxGraph到服务器
@@ -141,21 +152,61 @@ export class UpdateBasedTimelineSync {
           const result = await response.json()
           console.log('[UpdateSync] ✅ Project bundle saved to server successfully')
           console.log('[UpdateSync] Server response:', result)
+          
+          // 显示保存成功的提示
+          this.showSaveNotification('项目已保存', 'success')
         } else {
           // Response is not JSON - likely HTML
           const responseText = await response.text()
           console.error('[UpdateSync] ❌ Expected JSON response but got:', contentType)
           console.error('[UpdateSync] ❌ Response preview:', responseText.substring(0, 200) + '...')
           console.error('[UpdateSync] ❌ This usually means the API endpoint is not configured correctly')
+          
+          // 显示错误提示
+          this.showSaveNotification('保存失败：服务器配置错误', 'error')
         }
       } else {
         const errorText = await response.text()
         console.error('[UpdateSync] ❌ Failed to save project bundle:', response.status, errorText)
+        
+        // 显示错误提示
+        this.showSaveNotification(`保存失败：${response.status}`, 'error')
       }
     } catch (error) {
       console.error('[UpdateSync] ❌ Error saving project bundle:', error)
       console.error('[UpdateSync] Error details:', error)
+      
+      // 显示错误提示
+      this.showSaveNotification('保存失败：网络错误', 'error')
     }
+  }
+  
+  // 显示保存通知
+  private showSaveNotification(message: string, type: 'success' | 'error') {
+    const notification = document.createElement('div')
+    notification.textContent = message
+    notification.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: ${type === 'success' ? '#4CAF50' : '#f44336'};
+      color: white;
+      padding: 12px 24px;
+      border-radius: 4px;
+      z-index: 10000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-size: 14px;
+      transition: opacity 0.3s ease;
+    `
+    document.body.appendChild(notification)
+    
+    // 2秒后淡出并移除
+    setTimeout(() => {
+      notification.style.opacity = '0'
+      setTimeout(() => {
+        document.body.removeChild(notification)
+      }, 300)
+    }, 2000)
   }
   
   // 获取可用的API URL
@@ -187,6 +238,10 @@ export class UpdateBasedTimelineSync {
   async start() {
     console.log('[UpdateSync] Starting timeline synchronization (simplified mode)...')
     
+    // 检查 WebSocket 连接状态
+    console.log('[UpdateSync] WebSocket client:', this.wsClient)
+    console.log('[UpdateSync] WebSocket connected:', this.wsClient.isConnected)
+    
     // 在开始监听之前，检查是否已经有内容
     const initialBoxCount = Array.from(this.service.project.boxGraph.boxes()).length
     console.log(`[UpdateSync] Initial box count: ${initialBoxCount}`)
@@ -202,8 +257,9 @@ export class UpdateBasedTimelineSync {
     this.subscription = this.service.project.boxGraph.subscribeToAllUpdates(this)
     
     // 监听项目更新通知（简化方案）
-    this.wsClient.onMessage('PROJECT_UPDATED', async (msg: any) => {
+    this.wsClient.onMessage('PROJECT_UPDATED' as CollabMessageType, async (msg: any) => {
       console.log('[UpdateSync] 📢 Project updated notification received')
+      console.log('[UpdateSync] Message details:', msg)
       
       // 如果是自己发送的更新，忽略
       if (msg.userId === this.wsClient.userId) {
@@ -215,18 +271,37 @@ export class UpdateBasedTimelineSync {
       
       // 通知用户项目已更新
       const notification = document.createElement('div')
-      notification.textContent = '项目已更新，正在重新加载...'
+      notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="animation: spin 1s linear infinite;">🔄</div>
+          <div>
+            <div style="font-weight: 500;">项目已更新</div>
+            <div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">正在重新加载...</div>
+          </div>
+        </div>
+      `
       notification.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
-        background: #4CAF50;
+        background: #2196F3;
         color: white;
-        padding: 12px 24px;
-        border-radius: 4px;
+        padding: 16px 24px;
+        border-radius: 8px;
         z-index: 10000;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       `
+      
+      // 添加旋转动画
+      const style = document.createElement('style')
+      style.textContent = `
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `
+      document.head.appendChild(style)
       document.body.appendChild(notification)
       
       // 延迟重新加载，让用户看到通知
@@ -829,234 +904,4 @@ export class UpdateBasedTimelineSync {
       console.log(`[UpdateSync] Could not inspect box fields:`, e)
     }
   }
-  
-  // 检查是否应该等待快照（第二个用户不应该有自己的项目）
-  private shouldWaitForSnapshot(): boolean {
-    const boxCount = Array.from(this.service.project.boxGraph.boxes()).length
-    
-    // 如果本地已经有Box（但只有基础的6个），可能需要等待快照
-    if (boxCount === 6) {
-      console.log('[UpdateSync] Local project only has base boxes, might need snapshot from other users')
-      return true
-    }
-    
-    // 如果已经有更多Box，说明是有内容的项目
-    if (boxCount > 6) {
-      console.log('[UpdateSync] Local project already has content')
-      return false
-    }
-    
-    return false
-  }
-  
-  // 请求初始同步
-  async requestInitialSync() {
-    console.log('[UpdateSync] Requesting initial timeline snapshot...')
-    
-    // 检查本地Box数量
-    const localBoxCount = Array.from(this.service.project.boxGraph.boxes()).length
-    console.log(`[UpdateSync] Local box count: ${localBoxCount}`)
-    
-    // 始终请求快照，让发送端决定是否响应
-    console.log('[UpdateSync] Sending snapshot request to server...')
-    this.wsClient.send({
-      type: 'TIMELINE_SNAPSHOT_REQUEST',
-      projectId: this.wsClient.projectId,
-      userId: this.wsClient.userId,
-      timestamp: Date.now(),
-      data: {}
-    })
-    
-    console.log('[UpdateSync] Snapshot request sent')
-    
-    // 如果应该等待快照，给一些时间让快照到达
-    if (this.shouldWaitForSnapshot()) {
-      console.log('[UpdateSync] Waiting for snapshot response...')
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-  }
-  
-  // 发送初始核心 Box
-  private async sendInitialBoxes() {
-    console.log('[UpdateSync] Sending initial core boxes...')
-    
-    const coreBoxTypes = [
-      'UserInterfaceBox', 'SelectionBox',
-      'TimelineBox', 'AudioBusBox', 'AudioUnitBox',
-      'GrooveShuffleBox', 'StepAutomationBox',
-      'RootBox', 'UserInterfaceBox', 'SelectionBox',
-      
-      // Timeline 核心
-      'TrackBox','AuxSendBox', 'MarkerBox',
-      
-      // 音频内容
-      'AudioRegionBox', 'AudioClipBox', 'AudioFileBox',
-      
-      // MIDI 内容
-      'NoteRegionBox', 'NoteClipBox', 'NoteEventBox',
-      'NoteEventRepeatBox', 'NoteEventCollectionBox',
-      
-      // 自动化
-      'ValueRegionBox', 'ValueClipBox', 'ValueEventBox',
-      'ValueEventCurveBox', 'ValueEventCollectionBox',
-      
-      // 效果器
-      'ReverbDeviceBox', 'DelayDeviceBox', 'StereoToolDeviceBox',
-      'RevampDeviceBox', 'ModularDeviceBox', 'DeviceInterfaceKnobBox',
-      'ArpeggioDeviceBox', 'PitchDeviceBox', 'ZeitgeistDeviceBox',
-      
-      // 乐器
-      'TapeDeviceBox', 'PlayfieldDeviceBox', 'PlayfieldSampleBox',
-      'NanoDeviceBox', 'VaporisateurDeviceBox',
-      
-      // 模块化
-      'ModularBox', 'ModuleConnectionBox',
-      'ModularAudioInputBox', 'ModularAudioOutputBox',
-      'ModuleDelayBox', 'ModuleGainBox', 'ModuleMultiplierBox',
-      
-      // 其他设备
-      'DeviceClashBox'
-      
-    ]
-    
-    const coreBoxes: Box[] = []
-    
-    // 收集所有核心 Box
-    const allBoxes = this.service.project.boxGraph.boxes()
-    allBoxes.forEach((box: Box) => {
-      if (coreBoxTypes.includes(box.name)) {
-        coreBoxes.push(box)
-      }
-    })
-    
-    console.log(`[UpdateSync] Found ${coreBoxes.length} core boxes to send`)
-    
-    // 为每个核心 Box 创建 NewUpdate
-    const updates: Update[] = []
-    for (const box of coreBoxes) {
-      try {
-        // 创建 NewUpdate
-        const output = ByteArrayOutput.create()
-        box.write(output)
-        const settings = new Uint8Array(output.toArrayBuffer())
-        
-        const update = new NewUpdate(
-          box.address.uuid,
-          box.name,
-          settings.buffer
-        )
-        
-        updates.push(update)
-        console.log(`[UpdateSync] Created NewUpdate for ${box.name}`)
-      } catch (error) {
-        console.error(`[UpdateSync] Failed to create update for ${box.name}:`, error)
-      }
-    }
-    
-    // 批量发送所有核心 Box 的 NewUpdate
-    if (updates.length > 0) {
-      const serialized = updates.map(u => this.serializeUpdate(u))
-      this.wsClient.send({
-        type: 'TIMELINE_UPDATE',
-        projectId: this.wsClient.projectId,
-        userId: this.wsClient.userId,
-        timestamp: Date.now(),
-        data: { 
-          updates: serialized,
-          isInitialSync: true // 标记这是初始同步
-        }
-      })
-      
-      console.log(`[UpdateSync] Sent ${updates.length} initial core box updates`)
-    }
-  }
-  
-  // 发送完整的快照 (公开用于调试)
-  async sendFullSnapshot(requesterId?: string) {
-    console.log('[UpdateSync] Sending full project snapshot...')
-    
-    try {
-      // 使用BoxGraph的toArrayBuffer方法获取完整快照
-      const snapshotBuffer = this.service.project.boxGraph.toArrayBuffer()
-      const snapshot = Array.from(new Uint8Array(snapshotBuffer))
-      const boxCount = Array.from(this.service.project.boxGraph.boxes()).length
-      
-      console.log(`[UpdateSync] Created snapshot: ${snapshot.length} bytes, ${boxCount} boxes`)
-      
-      // 发送快照
-      this.wsClient.send({
-        type: 'TIMELINE_SNAPSHOT_RESPONSE',
-        projectId: this.wsClient.projectId,
-        userId: this.wsClient.userId,
-        timestamp: Date.now(),
-        data: {
-          snapshot: snapshot,  // 使用toArrayBuffer格式
-          boxCount: boxCount,
-          requesterId
-        }
-      })
-      
-      console.log(`[UpdateSync] Sent full project snapshot`)
-    } catch (error) {
-      console.error('[UpdateSync] Failed to send snapshot:', error)
-    }
-  }
-
-  // 处理快照响应
-  handleSnapshotResponse(data: any) {
-    console.log('[UpdateSync] Received timeline snapshot')
-    
-    if (!data || (!data.snapshot && !data.updates)) {
-      console.log('[UpdateSync] No snapshot data')
-      return
-    }
-    
-    this.isApplyingRemote = true
-    try {
-      // 如果是旧格式（toArrayBuffer快照）
-      if (data.snapshot && data.snapshot.length > 0) {
-        console.log(`[UpdateSync] Applying full project snapshot (${data.snapshot.length} bytes, ${data.boxCount} boxes)`)
-        
-        // 获取当前Box数量
-        const currentBoxCount = Array.from(this.service.project.boxGraph.boxes()).length
-        console.log(`[UpdateSync] Current box count: ${currentBoxCount}`)
-        
-        // 如果本地已有Box，说明需要替换整个项目
-        if (currentBoxCount > 0) {
-          console.warn('[UpdateSync] ⚠️ Cannot replace non-empty BoxGraph with fromArrayBuffer')
-          console.warn('[UpdateSync] This is a known limitation. Two options:')
-          console.warn('[UpdateSync] 1. Refresh the page to start with an empty project')
-          console.warn('[UpdateSync] 2. Wait for a proper project replacement implementation')
-          
-          // 临时解决方案：显示警告对话框
-          alert('协作同步需要刷新页面。请刷新浏览器后重新加入房间。\n\nCollaboration sync requires a page refresh. Please refresh your browser and rejoin the room.')
-          return
-        }
-        
-        // BoxGraph是空的，可以直接应用快照
-        const buffer = new Uint8Array(data.snapshot).buffer
-        this.service.project.editing.modify(() => {
-          this.service.project.boxGraph.fromArrayBuffer(buffer)
-        })
-        
-        const finalCount = Array.from(this.service.project.boxGraph.boxes()).length
-        console.log(`[UpdateSync] Snapshot applied successfully. Final box count: ${finalCount}`)
-      } else if (data.updates && data.updates.length > 0) {
-        // 新格式（个别NewUpdate）- 作为备用方案
-        console.log(`[UpdateSync] Applying snapshot with ${data.updates.length} box updates`)
-        console.log('[UpdateSync] Applying incremental snapshot (fallback mode)')
-        this.applyRemoteUpdates(data.updates)
-      }
-      
-      // 如果有音频同步管理器，检查缺失的音频文件
-      if (this.audioSyncManager) {
-        console.log('[UpdateSync] Checking for missing audio files...')
-        // TODO: 实现音频文件检查
-      }
-    } catch (error) {
-      console.error('[UpdateSync] Failed to apply snapshot:', error)
-    } finally {
-      this.isApplyingRemote = false
-    }
-  }
-} 
+}
