@@ -67,14 +67,45 @@ export namespace AudioStorage {
 
     export const load = async (uuid: UUID.Format, context: AudioContext): Promise<[AudioData, Peaks, AudioMetaData]> => {
         const path = `${Folder}/${UUID.toString(uuid)}`
-        return Promise.all([
-            OpfsAgent.read(`${path}/audio.wav`)
-                .then(bytes => context.decodeAudioData(bytes.buffer as ArrayBuffer)),
-            OpfsAgent.read(`${path}/peaks.bin`)
-                .then(bytes => Peaks.from(new ByteArrayInput(bytes.buffer))),
-            OpfsAgent.read(`${path}/meta.json`)
-                .then(bytes => JSON.parse(new TextDecoder().decode(bytes)))
-        ]).then(([buffer, peaks, meta]) => [AudioData.from(buffer), peaks, meta])
+        const uuidString = UUID.toString(uuid)
+        
+        try {
+            // Try to load from global OPFS first
+            const result = await Promise.all([
+                OpfsAgent.read(`${path}/audio.wav`)
+                    .then(bytes => context.decodeAudioData(bytes.buffer as ArrayBuffer)),
+                OpfsAgent.read(`${path}/peaks.bin`)
+                    .then(bytes => Peaks.from(new ByteArrayInput(bytes.buffer))),
+                OpfsAgent.read(`${path}/meta.json`)
+                    .then(bytes => JSON.parse(new TextDecoder().decode(bytes)))
+            ])
+            
+            console.log(`✅ LOAD: Successfully loaded ${uuidString} from global OPFS`)
+            return [AudioData.from(result[0]), result[1], result[2]]
+            
+        } catch (opfsError) {
+            console.warn(`⚠️ LOAD: Sample ${uuidString} not found in global OPFS, attempting to download from database...`)
+            
+            // Try to download from database and store globally
+            try {
+                const downloadedSample = await downloadSampleFromDatabase('', uuidString, context)
+                if (downloadedSample) {
+                    console.log(`✅ LOAD: Successfully downloaded and loaded ${uuidString} from database`)
+                    
+                    // Store in global OPFS for future use
+                    const [audioData, peaks, metadata] = downloadedSample
+                    await store(uuid, audioData, peaks.toArrayBuffer() as ArrayBuffer, metadata)
+                    console.log(`✅ LOAD: Stored ${uuidString} in global OPFS for future use`)
+                    
+                    return downloadedSample
+                }
+            } catch (downloadError) {
+                console.error(`❌ LOAD: Failed to download ${uuidString} from database:`, downloadError)
+            }
+            
+            // If all else fails, throw the original OPFS error
+            throw opfsError
+        }
     }
 
     export const remove = async (uuid: UUID.Format): Promise<void> => {
@@ -229,17 +260,17 @@ export namespace AudioStorage {
             }
             
             // Determine API base URL
-            let apiBaseUrl = 'https://localhost:8443'
+            let apiBaseUrl = 'http://localhost:8000'
             try {
                 const testResponse = await fetch(`${apiBaseUrl}/api/health`, { 
                     headers: { 'Authorization': `Bearer ${token}` },
                     method: 'HEAD'
                 })
                 if (!testResponse.ok) {
-                    apiBaseUrl = 'http://localhost:3003'
+                    apiBaseUrl = 'http://localhost:8000'
                 }
             } catch {
-                apiBaseUrl = 'http://localhost:3003'
+                apiBaseUrl = 'http://localhost:8000'
             }
             
             console.log(`📡 DOWNLOAD: Fetching sample ${sampleUuid} from ${apiBaseUrl}`)
@@ -268,9 +299,7 @@ export namespace AudioStorage {
                 name: `Sample ${sampleUuid}`,
                 duration: audioBuffer.duration,
                 bpm: 120,
-                fileSize: arrayBuffer.byteLength,
-                channels: audioBuffer.numberOfChannels,
-                sampleRate: audioBuffer.sampleRate
+                sample_rate: audioBuffer.sampleRate
             }
             
             // Store in OPFS for future use
@@ -307,7 +336,7 @@ export namespace AudioStorage {
                     return { token: decoded, source: 'URL parameter' }
                 }
             } catch (e) {
-                console.warn('⚠️ STORAGE-AUTH: Invalid base64 auth_token in URL:', e.message)
+                console.warn('⚠️ STORAGE-AUTH: Invalid base64 auth_token in URL:', (e as Error).message)
             }
         }
         
@@ -332,7 +361,7 @@ export namespace AudioStorage {
                 }
             }
         } catch (e) {
-            console.warn('⚠️ STORAGE-AUTH: Could not access parent window token:', e.message)
+            console.warn('⚠️ STORAGE-AUTH: Could not access parent window token:', (e as Error).message)
         }
         
         return { token: null, source: 'none' }
@@ -364,17 +393,17 @@ export namespace AudioStorage {
             }
             
             // Determine API base URL
-            let apiBaseUrl = 'https://localhost:8443' // Default
+            let apiBaseUrl = 'http://localhost:8000' // Use SynxSphere API
             try {
                 const testResponse = await fetch(`${apiBaseUrl}/api/health`, { 
                     headers: { 'Authorization': `Bearer ${token}` },
                     method: 'HEAD'
                 })
                 if (!testResponse.ok) {
-                    apiBaseUrl = 'http://localhost:3003' // Fallback
+                    apiBaseUrl = 'http://localhost:8000' // Keep same
                 }
             } catch {
-                apiBaseUrl = 'http://localhost:3003' // Fallback
+                apiBaseUrl = 'http://localhost:8000' // Keep same
             }
             
             console.log(`🔄 SYNC: Using API base URL: ${apiBaseUrl}`)
@@ -408,9 +437,7 @@ export namespace AudioStorage {
                     name: dbFile.originalName || dbFile.filename,
                     duration: dbFile.duration || 0,
                     bpm: 120, // Default BPM
-                    fileSize: dbFile.fileSize || 0,
-                    channels: dbFile.channels || 2,
-                    sampleRate: dbFile.sampleRate || 44100
+                    sample_rate: dbFile.sampleRate || 44100
                 }
                 
                 // Check if this sample exists in OPFS
@@ -436,7 +463,7 @@ export namespace AudioStorage {
         }
     }
 
-    export const listRoom = async (roomId: string): Promise<ReadonlyArray<AudioSample>> => {
+        export const listRoom = async (roomId: string): Promise<ReadonlyArray<AudioSample>> => {
         const roomFolder = getRoomFolder(roomId)
         console.log(`📋 OPFS: Attempting to list room folder: ${roomFolder}`)
         
@@ -447,13 +474,60 @@ export namespace AudioStorage {
             return dbSamples
         }
         
-        // Fallback to OPFS-only listing
+        // Check if room folder exists and try to copy global samples if it's empty
         try {
             const files = await OpfsAgent.list(roomFolder)
             console.log(`📋 OPFS: Found ${files.length} items in room folder`)
-            console.log(`📋 OPFS: Items:`, files.map(f => ({ name: f.name, kind: f.kind })))
             
-            const directories = files.filter(file => file.kind === "directory")
+            if (files.length === 0) {
+                // Room folder is empty, try to copy from global samples
+                console.log(`📋 OPFS: Room folder empty, checking for global samples to copy...`)
+                try {
+                    const globalSamples = await AudioStorage.list()
+                    console.log(`📋 OPFS: Found ${globalSamples.length} global samples`)
+                    
+                    if (globalSamples.length > 0) {
+                        console.log(`📋 OPFS: Copying ${globalSamples.length} global samples to room folder...`)
+                        await ensureRoomFolderExists(roomId)
+                        
+                        for (const sample of globalSamples) {
+                            try {
+                                const globalPath = `${Folder}/${sample.uuid}`
+                                const roomPath = `${roomFolder}/${sample.uuid}`
+                                
+                                // Copy all files (audio.wav, peaks.bin, meta.json)
+                                const [audioData, peaksData, metaData] = await Promise.all([
+                                    OpfsAgent.read(`${globalPath}/audio.wav`),
+                                    OpfsAgent.read(`${globalPath}/peaks.bin`),
+                                    OpfsAgent.read(`${globalPath}/meta.json`)
+                                ])
+                                
+                                await Promise.all([
+                                    OpfsAgent.write(`${roomPath}/audio.wav`, audioData),
+                                    OpfsAgent.write(`${roomPath}/peaks.bin`, peaksData),
+                                    OpfsAgent.write(`${roomPath}/meta.json`, metaData)
+                                ])
+                                
+                                console.log(`✅ OPFS: Copied sample ${sample.uuid} to room folder`)
+                            } catch (copyError) {
+                                console.warn(`⚠️ OPFS: Failed to copy sample ${sample.uuid}:`, copyError)
+                            }
+                        }
+                        
+                        // Re-list room folder after copying
+                        const updatedFiles = await OpfsAgent.list(roomFolder)
+                        console.log(`✅ OPFS: Room folder now has ${updatedFiles.length} items after copying`)
+                    }
+                } catch (globalError) {
+                    console.warn(`⚠️ OPFS: Failed to copy global samples:`, globalError)
+                }
+            }
+            
+            // List room samples
+            const roomFiles = await OpfsAgent.list(roomFolder)
+            console.log(`📋 OPFS: Items:`, roomFiles.map(f => ({ name: f.name, kind: f.kind })))
+            
+            const directories = roomFiles.filter(file => file.kind === "directory")
             console.log(`📋 OPFS: Found ${directories.length} directories (samples)`)
             
             if (directories.length === 0) {
@@ -478,22 +552,23 @@ export namespace AudioStorage {
             return samples
             
         } catch (error) {
-            console.error(`❌ OPFS: Failed to list room ${roomId} folder:`, error)
+            const err = error as Error
+            console.error(`❌ OPFS: Failed to list room ${roomId} folder:`, err)
             console.error(`❌ OPFS: Error details:`, {
-                name: error.name,
-                message: error.message,
-                stack: error.stack,
+                name: err.name,
+                message: err.message,
+                stack: err.stack,
                 roomFolder: roomFolder
             })
             
             // If it's a "not found" error, return empty array
-            if (error.message && error.message.includes('not found')) {
+            if (err.message && err.message.includes('not found')) {
                 console.log(`🔍 Room ${roomId} OPFS folder does not exist yet, returning empty array`)
                 return []
             }
             
             // For other errors, re-throw to trigger fallback logic
-            throw error
+            throw err
         }
     }
 
