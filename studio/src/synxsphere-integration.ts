@@ -309,6 +309,11 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
 
     // Set up iframe message listener for load-project messages
     window.addEventListener('message', (event: MessageEvent) => {
+        // Filter out setImmediate messages to avoid spam
+        if (typeof event.data === 'string' && event.data.startsWith('setImmediate$')) {
+            return
+        }
+        
         console.log('🎵 IFRAME MESSAGE: Received message from parent:', event.data)
         
         // Only handle messages from trusted origins
@@ -1099,6 +1104,13 @@ async function importRoomAudioFiles(service: StudioService, tracks: any[], roomI
 
 // Function to import room audio files to locally stored samples AND room OPFS  
 async function importRoomAudioFilesToSamples(service: StudioService, audioFiles: any[], roomId: string) {
+    console.log('🎵 IMPORT-TRACE: ==========================================')
+    console.log('🎵 IMPORT-TRACE: Starting importRoomAudioFilesToSamples')
+    console.log('🎵 IMPORT-TRACE: Room ID:', roomId)
+    console.log('🎵 IMPORT-TRACE: Audio files count:', audioFiles.length)
+    console.log('🎵 IMPORT-TRACE: Service context exists:', !!service?.context)
+    console.log('🎵 IMPORT-TRACE: ==========================================')
+    
     try {
         console.log('🎵 IMPORT-TO-SAMPLES: Starting room audio files sync for', audioFiles.length, 'audio files...')
         console.log('🎯 IMPORT-TO-SAMPLES: Room ID:', roomId)
@@ -1402,21 +1414,44 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 // STEP 2: Also store in room-specific OPFS for faster room-based access
                 console.log(`💾 Step 2: Storing in room ${roomId} OPFS...`)
                 const { AudioStorage } = await import('@/audio/AudioStorage')
+                console.log(`🔄 Step 2: Storing in OPFS with UUID ${audioFileUuid}...`)
+                console.log(`🔄 Step 2: Audio data - frames: ${audioData.numberOfFrames}, channels: ${audioData.numberOfChannels}, sampleRate: ${audioData.sampleRate}`)
+                console.log(`🔄 Step 2: Peaks buffer size: ${peaksBuffer.byteLength} bytes`)
+                console.log(`🔄 Step 2: Sample metadata:`, JSON.stringify(sampleMetadata, null, 2))
                 
                 try {
+                    console.log(`🔄 STORAGE-TRACE: About to call AudioStorage.storeInRoom for room ${roomId}`)
                     await AudioStorage.storeInRoom(roomId, audioFileUuidObj, audioData, peaksBuffer, sampleMetadata)
+                    console.log(`✅ STORAGE-TRACE: AudioStorage.storeInRoom completed successfully`)
+                    
                     // ALSO store a global copy so core UI (which looks in samples/v2) can find the files
                     try {
+                        console.log(`🔄 STORAGE-TRACE: About to call AudioStorage.store for global copy`)
                         await AudioStorage.store(audioFileUuidObj, audioData, peaksBuffer, sampleMetadata)
+                        console.log(`✅ STORAGE-TRACE: AudioStorage.store completed successfully`)
                     } catch (globalStoreErr) {
-                        console.warn('⚠️ Failed to store global sample copy:', globalStoreErr)
+                        console.warn('⚠️ STORAGE-TRACE: Failed to store global sample copy:', globalStoreErr)
+                        console.warn('⚠️ STORAGE-TRACE: Global store error details:', {
+                            name: (globalStoreErr as Error).name,
+                            message: (globalStoreErr as Error).message,
+                            stack: (globalStoreErr as Error).stack
+                        })
                     }
                     console.log(`✅ Step 2 completed: Stored in room ${roomId} OPFS`)
                     
-                } catch (storeError) {
-                    console.error(`❌ Step 2 failed - room OPFS storage error:`, storeError)
-                    // Don't fail the whole import if room storage fails
-                    console.warn(`⚠️ Continuing with locally stored sample only`)
+                } catch (storageError) {
+                    console.error(`❌ STORAGE-TRACE: Storage failed for UUID ${audioFileUuid}:`, storageError)
+                    console.error(`❌ STORAGE-TRACE: Storage error details:`, {
+                        name: (storageError as Error).name,
+                        message: (storageError as Error).message,
+                        stack: (storageError as Error).stack,
+                        roomId: roomId,
+                        audioFileUuid: audioFileUuid,
+                        metadataSize: JSON.stringify(sampleMetadata).length,
+                        audioDataValid: !!(audioData && audioData.numberOfFrames > 0),
+                        peaksBufferValid: !!(peaksBuffer && peaksBuffer.byteLength > 0)
+                    })
+                    console.warn(`⚠️ Step 2 failed - room OPFS storage error, but continuing with import`)
                 }
                 
                 // Verify sample exists in room-specific OPFS
@@ -1454,6 +1489,27 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 // Continue with next file instead of stopping
                 console.warn(`⚠️ Skipping failed file ${audioFileData.originalName}, continuing with remaining files...`)
             }
+        }
+        
+        // DEBUG: Check OPFS state after all imports
+        console.log('🔍 IMPORT-TRACE: Checking final OPFS state...')
+        try {
+            const { AudioStorage } = await import('@/audio/AudioStorage')
+            const globalSamples = await AudioStorage.list()
+            const roomSamples = await AudioStorage.listRoom(roomId)
+            
+            console.log('🔍 IMPORT-TRACE: Final OPFS state:')
+            console.log('  📊 Global samples:', globalSamples.length)
+            console.log('  📊 Room samples:', roomSamples.length)
+            
+            if (globalSamples.length > 0) {
+                console.log('  📋 Global sample UUIDs:', globalSamples.map(s => s.uuid))
+            }
+            if (roomSamples.length > 0) {
+                console.log('  📋 Room sample UUIDs:', roomSamples.map(s => s.uuid))
+            }
+        } catch (opfsCheckError) {
+            console.error('❌ IMPORT-TRACE: Failed to check final OPFS state:', opfsCheckError)
         }
         
         console.log(`🎉 Room ${roomId} sample import completed! ${audioFilesToImport.length} new files imported, all files are now available in locally stored samples`)

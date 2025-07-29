@@ -286,6 +286,19 @@ export namespace AudioStorage {
             try {
                 await OpfsAgent.write(`${path}/meta.json`, new TextEncoder().encode(JSON.stringify(meta)))
                 console.log(`✅ STORE-ROOM: meta.json written successfully`)
+                
+                // VERIFICATION: Immediately try to read back the meta.json to verify it was written
+                try {
+                    const verifyBytes = await OpfsAgent.read(`${path}/meta.json`)
+                    const verifyData = JSON.parse(new TextDecoder().decode(verifyBytes))
+                    console.log(`✅ STORE-ROOM: meta.json verification successful - can read back data:`, {
+                        name: verifyData.name,
+                        duration: verifyData.duration,
+                        bytesWritten: verifyBytes.length
+                    })
+                } catch (verifyError) {
+                    console.error(`❌ STORE-ROOM: meta.json verification FAILED - could not read back:`, verifyError)
+                }
             } catch (metaError) {
                 console.error(`❌ STORE-ROOM: Failed to write meta.json:`, metaError)
                 throw metaError
