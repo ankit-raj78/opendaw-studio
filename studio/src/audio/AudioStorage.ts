@@ -48,16 +48,75 @@ export namespace AudioStorage {
                                 audio: AudioData,
                                 peaks: ArrayBuffer,
                                 meta: AudioMetaData): Promise<void> => {
-        const path = `${Folder}/${UUID.toString(uuid)}`
-        return Promise.all([
-            OpfsAgent.write(`${path}/audio.wav`, new Uint8Array(encodeWavFloat({
-                channels: audio.frames.slice(),
-                numFrames: audio.numberOfFrames,
-                sampleRate: audio.sampleRate
-            }))),
-            OpfsAgent.write(`${path}/peaks.bin`, new Uint8Array(peaks)),
-            OpfsAgent.write(`${path}/meta.json`, new TextEncoder().encode(JSON.stringify(meta)))
-        ]).then(EmptyExec)
+        console.log(`💾 STORE: Starting storage for ${UUID.toString(uuid)}`)
+        
+        try {
+            const path = `${Folder}/${UUID.toString(uuid)}`
+            console.log(`💾 STORE: Writing files to path: ${path}`)
+            console.log(`💾 STORE: Audio data size: ${audio.numberOfFrames} frames, ${audio.numberOfChannels} channels`)
+            console.log(`💾 STORE: Peaks size: ${peaks.byteLength} bytes`)
+            console.log(`💾 STORE: Metadata: ${JSON.stringify(meta)}`)
+            
+            // JSON validation
+            let metaJsonString: string
+            try {
+                metaJsonString = JSON.stringify(meta)
+                JSON.parse(metaJsonString)  // Verify integrity
+            } catch (jsonError) {
+                throw new Error(`Invalid metadata JSON: ${(jsonError as Error).message}`)
+            }
+            
+            const metaBytes = new TextEncoder().encode(metaJsonString)
+            
+            // Null byte check
+            if (metaBytes.includes(0)) {
+                throw new Error(`Encoded metadata contains null bytes`)
+            }
+            
+            // Write files individually with error handling
+            try {
+                const audioWavData = new Uint8Array(encodeWavFloat({
+                    channels: audio.frames.slice(),
+                    numFrames: audio.numberOfFrames,
+                    sampleRate: audio.sampleRate
+                }))
+                console.log(`💾 STORE: Encoded WAV size: ${audioWavData.byteLength} bytes`)
+                await OpfsAgent.write(`${path}/audio.wav`, audioWavData)
+                console.log(`✅ STORE: audio.wav written successfully`)
+            } catch (audioError) {
+                console.error(`❌ STORE: Failed to write audio.wav:`, audioError)
+                throw audioError
+            }
+            
+            try {
+                await OpfsAgent.write(`${path}/peaks.bin`, new Uint8Array(peaks))
+                console.log(`✅ STORE: peaks.bin written successfully`)
+            } catch (peaksError) {
+                console.error(`❌ STORE: Failed to write peaks.bin:`, peaksError)
+                throw peaksError
+            }
+            
+            try {
+                await OpfsAgent.write(`${path}/meta.json`, metaBytes)
+                console.log(`✅ STORE: meta.json written successfully`)
+            } catch (metaError) {
+                console.error(`❌ STORE: Failed to write meta.json:`, metaError)
+                throw metaError
+            }
+            
+            console.log(`✅ STORE: All files stored successfully for ${UUID.toString(uuid)}`)
+            
+        } catch (error) {
+            console.error(`❌ STORE: Storage failed for ${UUID.toString(uuid)}:`, error)
+            console.error(`❌ STORE: Error details:`, {
+                name: (error as Error).name,
+                message: (error as Error).message,
+                stack: (error as Error).stack,
+                uuid: UUID.toString(uuid),
+                path: `${Folder}/${UUID.toString(uuid)}`
+            })
+            throw error
+        }
     }
 
     export const updateMeta = async (uuid: UUID.Format, meta: AudioMetaData): Promise<void> => {
@@ -88,7 +147,7 @@ export namespace AudioStorage {
             
             // Try to download from database and store globally
             try {
-                const downloadedSample = await downloadSampleFromDatabase('', uuidString, context)
+                const downloadedSample = await downloadSampleFromDatabase(null, uuidString, context)
                 if (downloadedSample) {
                     console.log(`✅ LOAD: Successfully downloaded and loaded ${uuidString} from database`)
                     
@@ -135,8 +194,8 @@ export namespace AudioStorage {
         } catch (error) {
             console.log(`📁 OPFS: Room ${roomId} folder does not exist, creating...`)
             console.log(`📁 OPFS: List error was:`, {
-                name: error.name,
-                message: error.message
+                name: (error as Error).name,
+                message: (error as Error).message
             })
             
             try {
@@ -149,8 +208,8 @@ export namespace AudioStorage {
                 } catch (baseError) {
                     console.log(`📁 OPFS: Creating base samples folder: ${Folder}`)
                     console.log(`📁 OPFS: Base folder error was:`, {
-                        name: baseError.name,
-                        message: baseError.message
+                        name: (baseError as Error).name,
+                        message: (baseError as Error).message
                     })
                     
                     console.log(`📁 OPFS: Writing temp file to create base folder...`)
@@ -172,9 +231,9 @@ export namespace AudioStorage {
             } catch (createError) {
                 console.error(`❌ OPFS: Failed to create room ${roomId} folder:`, createError)
                 console.error(`❌ OPFS: Create error details:`, {
-                    name: createError.name,
-                    message: createError.message,
-                    stack: createError.stack,
+                    name: (createError as Error).name,
+                    message: (createError as Error).message,
+                    stack: (createError as Error).stack,
                     roomId: roomId,
                     roomFolder: getRoomFolder(roomId)
                 })
@@ -189,18 +248,63 @@ export namespace AudioStorage {
                                     audio: AudioData,
                                     peaks: ArrayBuffer,
                                     meta: AudioMetaData): Promise<void> => {
-        await ensureRoomFolderExists(roomId)
-        const roomFolder = getRoomFolder(roomId)
-        const path = `${roomFolder}/${UUID.toString(uuid)}`
-        return Promise.all([
-            OpfsAgent.write(`${path}/audio.wav`, new Uint8Array(encodeWavFloat({
-                channels: audio.frames.slice(),
-                numFrames: audio.numberOfFrames,
-                sampleRate: audio.sampleRate
-            }))),
-            OpfsAgent.write(`${path}/peaks.bin`, new Uint8Array(peaks)),
-            OpfsAgent.write(`${path}/meta.json`, new TextEncoder().encode(JSON.stringify(meta)))
-        ]).then(EmptyExec)
+        console.log(`📁 STORE-ROOM: Starting storage for ${UUID.toString(uuid)} in room ${roomId}`)
+        
+        try {
+            await ensureRoomFolderExists(roomId)
+            const roomFolder = getRoomFolder(roomId)
+            const path = `${roomFolder}/${UUID.toString(uuid)}`
+            
+            console.log(`📁 STORE-ROOM: Writing files to path: ${path}`)
+            console.log(`📁 STORE-ROOM: Audio data size: ${audio.numberOfFrames} frames, ${audio.numberOfChannels} channels`)
+            console.log(`📁 STORE-ROOM: Peaks size: ${peaks.byteLength} bytes`)
+            console.log(`📁 STORE-ROOM: Metadata: ${JSON.stringify(meta)}`)
+            
+            // Write files individually with error handling
+            try {
+                const audioWavData = new Uint8Array(encodeWavFloat({
+                    channels: audio.frames.slice(),
+                    numFrames: audio.numberOfFrames,
+                    sampleRate: audio.sampleRate
+                }))
+                console.log(`📁 STORE-ROOM: Encoded WAV size: ${audioWavData.byteLength} bytes`)
+                await OpfsAgent.write(`${path}/audio.wav`, audioWavData)
+                console.log(`✅ STORE-ROOM: audio.wav written successfully`)
+            } catch (audioError) {
+                console.error(`❌ STORE-ROOM: Failed to write audio.wav:`, audioError)
+                throw audioError
+            }
+            
+            try {
+                await OpfsAgent.write(`${path}/peaks.bin`, new Uint8Array(peaks))
+                console.log(`✅ STORE-ROOM: peaks.bin written successfully`)
+            } catch (peaksError) {
+                console.error(`❌ STORE-ROOM: Failed to write peaks.bin:`, peaksError)
+                throw peaksError
+            }
+            
+            try {
+                await OpfsAgent.write(`${path}/meta.json`, new TextEncoder().encode(JSON.stringify(meta)))
+                console.log(`✅ STORE-ROOM: meta.json written successfully`)
+            } catch (metaError) {
+                console.error(`❌ STORE-ROOM: Failed to write meta.json:`, metaError)
+                throw metaError
+            }
+            
+            console.log(`✅ STORE-ROOM: All files stored successfully for ${UUID.toString(uuid)} in room ${roomId}`)
+            
+        } catch (error) {
+            console.error(`❌ STORE-ROOM: Storage failed for ${UUID.toString(uuid)} in room ${roomId}:`, error)
+            console.error(`❌ STORE-ROOM: Error details:`, {
+                name: (error as Error).name,
+                message: (error as Error).message,
+                stack: (error as Error).stack,
+                roomId: roomId,
+                uuid: UUID.toString(uuid),
+                roomFolder: getRoomFolder(roomId)
+            })
+            throw error
+        }
     }
 
     export const loadFromRoom = async (roomId: string, uuid: UUID.Format, context: AudioContext): Promise<[AudioData, Peaks, AudioMetaData]> => {
@@ -242,7 +346,7 @@ export namespace AudioStorage {
     }
 
     // Helper function to download sample from database and import to OPFS
-    const downloadSampleFromDatabase = async (roomId: string, sampleUuid: string, context: AudioContext): Promise<[AudioData, Peaks, AudioMetaData] | null> => {
+    const downloadSampleFromDatabase = async (roomId: string | null, sampleUuid: string, context: AudioContext): Promise<[AudioData, Peaks, AudioMetaData] | null> => {
         try {
             // Get auth token using unified function
             const { token, source } = getAuthTokenForStorage()
@@ -259,7 +363,7 @@ export namespace AudioStorage {
                 console.warn('⚠️ DOWNLOAD: Token appears too short, might be invalid')
             }
             
-            // Determine API base URL
+            // Determine API base URL - audio files are served from SynxSphere API
             let apiBaseUrl = 'http://localhost:8000'
             try {
                 const testResponse = await fetch(`${apiBaseUrl}/api/health`, { 
@@ -267,18 +371,26 @@ export namespace AudioStorage {
                     method: 'HEAD'
                 })
                 if (!testResponse.ok) {
-                    apiBaseUrl = 'http://localhost:8000'
+                    console.warn('⚠️ SynxSphere API not available, keeping localhost:8000')
                 }
             } catch {
-                apiBaseUrl = 'http://localhost:8000'
+                console.warn('⚠️ SynxSphere API health check failed, keeping localhost:8000')
             }
             
             console.log(`📡 DOWNLOAD: Fetching sample ${sampleUuid} from ${apiBaseUrl}`)
+            console.log(`📡 DOWNLOAD: Full URL: ${apiBaseUrl}/api/audio/stream/${sampleUuid}`)
+            console.log(`📡 DOWNLOAD: Using token: ${token.substring(0, 20)}...`)
             
             // Download the audio file
             const response = await fetch(`${apiBaseUrl}/api/audio/stream/${sampleUuid}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
             })
+            
+            console.log(`📡 DOWNLOAD: Response status: ${response.status} ${response.statusText}`)
+            console.log(`📡 DOWNLOAD: Response headers:`, Object.fromEntries(response.headers.entries()))
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -287,12 +399,19 @@ export namespace AudioStorage {
             const arrayBuffer = await response.arrayBuffer()
             console.log(`✅ DOWNLOAD: Downloaded sample ${sampleUuid} (${arrayBuffer.byteLength} bytes)`)
             
+            if (arrayBuffer.byteLength === 0) {
+                throw new Error(`Downloaded sample ${sampleUuid} has 0 bytes - API may not be working correctly`)
+            }
+            
             // Decode audio data
             const audioBuffer = await context.decodeAudioData(arrayBuffer)
             const audioData = AudioData.from(audioBuffer)
             
-            // Generate peaks data (simplified)
-            const peaks = new ArrayBuffer(audioBuffer.length * 4) // Simplified peaks
+            // Generate proper peaks data using AudioPeaks
+            console.log(`🔄 DOWNLOAD: Generating peaks for sample ${sampleUuid}...`)
+            const { AudioPeaks } = await import('@/audio/AudioPeaks')
+            const peaks = await AudioPeaks.generate(audioData, () => {})
+            console.log(`✅ DOWNLOAD: Generated peaks (${peaks.byteLength} bytes)`)
             
             // Create metadata
             const metadata: AudioMetaData = {
@@ -303,9 +422,33 @@ export namespace AudioStorage {
             }
             
             // Store in OPFS for future use
-            await ensureRoomFolderExists(roomId)
-            await storeInRoom(roomId, UUID.parse(sampleUuid), audioData, peaks, metadata)
-            console.log(`✅ DOWNLOAD: Stored sample ${sampleUuid} in OPFS for future use`)
+            console.log(`📁 DOWNLOAD: About to store sample ${sampleUuid} in OPFS...`)
+            try {
+                if (roomId) {
+                    // Store in room-specific OPFS
+                    await ensureRoomFolderExists(roomId)
+                    console.log(`📁 DOWNLOAD: Room folder ensured for room ${roomId}`)
+                    
+                    await storeInRoom(roomId, UUID.parse(sampleUuid), audioData, peaks, metadata)
+                    console.log(`✅ DOWNLOAD: Successfully stored sample ${sampleUuid} in room OPFS for future use`)
+                } else {
+                    // Store in global OPFS
+                    await store(UUID.parse(sampleUuid), audioData, peaks, metadata)
+                    console.log(`✅ DOWNLOAD: Successfully stored sample ${sampleUuid} in global OPFS for future use`)
+                }
+            } catch (storageError) {
+                console.error(`❌ DOWNLOAD: Failed to store sample ${sampleUuid} in OPFS:`, storageError)
+                console.error(`❌ DOWNLOAD: Storage error details:`, {
+                    name: (storageError as Error).name,
+                    message: (storageError as Error).message,
+                    stack: (storageError as Error).stack,
+                    roomId: roomId,
+                    sampleUuid: sampleUuid
+                })
+                // Don't return null here - we can still return the audio data even if storage failed
+                // The user can use the audio now, but it won't be cached for later
+                console.warn(`⚠️ DOWNLOAD: Continuing with audio data despite storage failure`)
+            }
             
             // Return the loaded data
             const { Peaks } = await import('fusion')
@@ -327,12 +470,18 @@ export namespace AudioStorage {
     const getAuthTokenForStorage = (): { token: string | null, source: string } => {
         const urlParams = new URLSearchParams(window.location.search)
         
+        console.log('🔍 TOKEN-DEBUG: Checking all token sources...')
+        console.log('🔍 TOKEN-DEBUG: Current URL:', window.location.href)
+        console.log('🔍 TOKEN-DEBUG: URL params:', Object.fromEntries(urlParams.entries()))
+        
         // Try URL parameter first (base64 encoded)
         const urlToken = urlParams.get('auth_token')
+        console.log('🔍 TOKEN-DEBUG: URL auth_token:', urlToken ? `${urlToken.substring(0, 20)}...` : 'null')
         if (urlToken) {
             try {
                 const decoded = atob(urlToken)
                 if (decoded) {
+                    console.log('✅ TOKEN-DEBUG: Using decoded URL token')
                     return { token: decoded, source: 'URL parameter' }
                 }
             } catch (e) {
@@ -342,13 +491,17 @@ export namespace AudioStorage {
         
         // Try sessionStorage
         const sessionToken = sessionStorage.getItem('synxsphere_token')
+        console.log('🔍 TOKEN-DEBUG: sessionStorage synxsphere_token:', sessionToken ? `${sessionToken.substring(0, 20)}...` : 'null')
         if (sessionToken) {
+            console.log('✅ TOKEN-DEBUG: Using sessionStorage token')
             return { token: sessionToken, source: 'sessionStorage' }
         }
         
         // Try localStorage
         const localToken = localStorage.getItem('token')
+        console.log('🔍 TOKEN-DEBUG: localStorage token:', localToken ? `${localToken.substring(0, 20)}...` : 'null')
         if (localToken) {
+            console.log('✅ TOKEN-DEBUG: Using localStorage token')
             return { token: localToken, source: 'localStorage' }
         }
         
@@ -356,7 +509,9 @@ export namespace AudioStorage {
         try {
             if (window.parent && window.parent !== window) {
                 const parentToken = window.parent.localStorage.getItem('token')
+                console.log('🔍 TOKEN-DEBUG: parent window token:', parentToken ? `${parentToken.substring(0, 20)}...` : 'null')
                 if (parentToken) {
+                    console.log('✅ TOKEN-DEBUG: Using parent window token')
                     return { token: parentToken, source: 'parent window' }
                 }
             }
@@ -364,6 +519,7 @@ export namespace AudioStorage {
             console.warn('⚠️ STORAGE-AUTH: Could not access parent window token:', (e as Error).message)
         }
         
+        console.log('❌ TOKEN-DEBUG: No token found in any location')
         return { token: null, source: 'none' }
     }
 
@@ -392,18 +548,18 @@ export namespace AudioStorage {
                 console.warn('⚠️ SYNC: Token appears too short, might be invalid')
             }
             
-            // Determine API base URL
-            let apiBaseUrl = 'http://localhost:8000' // Use SynxSphere API
+            // Determine API base URL - studio-project API is served from SynxSphere API
+            let apiBaseUrl = 'http://localhost:8000'
             try {
                 const testResponse = await fetch(`${apiBaseUrl}/api/health`, { 
                     headers: { 'Authorization': `Bearer ${token}` },
                     method: 'HEAD'
                 })
                 if (!testResponse.ok) {
-                    apiBaseUrl = 'http://localhost:8000' // Keep same
+                    console.warn('⚠️ SynxSphere API not available, keeping localhost:8000')
                 }
             } catch {
-                apiBaseUrl = 'http://localhost:8000' // Keep same
+                console.warn('⚠️ SynxSphere API health check failed, keeping localhost:8000')
             }
             
             console.log(`🔄 SYNC: Using API base URL: ${apiBaseUrl}`)
@@ -428,7 +584,7 @@ export namespace AudioStorage {
             
             console.log(`🔄 SYNC: Found ${dbAudioFiles.length} audio files in database`)
             
-            // Convert database files to AudioSample format and try to sync missing ones
+            // Convert database files to AudioSample format and download missing ones
             const samples: AudioSample[] = []
             
             for (const dbFile of dbAudioFiles) {
@@ -448,8 +604,28 @@ export namespace AudioStorage {
                     await OpfsAgent.read(`${samplePath}/meta.json`)
                     console.log(`✅ SYNC: Sample ${sample.name} already exists in OPFS`)
                 } catch {
-                    console.log(`🔄 SYNC: Sample ${sample.name} missing from OPFS, will need import`)
-                    // Note: Actual audio data import will be handled by the calling code when needed
+                    console.log(`🔄 SYNC: Sample ${sample.name} missing from OPFS, downloading now...`)
+                    
+                    try {
+                        // Create AudioContext for decoding
+                        const audioContext = new AudioContext()
+                        
+                        // Download and store the sample immediately
+                        const downloadedSample = await downloadSampleFromDatabase(roomId, sample.uuid, audioContext)
+                        
+                        if (downloadedSample) {
+                            console.log(`✅ SYNC: Successfully downloaded and stored ${sample.name}`)
+                        } else {
+                            console.warn(`⚠️ SYNC: Failed to download ${sample.name}, but keeping in list`)
+                        }
+                        
+                        // Close the audio context to free resources
+                        await audioContext.close()
+                        
+                    } catch (downloadError) {
+                        console.error(`❌ SYNC: Failed to download sample ${sample.name}:`, downloadError)
+                        // Continue with next sample - don't fail the entire sync
+                    }
                 }
                 
                 samples.push(sample)

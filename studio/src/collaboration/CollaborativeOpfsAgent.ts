@@ -314,7 +314,15 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
 
   // Method to handle incoming collaboration messages
   handleCollaborationMessage(message: any): void {
+    console.log(`🎵 [CollabOpfs] handleCollaborationMessage called with type: ${message.type}`)
     switch (message.type) {
+      case 'load-project':
+        console.log(`📂 [CollabOpfs] Loading project with audio files:`, message.audioFiles?.length || 0)
+        if (message.audioFiles && message.audioFiles.length > 0) {
+          this.loadRoomAudioFiles(message.audioFiles)
+        }
+        break
+        
       case 'BOX_CREATED':
         console.log(`[CollabOpfs] Remote box created: ${message.data.boxUuid} by ${message.userId}`)
         // We could trigger UI updates here
@@ -337,6 +345,130 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
       default:
         console.log(`[CollabOpfs] Unhandled message type: ${message.type}`)
     }
+  }
+
+  /**
+   * Load room audio files into OPFS storage for collaboration
+   * This implements the method signature trace: OpenDAWIntegration → CollaborativeOpfsAgent → AudioStorage
+   */
+  private async loadRoomAudioFiles(audioFiles: any[]): Promise<void> {
+    console.log(`🎵 [CollabOpfs] loadRoomAudioFiles called with ${audioFiles.length} files`)
+    
+    if (!audioFiles || audioFiles.length === 0) {
+      console.log(`📂 [CollabOpfs] No audio files to load`)
+      return
+    }
+
+    // Get room ID from project ID (remove 'room-' prefix)
+    const roomId = this.projectId.startsWith('room-') ? this.projectId.substring(5) : this.projectId
+    console.log(`🏠 [CollabOpfs] Processing audio files for room: ${roomId}`)
+
+    // Import AudioStorage for storage operations
+    const { AudioStorage } = await import('../audio/AudioStorage')
+    const { AudioData } = await import('../audio/AudioData')
+    const { UUID } = await import('std')
+
+    // Create AudioContext for decoding
+    const audioContext = new AudioContext()
+
+    try {
+      for (const audioFile of audioFiles) {
+        try {
+          console.log(`🎵 [CollabOpfs] Processing audio file:`, {
+            id: audioFile.id,
+            name: audioFile.originalName || audioFile.filename,
+            size: audioFile.size
+          })
+
+          // Download audio data from the streaming API
+          const token = this.getAuthTokenForCollaboration()
+          if (!token) {
+            console.error(`❌ [CollabOpfs] No auth token available for downloading ${audioFile.id}`)
+            continue
+          }
+
+          const response = await fetch(`http://localhost:8000/api/audio/stream/${audioFile.id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+
+          if (!response.ok) {
+            console.error(`❌ [CollabOpfs] Failed to download ${audioFile.id}: HTTP ${response.status}`)
+            continue
+          }
+
+          const arrayBuffer = await response.arrayBuffer()
+          console.log(`✅ [CollabOpfs] Downloaded ${audioFile.id} (${arrayBuffer.byteLength} bytes)`)
+
+          // Decode audio data
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+          const openDAWAudioData = AudioData.from(audioBuffer)
+
+          // Generate simplified peaks data
+          const peaksBuffer = new ArrayBuffer(audioBuffer.length * 4)
+
+          // Create metadata
+          const metadata = {
+            name: audioFile.originalName || audioFile.filename,
+            duration: audioBuffer.duration,
+            sample_rate: audioBuffer.sampleRate,
+            bpm: 120
+          }
+
+          // Parse UUID from database
+          const sampleUuid = UUID.parse(audioFile.id)
+
+          // ✅ DUAL STORAGE: Store in both room-specific and global OPFS
+          console.log(`💾 [CollabOpfs] Storing ${audioFile.id} in dual OPFS locations...`)
+          
+          await Promise.all([
+            AudioStorage.storeInRoom(roomId, sampleUuid, openDAWAudioData, peaksBuffer, metadata),
+            AudioStorage.store(sampleUuid, openDAWAudioData, peaksBuffer, metadata)
+          ])
+
+          console.log(`✅ [CollabOpfs] Successfully stored ${audioFile.originalName} in dual OPFS locations`)
+
+        } catch (fileError) {
+          console.error(`❌ [CollabOpfs] Failed to process audio file ${audioFile.id}:`, fileError)
+          // Continue with next file - don't fail the entire operation
+        }
+      }
+
+      console.log(`✅ [CollabOpfs] Completed loading ${audioFiles.length} room audio files`)
+
+    } finally {
+      // Clean up AudioContext
+      await audioContext.close()
+    }
+  }
+
+  /**
+   * Get authentication token for collaboration operations
+   */
+  private getAuthTokenForCollaboration(): string | null {
+    // Try URL parameter first (base64 encoded)
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlToken = urlParams.get('auth_token')
+    if (urlToken) {
+      try {
+        return atob(urlToken)
+      } catch (e) {
+        console.warn('⚠️ [CollabOpfs] Invalid base64 auth_token in URL')
+      }
+    }
+    
+    // Try sessionStorage
+    const sessionToken = sessionStorage.getItem('synxsphere_token')
+    if (sessionToken) {
+      return sessionToken
+    }
+    
+    // Try localStorage
+    const localToken = localStorage.getItem('token')
+    if (localToken) {
+      return localToken
+    }
+    
+    return null
   }
 
   async delete(path: string): Promise<void> {
@@ -370,7 +502,7 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
       this.markPendingChanges()
     } catch (error) {
       // If it's a "not found" error, ignore it (already deleted)
-      if (error.name === 'NotFoundError') {
+      if ((error as Error).name === 'NotFoundError') {
         console.log(`[CollabOpfs] Path ${path} already deleted or doesn't exist, skipping`)
         return
       }

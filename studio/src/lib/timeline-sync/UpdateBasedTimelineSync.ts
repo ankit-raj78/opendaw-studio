@@ -123,13 +123,31 @@ export class UpdateBasedTimelineSync {
       
       // Export the project as .odb bundle
       const bundleBuffer = await Projects.exportBundle(session, { setValue: () => {} } as any)
-      const bundleData = Array.from(new Uint8Array(bundleBuffer))
+      const bundleSize = bundleBuffer.byteLength
       const boxCount = Array.from(this.service.project.boxGraph.boxes()).length
-      
-      console.log(`[UpdateSync] 📦 Project bundle prepared: ${bundleData.length} bytes, ${boxCount} boxes`)
+
+      console.log(`[UpdateSync] 📦 Project bundle prepared: ${bundleSize} bytes, ${boxCount} boxes`)
       console.log(`[UpdateSync] Project ID (roomId): ${this.wsClient.projectId}`)
-      
-      // Get the correct API base URL (Next.js server on port 8000)
+
+      // For large bundles, we'll send as base64 string instead of array to avoid memory limits
+      let bundleData: string | number[]
+      if (bundleSize > 50 * 1024 * 1024) { // 50MB threshold
+        console.log(`[UpdateSync] 📦 Large bundle detected (${bundleSize} bytes), using base64 encoding`)
+        // Convert to base64 string for large bundles
+        const uint8Array = new Uint8Array(bundleBuffer)
+        let binaryString = ''
+        const chunkSize = 8192
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize)
+          binaryString += String.fromCharCode.apply(null, Array.from(chunk))
+        }
+        bundleData = btoa(binaryString)
+        console.log(`[UpdateSync] 📦 Base64 encoded bundle size: ${bundleData.length} characters`)
+      } else {
+        // Use array format for smaller bundles (backward compatibility)
+        bundleData = Array.from(new Uint8Array(bundleBuffer))
+        console.log(`[UpdateSync] 📦 Array encoded bundle size: ${bundleData.length} bytes`)
+      }      // Get the correct API base URL (Next.js server on port 8000)
       const apiBaseUrl = 'http://localhost:8000'
       const url = `${apiBaseUrl}/api/rooms/${this.wsClient.projectId}/studio-project`
       console.log(`[UpdateSync] 📤 Sending PUT request to: ${url}`)

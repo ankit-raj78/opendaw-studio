@@ -234,6 +234,39 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
     // Set the service reference for collaboration
     setStudioServiceForCollaboration(service)
 
+    // Set up iframe message listener for load-project messages
+    window.addEventListener('message', (event: MessageEvent) => {
+        console.log('🎵 IFRAME MESSAGE: Received message from parent:', event.data)
+        
+        // Only handle messages from trusted origins
+        const allowedOrigins = ['http://localhost:3000', 'http://localhost:8000', 'https://localhost:8000', 'https://localhost:8080']
+        if (!allowedOrigins.includes(event.origin)) {
+            console.warn('🚨 IFRAME MESSAGE: Ignoring message from untrusted origin:', event.origin, 'Allowed:', allowedOrigins)
+            return
+        }
+        
+        // Handle load-project message
+        if (event.data && event.data.type === 'load-project') {
+            console.log('📂 IFRAME MESSAGE: Handling load-project with audio files:', event.data.audioFiles?.length || 0)
+            
+            // Get the collaborative agent from the agents module
+            import('./service/agents').then(({ getCollaborativeAgent }) => {
+                const collaborativeAgent = getCollaborativeAgent()
+                if (collaborativeAgent) {
+                    console.log('🔄 IFRAME MESSAGE: Forwarding to collaborative agent')
+                    collaborativeAgent.handleCollaborationMessage(event.data)
+                } else {
+                    console.warn('⚠️ IFRAME MESSAGE: No collaborative agent available')
+                    // Store the message for later processing when agent becomes available
+                    ;(window as any).pendingLoadProjectMessage = event.data
+                }
+            }).catch(error => {
+                console.error('❌ IFRAME MESSAGE: Failed to get collaborative agent:', error)
+            })
+        }
+    })
+    console.log('✅ IFRAME MESSAGE: Message listener set up for load-project messages')
+
     // Check URL parameters
     const urlParams = new URLSearchParams(window.location.search)
     const projectId = urlParams.get('projectId')
@@ -446,13 +479,42 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     ;(window as any).currentProjectData = projectData.projectData
                     
                     // Check if we have BoxGraph data to load
-                    if (projectData.boxGraphData && projectData.boxGraphData.length > 0) {
+                    if (projectData.boxGraphData && (Array.isArray(projectData.boxGraphData) ? projectData.boxGraphData.length > 0 : projectData.boxGraphData.length > 0)) {
                         console.log('📊 AUTOMATIC IMPORT: Found project bundle, loading shared project...')
-                        console.log('📊 Project bundle size:', projectData.boxGraphData.length, 'bytes')
+                        
+                        let bundleBuffer: Uint8Array
+                        
+                        if (Array.isArray(projectData.boxGraphData)) {
+                            // Legacy array format
+                            console.log('📊 Project bundle (array format):', projectData.boxGraphData.length, 'bytes')
+                            bundleBuffer = new Uint8Array(projectData.boxGraphData)
+                        } else if (typeof projectData.boxGraphData === 'string') {
+                            // New base64 format for large bundles
+                            console.log('📊 Project bundle (base64 format):', projectData.boxGraphData.length, 'characters')
+                            try {
+                                const binaryString = atob(projectData.boxGraphData)
+                                bundleBuffer = new Uint8Array(binaryString.length)
+                                for (let i = 0; i < binaryString.length; i++) {
+                                    bundleBuffer[i] = binaryString.charCodeAt(i)
+                                }
+                                console.log('📊 Decoded bundle size:', bundleBuffer.byteLength, 'bytes')
+                            } catch (decodeError) {
+                                console.error('❌ Failed to decode base64 bundle:', decodeError)
+                                if (safeCreateNewProject(service, 'Failed to decode project bundle')) {
+                                    scheduleInitialProjectSave(service, roomId)
+                                }
+                                return
+                            }
+                        } else {
+                            console.error('❌ Unknown bundle format:', typeof projectData.boxGraphData)
+                            if (safeCreateNewProject(service, 'Unknown project bundle format')) {
+                                scheduleInitialProjectSave(service, roomId)
+                            }
+                            return
+                        }
                         
                         // Check if this is a valid .odb format (starts with PK)
-                        const bytes = new Uint8Array(projectData.boxGraphData)
-                        if (bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
+                        if (bundleBuffer[0] !== 0x50 || bundleBuffer[1] !== 0x4B) {
                             console.log('⚠️ Project bundle is not in ZIP format, skipping import')
                             console.log('📝 Creating new project instead')
                             if (safeCreateNewProject(service, 'Project bundle is not in ZIP format')) {
@@ -463,7 +525,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         
                         try {
                             // Convert to Uint8Array
-                            const bundleBuffer = new Uint8Array(projectData.boxGraphData)
+                            // bundleBuffer is already a Uint8Array from the conversion above
                             
                             // Import Projects module
                             const { Projects } = await import('@/project/Projects')
@@ -1179,9 +1241,13 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 const randomValue = Math.random().toString()
                 const uniqueString = `audiofile-${audioFileData.id}-${audioFileData.originalName}-${roomId}-${audioTimestamp}-${randomValue}`
                 
-                // 1) UUID object for low-level storage  2) string for OpenDAW APIs / metadata
-                const audioFileUuidObj = await UUID.sha256(new TextEncoder().encode(uniqueString))
-                const audioFileUuid    = UUID.toString(audioFileUuidObj).toLowerCase()
+                // IMPORTANT: Use the database file ID directly as the UUID for proper linking
+                // This ensures the sample can be found later when the project is loaded
+                const audioFileUuid = audioFileData.id.toLowerCase()
+                console.log(`🔑 USING DATABASE ID AS UUID: ${audioFileUuid} (from database ID: ${audioFileData.id})`)
+                
+                // Also create the UUID object for low-level storage operations using existing import
+                const audioFileUuidObj = UUID.parse(audioFileUuid)
                 
                 console.log('🔍 PROCESSING AUDIO FILE:', {
                     originalName: audioFileData.originalName,

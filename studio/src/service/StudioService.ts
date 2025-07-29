@@ -38,6 +38,7 @@ import {ProjectMeta} from "@/project/ProjectMeta"
 import {ProjectSession} from "@/project/ProjectSession"
 import {SessionService} from "./SessionService"
 import {StudioSignal} from "./StudioSignal"
+import {AudioStorage} from "@/audio/AudioStorage"
 import {AudioSample} from "@/audio/AudioSample"
 import {Projects} from "@/project/Projects"
 import {SampleDialogs} from "@/ui/browse/SampleDialogs"
@@ -334,11 +335,233 @@ export class StudioService {
         progressHandler?: ProgressHandler
     }): Promise<AudioSample> {
         console.debug(`Importing '${name}' (${arrayBuffer.byteLength >> 10}kb)`)
-        return AudioImporter.run(this.context, {uuid, name, arrayBuffer, progressHandler})
-            .then(sample => {
-                this.#signals.notify({type: "import-sample", sample})
-                return sample
-            })
+        
+        // Check if we're in collaborative mode
+        const { getCollaborationState } = await import('@/service/agents')
+        const collabState = getCollaborationState()
+        
+        if (collabState.isInitialized && collabState.projectId) {
+            // Collaborative mode: Upload to server and get database UUID
+            console.log(`🔄 IMPORT: Collaborative mode detected, uploading '${name}' to server...`)
+            return this.importSampleCollaborative(name, arrayBuffer, progressHandler)
+        } else {
+            // Local mode: Use standard AudioImporter
+            console.log(`🔄 IMPORT: Local mode, importing '${name}' to local OPFS...`)
+            return AudioImporter.run(this.context, {uuid, name, arrayBuffer, progressHandler})
+                .then(sample => {
+                    this.#signals.notify({type: "import-sample", sample})
+                    return sample
+                })
+        }
+    }
+
+    private async importSampleCollaborative(name: string, arrayBuffer: ArrayBuffer, progressHandler: ProgressHandler): Promise<AudioSample> {
+        try {
+            // IMPORTANT: Make a copy of the ArrayBuffer before any processing
+            // because AudioImporter.run() will detach/consume the original ArrayBuffer
+            const arrayBufferCopy = arrayBuffer.slice()
+            
+            // Step 1: Import to local OPFS first (for immediate use)
+            console.log(`📝 IMPORT-COLLAB: Step 1 - Importing to local OPFS...`)
+            const localSample = await AudioImporter.run(this.context, {name, arrayBuffer, progressHandler})
+            console.log(`✅ IMPORT-COLLAB: Local import complete, UUID: ${localSample.uuid}`)
+
+            // Step 2: Upload to server database (using the copy)
+            console.log(`📡 IMPORT-COLLAB: Step 2 - Uploading to server database...`)
+            const databaseUuid = await this.uploadSampleToServer(name, arrayBufferCopy)
+            console.log(`✅ IMPORT-COLLAB: Server upload complete, database UUID: ${databaseUuid}`)
+
+            // Step 3: If database UUID is different, re-import with database UUID
+            if (databaseUuid !== localSample.uuid) {
+                console.log(`🔄 IMPORT-COLLAB: Step 3 - Re-importing with database UUID ${databaseUuid}...`)
+                
+                // Remove the local UUID version
+                try {
+                    await AudioStorage.remove(UUID.parse(localSample.uuid))
+                    console.log(`🗑️ IMPORT-COLLAB: Removed local UUID version ${localSample.uuid}`)
+                } catch (removeError) {
+                    console.warn(`⚠️ IMPORT-COLLAB: Failed to remove local UUID version:`, removeError)
+                }
+
+                // Re-import with database UUID
+                const finalSample = await AudioImporter.run(this.context, {
+                    uuid: UUID.parse(databaseUuid),
+                    name,
+                    arrayBuffer: arrayBufferCopy.slice(), // Use another copy for re-import
+                    progressHandler
+                })
+                
+                console.log(`✅ IMPORT-COLLAB: Final import complete with database UUID: ${finalSample.uuid}`)
+
+                // Step 4: Store in room-specific location for collaborative access
+                const roomId = this.extractRoomIdFromUrl()
+                if (roomId) {
+                    try {
+                        console.log(`📁 IMPORT-COLLAB: Step 4 - Storing in room ${roomId} for collaborative access...`)
+                        
+                        // Load the sample data from global storage
+                        const [audioData, peaks, metadata] = await AudioStorage.load(UUID.parse(databaseUuid), this.context)
+                        
+                        // Store in room-specific location
+                        await AudioStorage.storeInRoom(roomId, UUID.parse(databaseUuid), audioData, peaks.toArrayBuffer() as ArrayBuffer, metadata)
+                        console.log(`✅ IMPORT-COLLAB: Successfully stored in room ${roomId}`)
+                    } catch (roomStoreError) {
+                        console.warn(`⚠️ IMPORT-COLLAB: Failed to store in room-specific location:`, roomStoreError)
+                        // Don't fail the entire import if room storage fails
+                    }
+                } else {
+                    console.warn(`⚠️ IMPORT-COLLAB: No room ID found, skipping room-specific storage`)
+                }
+
+                // Notify with final sample
+                this.#signals.notify({type: "import-sample", sample: finalSample})
+                return finalSample
+            } else {
+                // UUIDs match, use local sample but also store in room for collaborative access
+                console.log(`✅ IMPORT-COLLAB: UUIDs match, using local sample`)
+                
+                // Step 4: Store in room-specific location for collaborative access
+                const roomId = this.extractRoomIdFromUrl()
+                if (roomId) {
+                    try {
+                        console.log(`📁 IMPORT-COLLAB: Step 4 - Storing in room ${roomId} for collaborative access...`)
+                        
+                        // Load the sample data from global storage
+                        const [audioData, peaks, metadata] = await AudioStorage.load(UUID.parse(localSample.uuid), this.context)
+                        
+                        // Store in room-specific location
+                        await AudioStorage.storeInRoom(roomId, UUID.parse(localSample.uuid), audioData, peaks.toArrayBuffer() as ArrayBuffer, metadata)
+                        console.log(`✅ IMPORT-COLLAB: Successfully stored in room ${roomId}`)
+                    } catch (roomStoreError) {
+                        console.warn(`⚠️ IMPORT-COLLAB: Failed to store in room-specific location:`, roomStoreError)
+                        // Don't fail the entire import if room storage fails
+                    }
+                } else {
+                    console.warn(`⚠️ IMPORT-COLLAB: No room ID found, skipping room-specific storage`)
+                }
+                
+                this.#signals.notify({type: "import-sample", sample: localSample})
+                return localSample
+            }
+
+        } catch (error) {
+            console.error(`❌ IMPORT-COLLAB: Collaborative import failed for '${name}':`, error)
+            console.log(`🔄 IMPORT-COLLAB: Falling back to local-only import...`)
+            
+            // Fallback to local import
+            const fallbackSample = await AudioImporter.run(this.context, {name, arrayBuffer, progressHandler})
+            this.#signals.notify({type: "import-sample", sample: fallbackSample})
+            return fallbackSample
+        }
+    }
+
+    private async uploadSampleToServer(name: string, arrayBuffer: ArrayBuffer): Promise<string> {
+        // Get authentication token
+        const { token, source } = this.getAuthTokenForUpload()
+        if (!token) {
+            throw new Error(`No auth token found for upload (source: ${source})`)
+        }
+
+        // Get room ID from URL
+        const roomId = this.extractRoomIdFromUrl()
+        if (!roomId) {
+            throw new Error('No room ID found for collaborative upload')
+        }
+
+        // Create FormData for upload
+        const formData = new FormData()
+        const file = new File([arrayBuffer], name, { type: 'audio/wav' })
+        formData.append('files', file)  // Use 'files' to match server expectation
+        formData.append('roomId', roomId)
+
+        console.log(`📡 UPLOAD: Uploading '${name}' (${arrayBuffer.byteLength} bytes) to room ${roomId}`)
+
+        // Upload to server
+        const response = await fetch('http://localhost:8000/api/audio/upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        })
+
+        if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(`Upload failed: HTTP ${response.status} - ${errorText}`)
+        }
+
+        const result = await response.json()
+        console.log(`✅ UPLOAD: Server response:`, result)
+
+        // Extract UUID from response
+        const uploadedFiles = result.uploadedFiles || result.files || []
+        if (uploadedFiles.length === 0) {
+            throw new Error('No files in upload response')
+        }
+
+        const databaseUuid = uploadedFiles[0].id || uploadedFiles[0].uuid
+        if (!databaseUuid) {
+            throw new Error('No UUID in upload response')
+        }
+
+        return databaseUuid
+    }
+
+    private getAuthTokenForUpload(): { token: string | null, source: string } {
+        const urlParams = new URLSearchParams(window.location.search)
+        
+        // Try URL parameter first (base64 encoded)
+        const urlToken = urlParams.get('auth_token')
+        if (urlToken) {
+            try {
+                const decoded = atob(urlToken)
+                if (decoded) {
+                    return { token: decoded, source: 'URL parameter' }
+                }
+            } catch (e) {
+                console.warn('⚠️ UPLOAD-AUTH: Invalid base64 auth_token in URL:', (e as Error).message)
+            }
+        }
+        
+        // Try sessionStorage
+        const sessionToken = sessionStorage.getItem('synxsphere_token')
+        if (sessionToken) {
+            return { token: sessionToken, source: 'sessionStorage' }
+        }
+        
+        // Try localStorage
+        const localToken = localStorage.getItem('token')
+        if (localToken) {
+            return { token: localToken, source: 'localStorage' }
+        }
+
+        return { token: null, source: 'none' }
+    }
+
+    private extractRoomIdFromUrl(): string | null {
+        const urlParams = new URLSearchParams(window.location.search)
+        
+        // First try 'roomId' parameter
+        const urlRoomId = urlParams.get('roomId')
+        if (urlRoomId) {
+            return urlRoomId
+        }
+        
+        // Try 'projectId' parameter
+        const projectId = urlParams.get('projectId')
+        if (projectId && projectId.startsWith('room-')) {
+            return projectId.replace('room-', '')
+        } else if (projectId) {
+            return projectId
+        }
+        
+        // Try to extract from URL path
+        const pathMatch = window.location.pathname.match(/\/room\/([^\/]+)/)
+        if (pathMatch) {
+            return pathMatch[1]
+        }
+
+        return null
     }
 
     async saveFile() {return await this.sessionService.saveFile()}

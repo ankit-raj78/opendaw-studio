@@ -81,6 +81,26 @@ if (isCollaborative && projectId && userId) {
             currentOpfsAgent = collaborativeAgent
             collaborationInitialized = true
             
+            // Trigger immediate pre-loading of project audio files
+            console.log('🔄 COLLAB-INIT: Requesting immediate project audio pre-load...')
+            setTimeout(() => {
+                // Check if there's a pending load-project message
+                const pendingMessage = (window as any).pendingLoadProjectMessage
+                if (pendingMessage) {
+                    console.log('📂 COLLAB-INIT: Processing pending load-project message')
+                    collaborativeAgent.handleCollaborationMessage(pendingMessage)
+                    delete (window as any).pendingLoadProjectMessage
+                } else {
+                    // No pending message, try to trigger audio pre-loading anyway
+                    console.log('🔄 COLLAB-INIT: No pending message, triggering audio sync for room', projectId)
+                    collaborativeAgent.handleCollaborationMessage({
+                        type: 'load-project',
+                        audioFiles: [], // Will be populated by the database sync
+                        projectId: projectId
+                    })
+                }
+            }, 1000) // Give collaboration system time to stabilize
+            
             // Add visual indicators
             const style = document.createElement('style')
             style.textContent = `
@@ -283,6 +303,14 @@ const proxyAgent = new class implements OpfsProtocol {
 
 // Export the proxy agent
 export const OpfsAgent = proxyAgent
+
+// Get the collaborative agent for direct message handling
+export function getCollaborativeAgent() {
+    if (collaborationManager && (collaborationManager as any).collaborativeAgent) {
+        return (collaborationManager as any).collaborativeAgent
+    }
+    return null
+}
 
 // Cleanup function for collaboration
 export function cleanupCollaboration() {
