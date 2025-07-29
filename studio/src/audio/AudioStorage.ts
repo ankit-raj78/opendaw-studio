@@ -393,7 +393,13 @@ export namespace AudioStorage {
             console.log(`📡 DOWNLOAD: Response headers:`, Object.fromEntries(response.headers.entries()))
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+                if (response.status === 404) {
+                    console.warn(`⚠️ DOWNLOAD: Sample ${sampleUuid} not found on server (404)`)
+                    console.warn(`💡 DOWNLOAD: This sample exists in database but the audio file is missing`)
+                    return null // Return null instead of throwing to handle missing files gracefully
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+                }
             }
             
             const arrayBuffer = await response.arrayBuffer()
@@ -616,7 +622,9 @@ export namespace AudioStorage {
                         if (downloadedSample) {
                             console.log(`✅ SYNC: Successfully downloaded and stored ${sample.name}`)
                         } else {
-                            console.warn(`⚠️ SYNC: Failed to download ${sample.name}, but keeping in list`)
+                            console.warn(`⚠️ SYNC: Failed to download ${sample.name} (file may not exist on server), but keeping in list`)
+                            // Still add the sample to the list even if download failed
+                            // The UI can show it as unavailable but user can see it exists in database
                         }
                         
                         // Close the audio context to free resources
@@ -625,6 +633,8 @@ export namespace AudioStorage {
                     } catch (downloadError) {
                         console.error(`❌ SYNC: Failed to download sample ${sample.name}:`, downloadError)
                         // Continue with next sample - don't fail the entire sync
+                        // Still add the sample to the list so user knows it exists in database
+                        console.warn(`⚠️ SYNC: Keeping ${sample.name} in sample list despite download failure`)
                     }
                 }
                 
@@ -643,11 +653,16 @@ export namespace AudioStorage {
         const roomFolder = getRoomFolder(roomId)
         console.log(`📋 OPFS: Attempting to list room folder: ${roomFolder}`)
         
-        // First try to sync from database (for collaborative mode)
-        const dbSamples = await syncDatabaseToOpfs(roomId)
-        if (dbSamples.length > 0) {
-            console.log(`✅ OPFS: Found ${dbSamples.length} samples from database sync`)
-            return dbSamples
+        // First try to sync from database (for collaborative mode) but don't fail if it doesn't work
+        try {
+            const dbSamples = await syncDatabaseToOpfs(roomId)
+            if (dbSamples.length > 0) {
+                console.log(`✅ OPFS: Found ${dbSamples.length} samples from database sync`)
+                return dbSamples
+            }
+        } catch (syncError) {
+            console.warn(`⚠️ OPFS: Database sync failed for room ${roomId}, falling back to OPFS-only listing:`, syncError)
+            // Continue with OPFS-only approach below
         }
         
         // Check if room folder exists and try to copy global samples if it's empty

@@ -124,6 +124,76 @@ function getAuthToken(): { token: string | null, source: string } {
 // Expose getAuthToken globally for other modules
 ;(window as any).getAuthToken = getAuthToken
 
+// Initialize room audio files on startup
+async function initializeRoomAudioFilesOnStartup(service: StudioService): Promise<void> {
+    console.log('🚀 STARTUP: Initializing room audio files...')
+    
+    try {
+        // Get room ID from URL
+        const roomId = extractRoomIdFromUrl()
+        if (!roomId) {
+            console.log('📝 STARTUP: No room ID found, skipping room audio initialization')
+            return
+        }
+
+        console.log(`🏠 STARTUP: Found room ID: ${roomId}`)
+
+        // Use the RoomAudioImporter we created
+        const { RoomAudioImporter } = await import('./service/RoomAudioImporter')
+        const importer = new RoomAudioImporter(service)
+
+        // Import all room audio files with progress tracking
+        let lastProgress = 0
+        const importedCount = await importer.importRoomAudioFiles(roomId, (progress, fileName) => {
+            // Only log progress every 25% to avoid spam
+            if (Math.floor(progress / 25) > Math.floor(lastProgress / 25)) {
+                console.log(`📊 STARTUP: Room audio import progress: ${Math.round(progress)}% (${fileName})`)
+                lastProgress = progress
+            }
+        })
+
+        if (importedCount > 0) {
+            console.log(`✅ STARTUP: Successfully imported ${importedCount} room audio files to OPFS`)
+            
+            // Optionally notify the UI that new samples are available
+            service.resetPeaks() // This triggers sample list refresh
+        } else {
+            console.log('📋 STARTUP: All room audio files already available in OPFS')
+        }
+
+    } catch (error) {
+        console.error('❌ STARTUP: Failed to initialize room audio files:', error)
+        // Don't throw - startup should continue even if this fails
+    }
+}
+
+// Extract room ID from current URL
+function extractRoomIdFromUrl(): string | null {
+    const urlParams = new URLSearchParams(window.location.search)
+    
+    // First try 'roomId' parameter
+    const urlRoomId = urlParams.get('roomId')
+    if (urlRoomId) {
+        return urlRoomId
+    }
+    
+    // Try 'projectId' parameter
+    const projectId = urlParams.get('projectId')
+    if (projectId && projectId.startsWith('room-')) {
+        return projectId.replace('room-', '')
+    } else if (projectId) {
+        return projectId
+    }
+    
+    // Try to extract from URL path
+    const pathMatch = window.location.pathname.match(/\/room\/([^\/]+)/)
+    if (pathMatch) {
+        return pathMatch[1]
+    }
+
+    return null
+}
+
 // Helper function to safely create a new project only if none exists
 function safeCreateNewProject(service: StudioService, reason: string): boolean {
     const sessionOpt = service.sessionService.getValue()
@@ -233,6 +303,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
     
     // Set the service reference for collaboration
     setStudioServiceForCollaboration(service)
+    
+    // Initialize room audio files using the new importer
+    await initializeRoomAudioFilesOnStartup(service)
 
     // Set up iframe message listener for load-project messages
     window.addEventListener('message', (event: MessageEvent) => {
@@ -1191,10 +1264,16 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 })
                 
                 if (!audioResponse.ok) {
-                    console.error('❌ SAMPLE IMPORT FAILED: Cannot download audio file:', audioFileData.originalName)
-                    console.error('❌ Response status:', audioResponse.status, audioResponse.statusText)
-                    console.error('❌ File path attempted:', `${apiBaseUrl}/api/audio/stream/${audioFileData.id}`)
-                    continue
+                    if (audioResponse.status === 404) {
+                        console.warn(`⚠️ SAMPLE IMPORT: Audio file ${audioFileData.originalName} not found on server (404)`)
+                        console.warn(`💡 SAMPLE IMPORT: This file exists in database but the audio file is missing - skipping`)
+                        continue // Skip this file and continue with others
+                    } else {
+                        console.error('❌ SAMPLE IMPORT FAILED: Cannot download audio file:', audioFileData.originalName)
+                        console.error('❌ Response status:', audioResponse.status, audioResponse.statusText)
+                        console.error('❌ File path attempted:', `${apiBaseUrl}/api/audio/stream/${audioFileData.id}`)
+                        continue
+                    }
                 }
                 
                 const arrayBuffer = await audioResponse.arrayBuffer()
