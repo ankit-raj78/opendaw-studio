@@ -124,6 +124,469 @@ function getAuthToken(): { token: string | null, source: string } {
 // Expose getAuthToken globally for other modules
 ;(window as any).getAuthToken = getAuthToken
 
+// === Helper: safely extract UUID from any Box-like object ===
+function safeUuid(box: any): string {
+    try {
+        if (!box) return 'unknown'
+        // Direct property
+        if (box.uuid) {
+            if (typeof box.uuid === 'string') return box.uuid
+            if (typeof box.uuid === 'object' && box.uuid.toString) return box.uuid.toString()
+        }
+        // Address on the same object
+        if (box.address?.uuid) {
+            const u = box.address.uuid
+            if (typeof u === 'string') return u
+            if (typeof u === 'object' && u.toString) return u.toString()
+        }
+        // Nested box (common for adapters)
+        if (box.box?.address?.uuid) {
+            const u = box.box.address.uuid
+            if (typeof u === 'string') return u
+            if (typeof u === 'object' && u.toString) return u.toString()
+        }
+    } catch (_) {
+        /* ignore extraction errors */
+    }
+    return 'unknown'
+}
+
+// === 打印所有轨道的详细信息（包括 clips、regions 和设备）===
+function printDetailedTrackInfo(service: StudioService) {
+    try {
+        console.log('\n')
+        console.log('='.repeat(50))
+        console.log('🎵 详细轨道信息（包括 Clips、Regions 和设备）')
+        console.log('='.repeat(50))
+        
+        const sessionOpt = service.sessionService.getValue()
+        if (sessionOpt.isEmpty()) {
+            console.log('❌ 没有打开的项目')
+            return
+        }
+        
+        const session = sessionOpt.unwrap()
+        const project = session.project
+        
+        if (!project.boxAdapters) {
+            console.log('❌ BoxAdapters 不可用')
+            return
+        }
+        
+        let totalTracks = 0
+        let totalClips = 0
+        let totalRegions = 0
+        let totalDevices = 0
+        
+        // 1. 遍历所有 AudioUnitBox
+        const audioUnits = project.rootBoxAdapter.audioUnits.adapters.values()
+        
+        console.log(`\n📦 找到 ${audioUnits.length} 个 AudioUnit`)
+        
+        audioUnits.forEach((audioUnitAdapter: any, unitIndex: number) => {
+            const unitName = audioUnitAdapter.box.label?.getValue() || `AudioUnit ${unitIndex}`
+            console.log(`\n🎛️ AudioUnit #${unitIndex}: ${unitName}`)
+            console.log(`   UUID: ${UUID.toString(audioUnitAdapter.box.address.uuid)}`)
+            
+            // 打印 MIDI Effects
+            if (audioUnitAdapter.midiEffects) {
+                const midiEffects = audioUnitAdapter.midiEffects.adapters.values()
+                if (midiEffects.length > 0) {
+                    console.log(`\n   🎹 MIDI Effects (${midiEffects.length}):`)
+                    midiEffects.forEach((device: any, idx: number) => {
+                        const deviceName = device.box.label?.getValue() || device.box.name || 'Unnamed Device'
+                        const deviceUuid = UUID.toString(device.box.address.uuid)
+                        console.log(`      ${idx + 1}. ${deviceName}`)
+                        console.log(`         Type: ${device.box.name}`)
+                        console.log(`         UUID: ${deviceUuid}`)
+                        console.log(`         Enabled: ${device.box.enabled?.getValue() || false}`)
+                        totalDevices++
+                    })
+                }
+            }
+            
+            // 打印 Audio Effects
+            if (audioUnitAdapter.audioEffects) {
+                const audioEffects = audioUnitAdapter.audioEffects.adapters.values()
+                if (audioEffects.length > 0) {
+                    console.log(`\n   🔊 Audio Effects (${audioEffects.length}):`)
+                    audioEffects.forEach((device: any, idx: number) => {
+                        const deviceName = device.box.label?.getValue() || device.box.name || 'Unnamed Device'
+                        const deviceUuid = UUID.toString(device.box.address.uuid)
+                        console.log(`      ${idx + 1}. ${deviceName}`)
+                        console.log(`         Type: ${device.box.name}`)
+                        console.log(`         UUID: ${deviceUuid}`)
+                        console.log(`         Enabled: ${device.box.enabled?.getValue() || false}`)
+                        totalDevices++
+                    })
+                }
+            }
+            
+            // 打印轨道信息
+            if (audioUnitAdapter.tracks) {
+                const tracks = audioUnitAdapter.tracks.adapters.values()
+                console.log(`\n   📍 Tracks (${tracks.length}):`)
+                
+                tracks.forEach((trackAdapter: any, trackIndex: number) => {
+                    totalTracks++
+                    const trackName = trackAdapter.box.label?.getValue() || `Track ${trackIndex}`
+                    const trackUuid = UUID.toString(trackAdapter.box.address.uuid)
+                    const trackType = ['Audio', 'Notes', 'Value'][trackAdapter.box.type?.getValue() || 0]
+                    
+                    console.log(`\n   📍 Track #${trackIndex}: ${trackName}`)
+                    console.log(`      UUID: ${trackUuid}`)
+                    console.log(`      Type: ${trackType}`)
+                    console.log(`      Index: ${trackAdapter.box.index?.getValue() || trackIndex}`)
+                    console.log(`      Enabled: ${trackAdapter.box.enabled?.getValue() || false}`)
+                    
+                    // 打印 Clips
+                    if (trackAdapter.clips) {
+                        const clips = trackAdapter.clips.collection.adapters.values()
+                        if (clips.length > 0) {
+                            console.log(`\n      🎬 Clips (${clips.length}):`)
+                            clips.forEach((clip: any, clipIndex: number) => {
+                                totalClips++
+                                const clipName = clip.box.label?.getValue() || `Clip ${clipIndex}`
+                                const clipUuid = UUID.toString(clip.box.address.uuid)
+                                console.log(`         ${clipIndex + 1}. ${clipName}`)
+                                console.log(`            UUID: ${clipUuid}`)
+                                console.log(`            Type: ${clip.box.name}`)
+                                console.log(`            Index: ${clip.box.index?.getValue() || clipIndex}`)
+                                console.log(`            Muted: ${clip.box.mute?.getValue() || false}`)
+                                if (clip.box.duration) {
+                                    console.log(`            Duration: ${clip.box.duration.getValue()}`)
+                                }
+                            })
+                        } else {
+                            console.log(`      🎬 Clips: None`)
+                        }
+                    }
+                    
+                    // 打印 Regions
+                    if (trackAdapter.regions) {
+                        const regions = trackAdapter.regions.adapters.values()
+                        if (regions.length > 0) {
+                            console.log(`\n      🎵 Regions (${regions.length}):`)
+                            regions.forEach((region: any, regionIndex: number) => {
+                                totalRegions++
+                                const regionName = region.box.label?.getValue() || `Region ${regionIndex}`
+                                const regionUuid = UUID.toString(region.box.address.uuid)
+                                console.log(`         ${regionIndex + 1}. ${regionName}`)
+                                console.log(`            UUID: ${regionUuid}`)
+                                console.log(`            Type: ${region.box.name}`)
+                                console.log(`            Position: ${region.box.position?.getValue() || 0}`)
+                                console.log(`            Duration: ${region.box.duration?.getValue() || 0}`)
+                                console.log(`            Muted: ${region.box.mute?.getValue() || false}`)
+                            })
+                        } else {
+                            console.log(`      🎵 Regions: None`)
+                        }
+                    }
+                })
+            }
+        })
+        
+        // 打印总结
+        console.log('\n')
+        console.log('='.repeat(50))
+        console.log('📊 总计:')
+        console.log(`   🎛️ AudioUnits: ${audioUnits.length}`)
+        console.log(`   📍 Tracks: ${totalTracks}`)
+        console.log(`   🎬 Clips: ${totalClips}`)
+        console.log(`   🎵 Regions: ${totalRegions}`)
+        console.log(`   🎹 Devices: ${totalDevices}`)
+        console.log('='.repeat(50))
+        
+        // 将函数暴露到全局以便调试
+        ;(window as any).printDetailedTrackInfo = () => printDetailedTrackInfo(service)
+        
+    } catch (error) {
+        console.error('❌ 打印详细轨道信息时出错:', error)
+        console.error('错误详情:', error)
+    }
+}
+
+
+// Helper function to print all tracks information
+function printAllTracksInfo(service: StudioService) {
+    try {
+        console.log('\n=== 📊 项目轨道信息 ===')
+        
+        if (!service.hasProjectSession) {
+            console.log('❌ 没有打开的项目')
+            return
+        }
+        
+        const project = service.project
+        const tracks: any[] = []
+        
+        // 方法1: 从 timeline 获取音频轨道（这是主要的音频轨道）
+        console.log('🎵 查找音频轨道...')
+        
+        // 获取所有的 AudioUnitBox
+        const allBoxes = Array.from(project.boxGraph.boxes())
+        const audioUnitBoxes = allBoxes.filter(box => {
+            // 检查是否是 AudioUnitBox (通常有 tracks 集合)
+            return box.name === 'AudioUnitBox' || (box as any).tracks !== undefined
+        })
+        
+        console.log(`找到 ${audioUnitBoxes.length} 个音频单元`)
+        
+        // 对于每个 AudioUnitBox，获取其轨道
+        audioUnitBoxes.forEach((audioUnitBox: any, unitIndex: number) => {
+            const unitName = audioUnitBox.label?.getValue ? audioUnitBox.label.getValue() : `AudioUnit ${unitIndex}`
+            console.log(`\n🎛️ 音频单元 #${unitIndex}: ${unitName}`)
+            
+            // 获取该音频单元的所有轨道
+            const trackBoxes = allBoxes.filter(box => {
+                return box.name === 'TrackBox' && 
+                       (box as any).tracks?.targetVertex?.unwrap()?.box === audioUnitBox
+            })
+            
+            console.log(`  包含 ${trackBoxes.length} 个轨道`)
+            
+            trackBoxes.forEach((trackBox: any, trackIndex: number) => {
+                try {
+                    // 安全获取 UUID
+                    const uuidStr = safeUuid(trackBox)
+                    
+                    const trackInfo = {
+                        uuid: uuidStr,
+                        index: trackBox.index?.getValue ? trackBox.index.getValue() : trackIndex,
+                        name: trackBox.label?.getValue ? (trackBox.label.getValue() || `Track ${trackBox.index?.getValue() || trackIndex}`) : `Track ${trackIndex}`,
+                        type: trackBox.type?.getValue !== undefined ? ['Audio', 'Notes', 'Value'][trackBox.type.getValue()] : 'Audio',
+                        enabled: trackBox.enabled?.getValue ? trackBox.enabled.getValue() : true,
+                        mute: trackBox.mute?.getValue ? trackBox.mute.getValue() : false,
+                        solo: trackBox.solo?.getValue ? trackBox.solo.getValue() : false,
+                        audioUnitName: unitName,
+                        // 原始数据用于比较
+                        rawData: {
+                            label: trackBox.label?.getValue ? trackBox.label.getValue() : '',
+                            index: trackBox.index?.getValue ? trackBox.index.getValue() : -1,
+                            type: trackBox.type?.getValue !== undefined ? trackBox.type.getValue() : -1,
+                            enabled: trackBox.enabled?.getValue ? trackBox.enabled.getValue() : true,
+                            mute: trackBox.mute?.getValue ? trackBox.mute.getValue() : false,
+                            solo: trackBox.solo?.getValue ? trackBox.solo.getValue() : false
+                        }
+                    }
+                
+                    tracks.push(trackInfo)
+                    
+                    console.log(`  📍 轨道 #${trackInfo.index}: "${trackInfo.name}"`)
+                    console.log(`     UUID: ${trackInfo.uuid}`)
+                    console.log(`     类型: ${trackInfo.type}`)
+                    console.log(`     状态: ${trackInfo.enabled ? '✅启用' : '❌禁用'} | ${trackInfo.mute ? '🔇静音' : '🔊正常'} | ${trackInfo.solo ? '🎧Solo' : ''}`)
+                    console.log(`     原始数据:`, JSON.stringify(trackInfo.rawData))
+                } catch (trackError) {
+                    console.warn(`⚠️ 无法获取轨道信息:`, trackError)
+                }
+            })
+        })
+        
+        // 如果上面的方法没找到轨道，尝试从 timeline adapter 获取
+        if (tracks.length === 0) {
+            console.log('\n🔍 尝试从 timeline 获取轨道...')
+            try {
+                // 获取 timeline box
+                const timelineBox = allBoxes.find(box => box.name === 'TimelineBox')
+                if (timelineBox) {
+                    console.log('✅ 找到 TimelineBox')
+                    
+                    // 查找所有与 timeline 相关的 TrackBox
+                    const timelineTracks = allBoxes.filter(box => {
+                        return box.name === 'TrackBox'
+                    })
+                    
+                    console.log(`📊 找到 ${timelineTracks.length} 个 TrackBox`)
+                    
+                    timelineTracks.forEach((trackBox: any, index: number) => {
+                        // 安全获取 UUID
+                        const uuidStr = safeUuid(trackBox)
+                        
+                        const trackInfo = {
+                            uuid: uuidStr,
+                            index: trackBox.index?.getValue ? trackBox.index.getValue() : index,
+                            name: trackBox.label?.getValue ? (trackBox.label.getValue() || `Track ${index}`) : `Track ${index}`,
+                            type: trackBox.type?.getValue !== undefined ? ['Audio', 'Notes', 'Value'][trackBox.type.getValue()] : 'Unknown',
+                            enabled: trackBox.enabled?.getValue ? trackBox.enabled.getValue() : true,
+                            mute: trackBox.mute?.getValue ? trackBox.mute.getValue() : false,
+                            solo: trackBox.solo?.getValue ? trackBox.solo.getValue() : false,
+                            rawData: {
+                                label: trackBox.label?.getValue ? trackBox.label.getValue() : '',
+                                index: trackBox.index?.getValue ? trackBox.index.getValue() : -1,
+                                type: trackBox.type?.getValue !== undefined ? trackBox.type.getValue() : -1,
+                                enabled: trackBox.enabled?.getValue ? trackBox.enabled.getValue() : true,
+                                mute: trackBox.mute?.getValue ? trackBox.mute.getValue() : false,
+                                solo: trackBox.solo?.getValue ? trackBox.solo.getValue() : false
+                            }
+                        }
+                        
+                        tracks.push(trackInfo)
+                        
+                        console.log(`\n📍 轨道 #${trackInfo.index}: "${trackInfo.name}"`)
+                        console.log(`   UUID: ${trackInfo.uuid}`)
+                        console.log(`   类型: ${trackInfo.type}`)
+                        console.log(`   状态: ${trackInfo.enabled ? '✅启用' : '❌禁用'} | ${trackInfo.mute ? '🔇静音' : '🔊正常'} | ${trackInfo.solo ? '🎧Solo' : ''}`)
+                        console.log(`   原始数据:`, JSON.stringify(trackInfo.rawData))
+                    })
+                }
+            } catch (e) {
+                console.error('❌ 从 timeline 获取轨道时出错:', e)
+            }
+        }
+        
+        console.log(`\n📊 总计: ${tracks.length} 个轨道`)
+        console.log('===================\n')
+        
+        // 将轨道信息保存到全局变量，方便后续访问
+        ;(window as any).currentProjectTracks = tracks
+        console.log('💡 提示: 轨道信息已保存到 window.currentProjectTracks')
+        
+        // 设置全局函数方便随时调用
+        if (!(window as any).printTracks) {
+            ;(window as any).printTracks = () => {
+                const service = (window as any).globalStudioService || (window as any).collaborationManager?.config?.studioService
+                if (service) {
+                    printAllTracksInfo(service)
+                } else {
+                    console.error('❌ 无法找到 StudioService')
+                }
+            }
+            console.log('💡 提示: 可以随时在控制台运行 printTracks() 查看轨道信息')
+        }
+        
+        // 添加调试函数来查看所有 Box
+        if (!(window as any).printAllBoxes) {
+            ;(window as any).printAllBoxes = () => {
+                const service = (window as any).globalStudioService || (window as any).collaborationManager?.config?.studioService
+                if (!service) {
+                    console.error('❌ 找不到 StudioService')
+                    return
+                }
+                if (!service.project) {
+                    console.error('❌ 找不到项目')
+                    return
+                }
+                
+                try {
+                    console.log('\n=== 📦 所有 Box 信息 ===')
+                    const allBoxes = Array.from(service.project.boxGraph.boxes())
+                    console.log(`总共 ${allBoxes.length} 个 Box`)
+                    
+                    // 分类统计
+                    const boxTypes: { [key: string]: number } = {}
+                    
+                    allBoxes.forEach((box: any, index: number) => {
+                        const boxName = box.name || box.constructor?.name || 'Unknown'
+                        boxTypes[boxName] = (boxTypes[boxName] || 0) + 1
+                        
+                        console.log(`\n#${index} ${boxName}`)
+                        
+                        // 尝试获取各种属性
+                        const props: any = {}
+                        
+                        // 常见属性
+                        ['label', 'index', 'type', 'enabled', 'mute', 'solo', 'uuid'].forEach(prop => {
+                            try {
+                                if (box[prop]) {
+                                    if (box[prop].getValue && typeof box[prop].getValue === 'function') {
+                                        props[prop] = box[prop].getValue()
+                                    } else if (prop === 'uuid') {
+                                        if (typeof box[prop] === 'string') {
+                                            props[prop] = box[prop]
+                                        } else if (Array.isArray(box[prop])) {
+                                            props[prop] = box[prop].join(',')
+                                        } else if (box[prop].toString) {
+                                            props[prop] = box[prop].toString()
+                                        }
+                                    } else {
+                                        props[prop] = box[prop]
+                                    }
+                                }
+                            } catch (e) {
+                                // 忽略错误
+                            }
+                        })
+                        
+                        console.log('  属性:', props)
+                        console.log('  所有键:', Object.keys(box).slice(0, 20)) // 只显示前20个键
+                    })
+                    
+                    console.log('\n📊 Box 类型统计:')
+                    Object.entries(boxTypes).forEach(([type, count]) => {
+                        console.log(`  ${type}: ${count} 个`)
+                    })
+                    
+                } catch (error) {
+                    console.error('❌ 打印 Box 信息时出错:', error)
+                }
+            }
+            console.log('💡 提示: 运行 printAllBoxes() 查看所有 Box')
+        }
+        
+        // 添加更简单的轨道查找函数
+        if (!(window as any).findAudioTracks) {
+            ;(window as any).findAudioTracks = () => {
+                const service = (window as any).globalStudioService || (window as any).collaborationManager?.config?.studioService
+                if (!service || !service.project) {
+                    console.error('❌ 找不到项目')
+                    return
+                }
+                
+                console.log('\n=== 🎵 查找音频轨道 ===')
+                
+                // 方法1: 通过 rootBoxAdapter
+                try {
+                    if (service.project.rootBoxAdapter) {
+                        console.log('\n方法1: 通过 rootBoxAdapter')
+                        const root = service.project.rootBoxAdapter
+                        
+                        if (root.audioUnits) {
+                            const audioUnits = root.audioUnits.adapters()
+                            console.log(`找到 ${audioUnits.length} 个音频单元`)
+                            
+                            audioUnits.forEach((unit: any, i: number) => {
+                                console.log(`\n音频单元 #${i}:`)
+                                console.log('  名称:', unit.box?.label?.getValue?.() || 'Unnamed')
+                                
+                                if (unit.tracks) {
+                                    const tracks = unit.tracks.collection.adapters()
+                                    console.log(`  轨道数: ${tracks.length}`)
+                                    
+                                    tracks.forEach((track: any, j: number) => {
+                                        console.log(`    轨道 #${j}:`)
+                                        console.log('      索引:', track.box?.index?.getValue?.() ?? 'N/A')
+                                        console.log('      名称:', track.box?.label?.getValue?.() || 'Unnamed')
+                                        console.log('      类型:', ['Audio', 'Notes', 'Value'][track.type] || track.type)
+                                    })
+                                }
+                            })
+                        }
+                    }
+                } catch (e) {
+                    console.error('方法1 失败:', e)
+                }
+                
+                // 方法2: 直接从 timeline 查找
+                try {
+                    console.log('\n方法2: 从 timeline 查找')
+                    const timeline = service.timeline
+                    if (timeline) {
+                        console.log('Timeline 存在')
+                        console.log('Timeline 属性:', Object.keys(timeline))
+                    }
+                } catch (e) {
+                    console.error('方法2 失败:', e)
+                }
+            }
+            console.log('💡 提示: 运行 findAudioTracks() 查找音频轨道')
+        }
+        
+    } catch (error) {
+        console.error('❌ 打印轨道信息时出错:', error)
+    }
+}
+
 // Helper function to safely create a new project only if none exists
 function safeCreateNewProject(service: StudioService, reason: string): boolean {
     const sessionOpt = service.sessionService.getValue()
@@ -379,7 +842,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                                 console.warn('⚠️ No audio files found in database for room:', roomId)
                                 // Create empty project
                                 if (safeCreateNewProject(service, 'No audio files found in database')) {
-                                    scheduleInitialProjectSave(service, roomId) // Add auto-save
+                                scheduleInitialProjectSave(service, roomId) // Add auto-save
                                 }
                                 await new Promise(resolve => setTimeout(resolve, 500))
                                 service.switchScreen("default")
@@ -389,7 +852,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                             console.error('❌ Failed to fetch audio files from database:', audioFilesResponse.status)
                             // Create empty project
                             if (safeCreateNewProject(service, 'Failed to fetch audio files from database')) {
-                                scheduleInitialProjectSave(service, roomId) // Add auto-save
+                            scheduleInitialProjectSave(service, roomId) // Add auto-save
                             }
                             await new Promise(resolve => setTimeout(resolve, 500))
                             service.switchScreen("default")
@@ -399,7 +862,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         console.error('❌ Error fetching audio files:', audioError)
                         // Create empty project
                         if (safeCreateNewProject(service, 'Error fetching audio files')) {
-                            scheduleInitialProjectSave(service, roomId) // Add auto-save
+                        scheduleInitialProjectSave(service, roomId) // Add auto-save
                         }
                         await new Promise(resolve => setTimeout(resolve, 500))
                         service.switchScreen("default")
@@ -456,7 +919,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                             console.log('⚠️ Project bundle is not in ZIP format, skipping import')
                             console.log('📝 Creating new project instead')
                             if (safeCreateNewProject(service, 'Project bundle is not in ZIP format')) {
-                                scheduleInitialProjectSave(service, roomId) // Add auto-save
+                            scheduleInitialProjectSave(service, roomId) // Add auto-save
                             }
                             return
                         }
@@ -484,6 +947,18 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                             
                             // 🎯 项目已成功加载，不需要再调用 loadProjectFromJSON
                             console.log('✅ Project loaded from bundle, skipping JSON import')
+                            
+                            // 延迟打印详细轨道信息
+                            setTimeout(() => {
+                                console.log('📊 打印详细轨道信息...')
+                                printDetailedTrackInfo(service)
+                            }, 1500)
+                            
+                            // 延迟打印轨道信息，确保项目完全加载
+                            setTimeout(() => {
+                                console.log('⏰ 延迟1秒后打印轨道信息...')
+                                printAllTracksInfo(service)
+                            }, 1000)
                             
                             // 标记项目已从 bundle 加载
                             projectLoadedFromBundle = true
@@ -832,8 +1307,20 @@ async function loadProjectFromJSON(service: StudioService, projectData: any, roo
             await importRoomAudioFilesToSamples(service, projectData.audioFiles, roomId)
         }
         
-        console.log('✅ Project loaded from JSON data')
+                            console.log('✅ Project loaded from JSON data')
+                    
+                    // 延迟打印详细轨道信息
+                    setTimeout(() => {
+                        console.log('📊 打印详细轨道信息...')
+                        printDetailedTrackInfo(service)
+                    }, 1500)
         
+                        // 延迟打印轨道信息，确保项目完全加载
+                        setTimeout(() => {
+                            console.log('⏰ 延迟1秒后打印轨道信息...')
+                            printAllTracksInfo(service)
+                        }, 1000)
+                        
     } catch (error) {
         console.error('❌ Error loading project from JSON:', error)
         // Fallback to clean slate
@@ -2893,4 +3380,16 @@ function initializeTimelineSync(service: StudioService): void {
     ;(window as any).timelineSync = timelineSync
     
     console.log('✅ UpdateBasedTimelineSync initialized and started')
+}
+
+
+
+// 暴露全局函数以便调试
+;(window as any).printDetailedTrackInfo = () => {
+    const service = (window as any).globalStudioService
+    if (service) {
+        printDetailedTrackInfo(service)
+    } else {
+        console.error('❌ StudioService not available')
+    }
 }

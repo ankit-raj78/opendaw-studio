@@ -23,7 +23,7 @@ export interface UserSession {
 }
 
 export class DatabaseService {
-  private baseUrl: string = 'https://localhost:8443/api'
+  private baseUrl: string = 'http://localhost:8000/api'  // 使用与其他 API 相同的端口
   private authToken: string | null = null
 
   constructor(connectionString?: string) {
