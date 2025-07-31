@@ -1,7 +1,7 @@
 import {defineConfig, UserConfig} from "vite"
 import {resolve} from "path"
 import * as path from "node:path"
-import {readFileSync, writeFileSync} from "fs"
+import {readFileSync, writeFileSync, mkdirSync} from "fs"
 import {randomUUID} from "crypto"
 import {BuildInfo} from "./src/BuildInfo"
 import viteCompression from "vite-plugin-compression"
@@ -19,7 +19,12 @@ export default defineConfig(({mode, command}) => {
             {
                 name: "generate-date-json",
                 buildStart() {
-                    const outputPath = resolve(__dirname, "public", "build-info.json")
+                    const publicDir = resolve(__dirname, "studio", "public")
+                    const outputPath = resolve(publicDir, "build-info.json")
+                    
+                    // Ensure the directory exists
+                    mkdirSync(publicDir, { recursive: true })
+                    
                     writeFileSync(outputPath, JSON.stringify({date, uuid, env} satisfies BuildInfo, null, 2))
                     console.debug(`Build info written to: ${outputPath}`)
                 }
