@@ -37,17 +37,11 @@ export class OverlayManager {
 
   private injectStyles(): void {
     // Check if styles are already injected
-    if (document.getElementById('opendaw-collab-styles')) {
+    if (document.getElementById('opendaw-collab-styles-inline')) {
       return
     }
 
-    const link = document.createElement('link')
-    link.id = 'opendaw-collab-styles'
-    link.rel = 'stylesheet'
-    link.href = '/opendaw-collab-styles.css' // We'll serve this from our server
-    document.head.appendChild(link)
-
-    // Fallback: inject critical styles inline
+    // Inject all collaboration styles inline
     const style = document.createElement('style')
     style.id = 'opendaw-collab-styles-inline'
     style.textContent = `
