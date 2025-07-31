@@ -39,11 +39,9 @@ import { AudioUnitType } from './data/enums'
 import { AudioUnitBoxAdapter } from './audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter'
 import { ColorCodes } from './ui/mixer/ColorCodes'
 import { IconSymbol } from './IconSymbol'
-// ⬇️  realtime collaboration client from collab mvp project
-// @ts-ignore
-import { WSClient } from '../../opendaw-collab-mvp/src/websocket/WSClient'
-// @ts-ignore
-import { createCollabMessage } from '../../opendaw-collab-mvp/src/websocket/MessageTypes'
+// ⬇️  realtime collaboration client from local collaboration module
+import { WSClient } from './collaboration/WSClient'
+import { createCollabMessage } from './collaboration/MessageTypes'
 // @ts-ignore
 import { UpdateBasedTimelineSync } from './lib/timeline-sync/UpdateBasedTimelineSync'
 
