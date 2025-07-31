@@ -69,7 +69,7 @@ async function getWorkingApiBaseUrl(token: string): Promise<string | null> {
     }
     
     // Force using the expected endpoint based on Docker configuration
-    const defaultHost = 'http://localhost:8000' // SyncSphere runs on this port
+    const defaultHost = import.meta.env.VITE_SYNXSPHERE_URL || 'http://localhost:8000' // SyncSphere runs on this port
     console.log(`🔍 Using expected API host: ${defaultHost}`)
     workingApiBaseUrl = defaultHost
     return defaultHost
@@ -315,7 +315,15 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
         console.log('🎵 IFRAME MESSAGE: Received message from parent:', event.data)
         
         // Only handle messages from trusted origins
-        const allowedOrigins = ['http://localhost:3000', 'http://localhost:8000', 'https://localhost:8000', 'https://localhost:8080']
+        const allowedOrigins = [
+            'http://localhost:3000', 
+            'http://localhost:8000', 
+            'https://localhost:8000', 
+            'https://localhost:8080',
+            'http://184.73.115.98:8000',
+            'https://184.73.115.98:8000',
+            'https://184.73.115.98:8080'
+        ]
         if (!allowedOrigins.includes(event.origin)) {
             console.warn('🚨 IFRAME MESSAGE: Ignoring message from untrusted origin:', event.origin, 'Allowed:', allowedOrigins)
             return
