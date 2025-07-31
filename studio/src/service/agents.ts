@@ -146,19 +146,13 @@ if (isCollaborative && projectId && userId) {
             `
             document.head.appendChild(style)
             
-            // Add collaboration panel to UI
-            const panel = document.createElement('div')
-            panel.className = 'collaboration-panel'
-            panel.innerHTML = `
-                <h4>🤝 Collaboration</h4>
-                <div class="collab-user">
-                    <div class="collab-status"></div>
-                    <span>${userName || userId}</span>
-                </div>
-                <div class="collab-info">Project: ${projectId}</div>
-                <div class="collab-info" id="online-users">Users: 1</div>
-            `
-            document.body.appendChild(panel)
+            // 🚀 PERFORMANCE: Disable collaboration panel UI to reduce clutter and improve performance
+            console.log('🔇 [agents.ts] Collaboration panel UI disabled for better performance')
+            // DISABLED: Visual collaboration panel not needed for functionality
+            // const panel = document.createElement('div')
+            // panel.className = 'collaboration-panel'
+            // panel.innerHTML = `...`
+            // document.body.appendChild(panel)
             
             // Set up event listeners for user join/leave events
             if (collaborationManager) {

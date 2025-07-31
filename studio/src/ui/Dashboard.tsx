@@ -15,6 +15,37 @@ type Construct = {
 }
 
 export const Dashboard = ({service}: Construct) => {
+    // 🚀 OPTIMIZATION: Skip dashboard in collaborative mode
+    // Check if we're in collaborative mode and should bypass this dashboard
+    const urlParams = new URLSearchParams(window.location.search)
+    const isCollaborative = urlParams.get('collaborative') === 'true'
+    const projectId = urlParams.get('projectId')
+    const userId = urlParams.get('userId')
+    
+    if (isCollaborative && projectId && userId) {
+        console.log('🚀 Dashboard: Detected collaborative mode, creating session and switching to workspace...')
+        
+        // Create a minimal session to ensure workspace loads
+        if (!service.hasProjectSession) {
+            service.cleanSlate() // Creates new project session
+        }
+        
+        // Immediately switch to workspace
+        setTimeout(() => {
+            service.switchScreen("default")
+        }, 100)
+        
+        // Return a minimal loading state instead of full dashboard
+        return (
+            <div className={className}>
+                <article style={{textAlign: "center", padding: "2rem"}}>
+                    <h2>Loading Collaborative Workspace...</h2>
+                    <p>Preparing your project...</p>
+                </article>
+            </div>
+        )
+    }
+
     const time = TimeSpan.millis(new Date(service.buildInfo.date).getTime() - new Date().getTime()).toUnitString()
     return (
         <div className={className}>

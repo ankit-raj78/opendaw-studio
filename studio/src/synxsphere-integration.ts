@@ -827,58 +827,10 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                 service.switchScreen("default")
             }
             
-            // Add comprehensive project info panel
-            const projectInfoPanel = document.createElement('div')
-            projectInfoPanel.id = 'synxsphere-project-info'
-            projectInfoPanel.style.cssText = `
-                position: fixed;
-                top: 10px;
-                right: 10px;
-                background: rgba(0, 0, 0, 0.9);
-                color: #ffffff;
-                padding: 12px 16px;
-                border-radius: 8px;
-                font-family: system-ui, -apple-system, sans-serif;
-                font-size: 12px;
-                z-index: 9999;
-                border: 1px solid #3b82f6;
-                backdrop-filter: blur(8px);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                min-width: 280px;
-                max-width: 400px;
-            `
-            
-            // Get project name from the loaded data or use default
-            const projectName = (window as any).currentProjectData?.name || `test${roomId}`
-            const userDisplayName = decodeURIComponent(userName || 'Unknown User')
-            
-            projectInfoPanel.innerHTML = `
-                <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                    <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-right: 8px;"></div>
-                    <span style="font-weight: 600; color: #10b981;">SynxSphere Connected</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="color: #94a3b8; font-size: 10px;">PROJECT:</span><br>
-                    <span style="font-weight: 500;">${projectName}</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="color: #94a3b8; font-size: 10px;">ROOM ID:</span><br>
-                    <span style="font-family: monospace; font-size: 11px;">${roomId}</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="color: #94a3b8; font-size: 10px;">USER:</span><br>
-                    <span style="font-weight: 500;">${userDisplayName}</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="color: #94a3b8; font-size: 10px;">PROJECT ID:</span><br>
-                    <span style="font-family: monospace; font-size: 11px;">${projectId}</span>
-                </div>
-                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #374151;">
-                    <span style="color: #94a3b8; font-size: 10px;">Auto-save: </span>
-                    <span style="color: #10b981; font-size: 10px;">Every 30s</span>
-                </div>
-            `
-            document.body.appendChild(projectInfoPanel)
+            // Project info panel disabled for performance optimization
+            // const projectInfoPanel = document.createElement('div')
+            // projectInfoPanel.id = 'synxsphere-project-info'
+            // ... (panel creation code commented out for cleaner UI)
             
         } catch (error) {
             console.error('❌ Failed to load room project:', error)
@@ -2820,6 +2772,10 @@ async function forceTimelineUIUpdate(project: any) {
 
 // Function to update project info panel
 export function updateProjectInfoPanel(projectName?: string, additionalInfo?: any) {
+    // Project info panel disabled for performance optimization
+    // Panel creation was disabled, so this update function is also disabled
+    return
+    
     const panel = document.getElementById('synxsphere-project-info')
     if (!panel) return
     

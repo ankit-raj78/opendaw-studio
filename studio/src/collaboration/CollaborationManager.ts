@@ -231,21 +231,45 @@ export class CollaborationManager {
   }
 
   /**
-   * DISABLED: Combined project loading and sync to reduce redundant operations
+   * OPTIMIZED: Load existing project directly to skip dashboard and show workspace immediately
    */
   private async initializeProjectWithSync(): Promise<void> {
     try {
-      console.log('[Collaboration] 🔇 Project loading/sync disabled to prevent excessive audio operations')
+      console.log('[Collaboration] � Loading existing project to skip dashboard...')
       
-      // DISABLED: Preventing redundant audio loading
-      // - loadProjectFromDatabase() was causing duplicate audio loading
-      // - requestSync() was triggering additional sync operations
-      // - Audio files should only be loaded once during initial collaboration setup
+      if (!this.collaborativeAgent) {
+        console.error('[Collaboration] No collaborative agent available for project loading')
+        return
+      }
       
-      console.log('[Collaboration] ✅ Initialization complete (audio loading skipped)')
+      // Try to load existing project from database/OPFS
+      const projectLoaded = await this.collaborativeAgent.loadProjectFromDatabase()
+      
+      if (projectLoaded) {
+        console.log('[Collaboration] ✅ Project loaded successfully - dashboard will be skipped')
+        
+        // OPTIMIZATION: Since project is loaded, StudioService will automatically show workspace instead of dashboard
+        // The session exists, so when StudioService initializes it will call switchScreen("default") instead of showing dashboard
+        
+      } else {
+        console.log('[Collaboration] No existing project found - will create new project and skip dashboard')
+        
+        // Create a minimal project session to ensure dashboard is skipped
+        if (this.config.studioService) {
+          console.log('[Collaboration] Creating minimal project session to bypass dashboard...')
+          this.config.studioService.cleanSlate() // This creates a new session
+          console.log('[Collaboration] ✅ New project session created - dashboard will be skipped')
+        }
+      }
       
     } catch (error) {
-      console.error('[Collaboration] Failed to initialize project with sync:', error)
+      console.error('[Collaboration] Failed to initialize project:', error)
+      
+      // Fallback: create new project to at least skip dashboard
+      if (this.config.studioService) {
+        console.log('[Collaboration] Fallback: creating new project to skip dashboard')
+        this.config.studioService.cleanSlate()
+      }
     }
   }
 
