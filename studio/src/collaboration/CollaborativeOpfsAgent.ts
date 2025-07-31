@@ -30,6 +30,10 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
   private autoSaveTimer: NodeJS.Timeout | null = null
   private lastSaveTime = 0
   private pendingChanges = false
+  
+  // Audio loading deduplication
+  private audioLoadingState = new Map<string, Promise<void>>()
+  private loadedAudioFiles = new Set<string>()
 
   constructor(
     localOpfs: OpfsProtocol,
@@ -164,8 +168,9 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
     // Perform the actual write operation
     await this.localOpfs.write(path, data)
 
-    // Mark that there are pending changes for auto-save
-    this.markPendingChanges()
+    // DISABLED: Preventing automatic project saves on every write
+    // this.markPendingChanges()
+    console.log(`[CollabOpfs] ✅ Write completed (auto-save disabled): ${path}`)
   }
 
   // Debounced project save to avoid excessive saves
@@ -317,10 +322,12 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
     console.log(`🎵 [CollabOpfs] handleCollaborationMessage called with type: ${message.type}`)
     switch (message.type) {
       case 'load-project':
-        console.log(`📂 [CollabOpfs] Loading project with audio files:`, message.audioFiles?.length || 0)
-        if (message.audioFiles && message.audioFiles.length > 0) {
-          this.loadRoomAudioFiles(message.audioFiles)
-        }
+        console.log(`📂 [CollabOpfs] DISABLED: Audio loading to prevent excessive operations`)
+        console.log(`📂 [CollabOpfs] Original audio files count:`, message.audioFiles?.length || 0)
+        // DISABLED: Preventing redundant audio file loading
+        // if (message.audioFiles && message.audioFiles.length > 0) {
+        //   this.loadRoomAudioFiles(message.audioFiles)
+        // }
         break
         
       case 'BOX_CREATED':
@@ -338,8 +345,9 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
         break
       
       case 'SYNC_REQUEST':
-        // Respond with current state
-        this.syncOwnershipState()
+        console.log(`[CollabOpfs] DISABLED: Sync response to prevent excessive operations`)
+        // DISABLED: Preventing sync responses that trigger more loading
+        // this.syncOwnershipState()
         break
         
       default:
@@ -350,6 +358,7 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
   /**
    * Load room audio files into OPFS storage for collaboration
    * This implements the method signature trace: OpenDAWIntegration → CollaborativeOpfsAgent → AudioStorage
+   * PERFORMANCE: Includes deduplication to prevent redundant loading
    */
   private async loadRoomAudioFiles(audioFiles: any[]): Promise<void> {
     console.log(`🎵 [CollabOpfs] loadRoomAudioFiles called with ${audioFiles.length} files`)
@@ -361,9 +370,40 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
 
     // Get room ID from project ID (remove 'room-' prefix)
     const roomId = this.projectId.startsWith('room-') ? this.projectId.substring(5) : this.projectId
+    const loadKey = `${roomId}_${audioFiles.map(f => f.id).sort().join('_')}`
+    
+    // Check if this exact set of files is already being loaded
+    if (this.audioLoadingState.has(loadKey)) {
+      console.log(`⏳ [CollabOpfs] Audio files already loading for room ${roomId}, waiting...`)
+      await this.audioLoadingState.get(loadKey)
+      return
+    }
+    
+    // Check if all files are already loaded
+    const allFilesLoaded = audioFiles.every(file => this.loadedAudioFiles.has(file.id))
+    if (allFilesLoaded) {
+      console.log(`✅ [CollabOpfs] All audio files already loaded for room ${roomId}, skipping`)
+      return
+    }
+    
     console.log(`🏠 [CollabOpfs] Processing audio files for room: ${roomId}`)
 
-    // Import AudioStorage for storage operations
+    // Create loading promise
+    const loadingPromise = this.performAudioFileLoading(audioFiles, roomId)
+    this.audioLoadingState.set(loadKey, loadingPromise)
+    
+    try {
+      await loadingPromise
+    } finally {
+      // Clean up loading state
+      this.audioLoadingState.delete(loadKey)
+    }
+  }
+
+  /**
+   * Perform the actual audio file loading (separated for deduplication)
+   */
+  private async performAudioFileLoading(audioFiles: any[], roomId: string): Promise<void> {
     const { AudioStorage } = await import('../audio/AudioStorage')
     const { AudioData } = await import('../audio/AudioData')
     const { UUID } = await import('std')
@@ -374,6 +414,12 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
     try {
       for (const audioFile of audioFiles) {
         try {
+          // Skip if already loaded
+          if (this.loadedAudioFiles.has(audioFile.id)) {
+            console.log(`⏭️ [CollabOpfs] Audio file ${audioFile.id} already loaded, skipping`)
+            continue
+          }
+
           console.log(`🎵 [CollabOpfs] Processing audio file:`, {
             id: audioFile.id,
             name: audioFile.originalName || audioFile.filename,
@@ -424,6 +470,9 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
             AudioStorage.storeInRoom(roomId, sampleUuid, openDAWAudioData, peaksBuffer, metadata),
             AudioStorage.store(sampleUuid, openDAWAudioData, peaksBuffer, metadata)
           ])
+
+          // Mark as loaded
+          this.loadedAudioFiles.add(audioFile.id)
 
           console.log(`✅ [CollabOpfs] Successfully stored ${audioFile.originalName} in dual OPFS locations`)
 
@@ -498,8 +547,9 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
     // Perform the actual delete operation
     try {
       await this.localOpfs.delete(path)
-      // Mark that there are pending changes for auto-save
-      this.markPendingChanges()
+      // DISABLED: Preventing automatic project saves on every delete
+      // this.markPendingChanges()
+      console.log(`[CollabOpfs] ✅ Delete completed (auto-save disabled): ${path}`)
     } catch (error) {
       // If it's a "not found" error, ignore it (already deleted)
       if ((error as Error).name === 'NotFoundError') {
@@ -518,12 +568,14 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
 
   // Auto-save and project serialization methods
   private startAutoSave(): void {
-    // Auto-save every 30 seconds if there are pending changes
-    this.autoSaveTimer = setInterval(() => {
-      if (this.pendingChanges) {
-        this.saveProjectToDatabase()
-      }
-    }, 30000) // 30 seconds
+    // DISABLED: Auto-save causing excessive database operations
+    // this.autoSaveTimer = setInterval(() => {
+    //   if (this.pendingChanges) {
+    //     this.saveProjectToDatabase()
+    //   }
+    // }, 10000) // 10 seconds
+    
+    console.log('🔇 [CollabOpfs] Auto-save disabled to prevent excessive database operations')
   }
 
   private stopAutoSave(): void {
@@ -660,5 +712,168 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
   // Clean up resources
   cleanup(): void {
     this.stopAutoSave()
+    
+    // Clear audio loading state
+    this.audioLoadingState.clear()
+    this.loadedAudioFiles.clear()
+    console.log('🧹 [CollabOpfs] Audio loading state cleared')
+  }
+
+  /**
+   * DIAGNOSTIC: Check for mismatches between room and global OPFS storage
+   */
+  async checkAudioFileConsistency(): Promise<void> {
+    try {
+      console.log('🔍 [DIAGNOSTIC] Checking audio file consistency...')
+      
+      const roomId = this.projectId.startsWith('room-') ? this.projectId.substring(5) : this.projectId
+      console.log(`🔍 [DIAGNOSTIC] Room ID: ${roomId}`)
+      
+      // Import AudioStorage to check files
+      const { AudioStorage } = await import('../audio/AudioStorage')
+      
+      // Check room folder
+      const roomFolder = `samples/v2/room-${roomId}`
+      const globalFolder = `samples/v2`
+      
+      console.log(`🔍 [DIAGNOSTIC] Checking room folder: ${roomFolder}`)
+      console.log(`🔍 [DIAGNOSTIC] Checking global folder: ${globalFolder}`)
+      
+      let roomFiles: any[] = []
+      let globalFiles: any[] = []
+      
+      try {
+        const roomEntries = await this.localOpfs.list(roomFolder)
+        roomFiles = roomEntries.filter(entry => entry.kind === 'directory').map(entry => entry.name)
+        console.log(`📁 [DIAGNOSTIC] Room files found: ${roomFiles.length}`, roomFiles)
+        
+        // Also show what's inside each room file
+        for (const file of roomFiles.slice(0, 3)) { // Limit to first 3 for brevity
+          try {
+            const fileContents = await this.localOpfs.list(`${roomFolder}/${file}`)
+            console.log(`📄 [DIAGNOSTIC] Contents of room file ${file}:`, fileContents.map(e => e.name))
+          } catch (err) {
+            console.log(`📄 [DIAGNOSTIC] Could not read contents of ${file}`)
+          }
+        }
+      } catch (error) {
+        console.log(`📁 [DIAGNOSTIC] Room folder doesn't exist or is empty: ${roomFolder}`)
+      }
+      
+      try {
+        const globalEntries = await this.localOpfs.list(globalFolder)
+        console.log(`📁 [DIAGNOSTIC] All entries in global folder:`, globalEntries.map(e => `${e.name} (${e.kind})`))
+        
+        // Filter out room folders from global files - only include actual UUID directories
+        globalFiles = globalEntries
+          .filter(entry => entry.kind === 'directory')
+          .map(entry => entry.name)
+          .filter(name => !name.startsWith('room-')) // Exclude room folders
+        console.log(`📁 [DIAGNOSTIC] Global files found (excluding room folders): ${globalFiles.length}`, globalFiles)
+        
+        // Also show what's inside each global file
+        for (const file of globalFiles.slice(0, 3)) { // Limit to first 3 for brevity
+          try {
+            const fileContents = await this.localOpfs.list(`${globalFolder}/${file}`)
+            console.log(`📄 [DIAGNOSTIC] Contents of global file ${file}:`, fileContents.map(e => e.name))
+          } catch (err) {
+            console.log(`📄 [DIAGNOSTIC] Could not read contents of ${file}`)
+          }
+        }
+      } catch (error) {
+        console.log(`📁 [DIAGNOSTIC] Global folder doesn't exist or is empty: ${globalFolder}`)
+      }
+      
+      // Check for mismatches
+      const roomOnlyFiles = roomFiles.filter(file => !globalFiles.includes(file))
+      const globalOnlyFiles = globalFiles.filter(file => !roomFiles.includes(file))
+      const commonFiles = roomFiles.filter(file => globalFiles.includes(file))
+      
+      console.log(`🔍 [DIAGNOSTIC] Files only in room: ${roomOnlyFiles.length}`, roomOnlyFiles)
+      console.log(`🔍 [DIAGNOSTIC] Files only in global: ${globalOnlyFiles.length}`, globalOnlyFiles)
+      console.log(`🔍 [DIAGNOSTIC] Files in both: ${commonFiles.length}`, commonFiles)
+      
+      // Check loaded files state
+      console.log(`🔍 [DIAGNOSTIC] Loaded files in memory: ${this.loadedAudioFiles.size}`, Array.from(this.loadedAudioFiles))
+      
+      // Summary
+      if (roomOnlyFiles.length > 0 || globalOnlyFiles.length > 0) {
+        console.warn(`⚠️ [DIAGNOSTIC] MISMATCH DETECTED!`)
+        console.warn(`⚠️ [DIAGNOSTIC] Room-only files: ${roomOnlyFiles}`)
+        console.warn(`⚠️ [DIAGNOSTIC] Global-only files: ${globalOnlyFiles}`)
+        
+        // Suggest fix
+        if (roomOnlyFiles.length > 0) {
+          console.log(`💡 [DIAGNOSTIC] SUGGESTION: Room files missing from global storage.`)
+          console.log(`💡 [DIAGNOSTIC] This could indicate dual storage failed during audio loading.`)
+          console.log(`💡 [DIAGNOSTIC] Run: fixDualStorage() to copy room files to global storage`)
+        }
+      } else {
+        console.log(`✅ [DIAGNOSTIC] Audio files are consistent between room and global storage`)
+      }
+      
+    } catch (error) {
+      console.error('❌ [DIAGNOSTIC] Failed to check audio file consistency:', error)
+    }
+  }
+
+  /**
+   * DIAGNOSTIC: Fix dual storage by copying room files to global storage
+   */
+  async fixDualStorage(): Promise<void> {
+    try {
+      console.log('🔧 [FIX] Attempting to fix dual storage...')
+      
+      const roomId = this.projectId.startsWith('room-') ? this.projectId.substring(5) : this.projectId
+      const roomFolder = `samples/v2/room-${roomId}`
+      const globalFolder = `samples/v2`
+      
+      // Get room files
+      let roomFiles: string[] = []
+      try {
+        const roomEntries = await this.localOpfs.list(roomFolder)
+        roomFiles = roomEntries.filter(entry => entry.kind === 'directory').map(entry => entry.name)
+        console.log(`🔧 [FIX] Found ${roomFiles.length} files in room storage:`, roomFiles)
+      } catch (error) {
+        console.log(`🔧 [FIX] No room files found`)
+        return
+      }
+      
+      // Check which files are missing from global
+      for (const fileUuid of roomFiles) {
+        try {
+          // Check if exists in global
+          await this.localOpfs.list(`${globalFolder}/${fileUuid}`)
+          console.log(`✅ [FIX] File ${fileUuid} already exists in global storage`)
+        } catch (error) {
+          // File doesn't exist in global, copy it
+          console.log(`🔧 [FIX] Copying ${fileUuid} from room to global storage...`)
+          
+          try {
+            // Get all files in the room audio directory
+            const roomAudioFiles = await this.localOpfs.list(`${roomFolder}/${fileUuid}`)
+            
+            // Copy each file
+            for (const audioFile of roomAudioFiles) {
+              const sourcePath = `${roomFolder}/${fileUuid}/${audioFile.name}`
+              const destPath = `${globalFolder}/${fileUuid}/${audioFile.name}`
+              
+              console.log(`📋 [FIX] Copying ${audioFile.name}...`)
+              const fileData = await this.localOpfs.read(sourcePath)
+              await this.localOpfs.write(destPath, fileData)
+            }
+            
+            console.log(`✅ [FIX] Successfully copied ${fileUuid} to global storage`)
+          } catch (copyError) {
+            console.error(`❌ [FIX] Failed to copy ${fileUuid}:`, copyError)
+          }
+        }
+      }
+      
+      console.log(`🔧 [FIX] Dual storage fix complete!`)
+      
+    } catch (error) {
+      console.error('❌ [FIX] Failed to fix dual storage:', error)
+    }
   }
 }

@@ -181,16 +181,31 @@ export namespace AudioStorage {
                 })), () => [])
     }
 
+    // Folder existence cache to reduce redundant OPFS operations
+    const folderExistenceCache = new Map<string, { exists: boolean, timestamp: number }>()
+    const FOLDER_CACHE_DURATION = 2 * 60 * 1000 // 2 minutes
+
     // Ensure room folder exists by creating the directory structure step by step
     export const ensureRoomFolderExists = async (roomId: string): Promise<void> => {
         try {
             const roomFolder = getRoomFolder(roomId)
+            
+            // Check cache first
+            const cached = folderExistenceCache.get(roomFolder)
+            if (cached && (Date.now() - cached.timestamp) < FOLDER_CACHE_DURATION && cached.exists) {
+                console.log(`✅ OPFS: Room ${roomId} folder exists (cached)`)
+                return
+            }
+            
             console.log(`📁 OPFS: Checking room ${roomId} folder: ${roomFolder}`)
             
             // Try to list the room folder first
             console.log(`📁 OPFS: Attempting to list room folder...`)
             const files = await OpfsAgent.list(roomFolder)
             console.log(`✅ OPFS: Room ${roomId} folder already exists with ${files.length} items`)
+            
+            // Cache the successful result
+            folderExistenceCache.set(roomFolder, { exists: true, timestamp: Date.now() })
         } catch (error) {
             console.log(`📁 OPFS: Room ${roomId} folder does not exist, creating...`)
             console.log(`📁 OPFS: List error was:`, {
@@ -228,15 +243,21 @@ export namespace AudioStorage {
                 await OpfsAgent.delete(`${roomFolder}/.temp`)
                 console.log(`✅ OPFS: Room ${roomId} folder created successfully`)
                 
+                // Cache the successful creation
+                folderExistenceCache.set(roomFolder, { exists: true, timestamp: Date.now() })
+                
             } catch (createError) {
+                const roomFolder = getRoomFolder(roomId)
                 console.error(`❌ OPFS: Failed to create room ${roomId} folder:`, createError)
                 console.error(`❌ OPFS: Create error details:`, {
                     name: (createError as Error).name,
                     message: (createError as Error).message,
                     stack: (createError as Error).stack,
                     roomId: roomId,
-                    roomFolder: getRoomFolder(roomId)
+                    roomFolder: roomFolder
                 })
+                // Cache the failed result temporarily (shorter duration)
+                folderExistenceCache.set(roomFolder, { exists: false, timestamp: Date.now() })
                 throw createError
             }
         }
@@ -485,14 +506,26 @@ export namespace AudioStorage {
         return OpfsAgent.delete(`${path}`)
     }
 
+    // Token caching to reduce redundant authentication
+    let cachedToken: { token: string | null, source: string, timestamp: number } | null = null
+    const TOKEN_CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
     // Unified token getter function to avoid duplication
     const getAuthTokenForStorage = (): { token: string | null, source: string } => {
+        // Check cache first
+        if (cachedToken && (Date.now() - cachedToken.timestamp) < TOKEN_CACHE_DURATION) {
+            console.log('✅ TOKEN-DEBUG: Using cached token from', cachedToken.source)
+            return { token: cachedToken.token, source: cachedToken.source }
+        }
+
         const urlParams = new URLSearchParams(window.location.search)
         
         console.log('🔍 TOKEN-DEBUG: Checking all token sources...')
         console.log('🔍 TOKEN-DEBUG: Current URL:', window.location.href)
         console.log('🔍 TOKEN-DEBUG: URL params:', Object.fromEntries(urlParams.entries()))
         
+        let result: { token: string | null, source: string }
+
         // Try URL parameter first (base64 encoded)
         const urlToken = urlParams.get('auth_token')
         console.log('🔍 TOKEN-DEBUG: URL auth_token:', urlToken ? `${urlToken.substring(0, 20)}...` : 'null')
@@ -501,7 +534,10 @@ export namespace AudioStorage {
                 const decoded = atob(urlToken)
                 if (decoded) {
                     console.log('✅ TOKEN-DEBUG: Using decoded URL token')
-                    return { token: decoded, source: 'URL parameter' }
+                    result = { token: decoded, source: 'URL parameter' }
+                    // Cache the token
+                    cachedToken = { ...result, timestamp: Date.now() }
+                    return result
                 }
             } catch (e) {
                 console.warn('⚠️ STORAGE-AUTH: Invalid base64 auth_token in URL:', (e as Error).message)
@@ -513,7 +549,9 @@ export namespace AudioStorage {
         console.log('🔍 TOKEN-DEBUG: sessionStorage synxsphere_token:', sessionToken ? `${sessionToken.substring(0, 20)}...` : 'null')
         if (sessionToken) {
             console.log('✅ TOKEN-DEBUG: Using sessionStorage token')
-            return { token: sessionToken, source: 'sessionStorage' }
+            result = { token: sessionToken, source: 'sessionStorage' }
+            cachedToken = { ...result, timestamp: Date.now() }
+            return result
         }
         
         // Try localStorage
@@ -521,7 +559,9 @@ export namespace AudioStorage {
         console.log('🔍 TOKEN-DEBUG: localStorage token:', localToken ? `${localToken.substring(0, 20)}...` : 'null')
         if (localToken) {
             console.log('✅ TOKEN-DEBUG: Using localStorage token')
-            return { token: localToken, source: 'localStorage' }
+            result = { token: localToken, source: 'localStorage' }
+            cachedToken = { ...result, timestamp: Date.now() }
+            return result
         }
         
         // Try parent window (for iframe scenarios)
@@ -531,7 +571,9 @@ export namespace AudioStorage {
                 console.log('🔍 TOKEN-DEBUG: parent window token:', parentToken ? `${parentToken.substring(0, 20)}...` : 'null')
                 if (parentToken) {
                     console.log('✅ TOKEN-DEBUG: Using parent window token')
-                    return { token: parentToken, source: 'parent window' }
+                    result = { token: parentToken, source: 'parent window' }
+                    cachedToken = { ...result, timestamp: Date.now() }
+                    return result
                 }
             }
         } catch (e) {
@@ -539,7 +581,9 @@ export namespace AudioStorage {
         }
         
         console.log('❌ TOKEN-DEBUG: No token found in any location')
-        return { token: null, source: 'none' }
+        result = { token: null, source: 'none' }
+        cachedToken = { ...result, timestamp: Date.now() }
+        return result
     }
 
     // Helper function to sync database samples to OPFS

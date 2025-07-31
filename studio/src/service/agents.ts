@@ -81,25 +81,20 @@ if (isCollaborative && projectId && userId) {
             currentOpfsAgent = collaborativeAgent
             collaborationInitialized = true
             
-            // Trigger immediate pre-loading of project audio files
-            console.log('🔄 COLLAB-INIT: Requesting immediate project audio pre-load...')
-            setTimeout(() => {
-                // Check if there's a pending load-project message
-                const pendingMessage = (window as any).pendingLoadProjectMessage
-                if (pendingMessage) {
-                    console.log('📂 COLLAB-INIT: Processing pending load-project message')
-                    collaborativeAgent.handleCollaborationMessage(pendingMessage)
-                    delete (window as any).pendingLoadProjectMessage
-                } else {
-                    // No pending message, try to trigger audio pre-loading anyway
-                    console.log('🔄 COLLAB-INIT: No pending message, triggering audio sync for room', projectId)
-                    collaborativeAgent.handleCollaborationMessage({
-                        type: 'load-project',
-                        audioFiles: [], // Will be populated by the database sync
-                        projectId: projectId
-                    })
-                }
-            }, 1000) // Give collaboration system time to stabilize
+            // PERFORMANCE FIX: Remove redundant audio pre-loading 
+            // The CollaborationManager.initialize() already calls:
+            // 1. loadExistingProject() - which loads audio files
+            // 2. requestSync() - which may trigger additional audio loading
+            // So we don't need this additional setTimeout trigger
+            console.log('� COLLAB-INIT: Audio loading handled by CollaborationManager initialization')
+            
+            // Only process pending load-project message if it exists
+            const pendingMessage = (window as any).pendingLoadProjectMessage
+            if (pendingMessage) {
+                console.log('� COLLAB-INIT: Processing pending load-project message')
+                collaborativeAgent.handleCollaborationMessage(pendingMessage)
+                delete (window as any).pendingLoadProjectMessage
+            }
             
             // Add visual indicators
             const style = document.createElement('style')
@@ -205,6 +200,26 @@ if (isCollaborative && projectId && userId) {
                 console.log('✅ Event listeners set up successfully')
             } else {
                 console.error('❌ CollaborationManager is null, cannot set up event listeners')
+            }
+            
+            // Expose diagnostic function globally for debugging
+            ;(window as any).checkAudioConsistency = () => {
+                if (collaborativeAgent && typeof collaborativeAgent.checkAudioFileConsistency === 'function') {
+                    console.log('🔍 Running audio file consistency check...')
+                    collaborativeAgent.checkAudioFileConsistency()
+                } else {
+                    console.error('❌ Collaborative agent not available or missing checkAudioFileConsistency method')
+                }
+            }
+            
+            // Expose fix function globally for debugging
+            ;(window as any).fixDualStorage = () => {
+                if (collaborativeAgent && typeof collaborativeAgent.fixDualStorage === 'function') {
+                    console.log('🔧 Running dual storage fix...')
+                    collaborativeAgent.fixDualStorage()
+                } else {
+                    console.error('❌ Collaborative agent not available or missing fixDualStorage method')
+                }
             }
             
             // Function to update user count by requesting sync

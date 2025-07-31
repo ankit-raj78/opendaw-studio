@@ -2883,7 +2883,7 @@ export function updateProjectInfoPanel(projectName?: string, additionalInfo?: an
         ${bundleInfo}
         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #374151;">
             <span style="color: #94a3b8; font-size: 10px;">Auto-save: </span>
-            <span style="color: #10b981; font-size: 10px;">Every 30s</span>
+            <span style="color: #10b981; font-size: 10px;">Every 10s</span>
         </div>
     `
 }
@@ -2955,7 +2955,7 @@ export async function saveProjectToRoom(service: StudioService) {
     }
 }
 
-// Auto-save every 30 seconds
+// Auto-save every 10 seconds
 let autoSaveInterval: number | null = null
 
 export function startAutoSave(service: StudioService) {
@@ -2967,7 +2967,7 @@ export function startAutoSave(service: StudioService) {
     
     autoSaveInterval = window.setInterval(() => {
         saveProjectToRoom(service)
-    }, 30000) // 30 seconds
+    }, 10000) // 10 seconds
 }
 
 export function stopAutoSave() {

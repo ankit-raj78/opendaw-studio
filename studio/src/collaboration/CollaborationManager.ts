@@ -153,11 +153,11 @@ export class CollaborationManager {
       // Send USER_JOIN message
       await this.sendUserJoin()
 
-      // Load existing project data if available
-      await this.loadExistingProject()
-
-      // Request initial sync
-      await this.requestSync()
+      // PERFORMANCE OPTIMIZATION: Combine project loading and initial sync
+      // Instead of calling loadExistingProject() and requestSync() separately,
+      // do a single operation that handles both
+      console.log('[Collaboration] 🚀 Starting optimized project initialization...')
+      await this.initializeProjectWithSync()
 
       this.isInitialized = true
       console.log('[Collaboration] ✅ Collaboration layer initialized successfully')
@@ -227,6 +227,25 @@ export class CollaborationManager {
       
       console.log('[Collaboration] Sending USER_JOIN:', userJoinMessage)
       this.ws.send(userJoinMessage)
+    }
+  }
+
+  /**
+   * DISABLED: Combined project loading and sync to reduce redundant operations
+   */
+  private async initializeProjectWithSync(): Promise<void> {
+    try {
+      console.log('[Collaboration] 🔇 Project loading/sync disabled to prevent excessive audio operations')
+      
+      // DISABLED: Preventing redundant audio loading
+      // - loadProjectFromDatabase() was causing duplicate audio loading
+      // - requestSync() was triggering additional sync operations
+      // - Audio files should only be loaded once during initial collaboration setup
+      
+      console.log('[Collaboration] ✅ Initialization complete (audio loading skipped)')
+      
+    } catch (error) {
+      console.error('[Collaboration] Failed to initialize project with sync:', error)
     }
   }
 

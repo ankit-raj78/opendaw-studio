@@ -11,6 +11,11 @@ export class WSClient {
   private messageHandlers: Map<CollabMessageType, (message: CollabMessage) => void> = new Map()
   private isConnecting = false
   private heartbeatInterval: NodeJS.Timeout | null = null
+  
+  // Debouncing for SYNC_RESPONSE messages
+  private syncResponseTimeout: NodeJS.Timeout | null = null
+  private lastSyncResponseMessage: CollabMessage | null = null
+  private readonly SYNC_RESPONSE_DEBOUNCE_MS = 500
 
   constructor(url: string, projectId: string, userId: string) {
     this.url = url
@@ -124,9 +129,26 @@ export class WSClient {
 
     // Handle heartbeat responses
     if (message.type === 'SYNC_RESPONSE') {
-      // Update our local state with server state
-      console.log(`🔄 Handling SYNC_RESPONSE`)
-      this.handleSyncResponse(message)
+      // Debounce SYNC_RESPONSE messages to reduce excessive processing
+      console.log(`🔄 Debouncing SYNC_RESPONSE (${this.SYNC_RESPONSE_DEBOUNCE_MS}ms)`)
+      
+      // Store the latest message
+      this.lastSyncResponseMessage = message
+      
+      // Clear any existing timeout
+      if (this.syncResponseTimeout) {
+        clearTimeout(this.syncResponseTimeout)
+      }
+      
+      // Set new timeout to process the latest message
+      this.syncResponseTimeout = setTimeout(() => {
+        if (this.lastSyncResponseMessage) {
+          console.log(`🔄 Processing debounced SYNC_RESPONSE`)
+          this.handleSyncResponse(this.lastSyncResponseMessage)
+          this.lastSyncResponseMessage = null
+        }
+      }, this.SYNC_RESPONSE_DEBOUNCE_MS)
+      
       return
     }
 
@@ -152,17 +174,20 @@ export class WSClient {
   }
 
   private startHeartbeat(): void {
-    this.heartbeatInterval = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.send({
-          type: 'SYNC_REQUEST',
-          projectId: this.projectId,
-          userId: this.userId,
-          timestamp: Date.now(),
-          data: {}
-        })
-      }
-    }, 30000) // Send heartbeat every 30 seconds
+    // DISABLED: Frequent sync requests causing excessive audio loading
+    // this.heartbeatInterval = setInterval(() => {
+    //   if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    //     this.send({
+    //       type: 'SYNC_REQUEST',
+    //       projectId: this.projectId,
+    //       userId: this.userId,
+    //       timestamp: Date.now(),
+    //       data: {}
+    //     })
+    //   }
+    // }, 10000) // Send heartbeat every 10 seconds
+    
+    console.log('🔇 [WSClient] Heartbeat disabled to prevent excessive audio loading')
   }
 
   private stopHeartbeat(): void {
@@ -192,6 +217,13 @@ export class WSClient {
 
   disconnect(): void {
     this.stopHeartbeat()
+    
+    // Clean up sync response timeout
+    if (this.syncResponseTimeout) {
+      clearTimeout(this.syncResponseTimeout)
+      this.syncResponseTimeout = null
+      this.lastSyncResponseMessage = null
+    }
     
     if (this.ws) {
       // Send leave message before disconnecting
