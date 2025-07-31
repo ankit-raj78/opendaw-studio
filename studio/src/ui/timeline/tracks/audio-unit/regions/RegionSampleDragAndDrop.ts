@@ -28,7 +28,9 @@ export class RegionSampleDragAndDrop extends TimelineDragAndDrop<RegionCaptureTa
         const duration = Math.round(PPQN.secondsToPulses(durationInSeconds, bpm))
         const solver = RegionClipResolver.fromRange(trackBoxAdapter, position, position + duration)
         solver()
-        AudioRegionBox.create(this.project.boxGraph, UUID.generate(), box => {
+        const regionId = UUID.generate()
+        
+        AudioRegionBox.create(this.project.boxGraph, regionId, box => {
             box.position.setValue(position)
             box.duration.setValue(duration)
             box.loopDuration.setValue(duration)
@@ -37,5 +39,38 @@ export class RegionSampleDragAndDrop extends TimelineDragAndDrop<RegionCaptureTa
             box.label.setValue(name)
             box.file.refer(audioFileBox)
         })
+        
+        // 🚀 Broadcast region creation to collaborators
+        try {
+            const ws: any = (window as any).wsClient
+            if (ws?.isConnected && typeof ws.sendRegionCreated === 'function') {
+                // Debug: Check audioFileBox
+                console.log('[RegionSampleDragAndDrop] DEBUG - audioFileBox:', audioFileBox)
+                console.log('[RegionSampleDragAndDrop] DEBUG - audioFileBox.address.uuid:', audioFileBox?.address?.uuid)
+                
+                // Ensure all UUIDs are valid before converting
+                const regionIdStr = regionId ? UUID.toString(regionId) : 'unknown'
+                const trackIdStr = trackBoxAdapter?.address?.uuid ? UUID.toString(trackBoxAdapter.address.uuid) : 'unknown'
+                const sampleIdStr = audioFileBox?.address?.uuid ? UUID.toString(audioFileBox.address.uuid) : 'unknown'
+                
+                console.log('[RegionSampleDragAndDrop] Broadcasting region creation:', {
+                    regionId: regionIdStr,
+                    trackId: trackIdStr,
+                    startTime: position,
+                    duration,
+                    sampleId: sampleIdStr
+                })
+                
+                ws.sendRegionCreated(
+                    regionIdStr,
+                    trackIdStr,
+                    position,
+                    duration,
+                    sampleIdStr
+                )
+            }
+        } catch (err) {
+            console.error('[RegionSampleDragAndDrop] ❌ Failed to broadcast region creation:', err)
+        }
     }
 }

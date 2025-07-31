@@ -57,13 +57,89 @@ requestAnimationFrame(async () => {
         }
         if (context.state === "suspended") {
             window.addEventListener("click",
-                async () => await context.resume().then(() =>
-                    console.debug(`AudioContext resumed (${context.state})`)), {capture: true, once: true})
+                async () => {
+                    if (context.state === "suspended") {
+                        await context.resume().then(() =>
+                            console.debug(`AudioContext resumed (${context.state})`))
+                    }
+                }, {capture: true})  // 移除 once: true，允许多次尝试恢复
         }
         const audioDevices = await AudioOutputDevice.create(context)
         const audioManager = new UIAudioManager({
-            fetch: async (uuid: UUID.Format, progress: Procedure<unitValue>): Promise<[AudioData, AudioMetaData]> =>
-                SampleApi.load(context, uuid, progress)
+            fetch: async (uuid: UUID.Format, progress: Procedure<unitValue>): Promise<[AudioData, AudioMetaData]> => {
+                console.log(`🔄 MAIN: AudioManager.fetch called for sample ${UUID.toString(uuid)}`)
+                console.log(`🔍 MAIN: Current URL: ${window.location.href}`)
+                console.log(`🔍 MAIN: URL pathname: ${window.location.pathname}`)
+                console.log(`🔍 MAIN: URL search: ${window.location.search}`)
+                
+                // Try to detect room context first
+                let roomId = ''
+                try {
+                    const urlParams = new URLSearchParams(window.location.search)
+                    
+                    // First try 'roomId' parameter
+                    let urlRoomId = urlParams.get('roomId')
+                    console.log(`🔍 MAIN: URL roomId parameter: ${urlRoomId}`)
+                    
+                    if (urlRoomId) {
+                        roomId = urlRoomId
+                        console.log(`🔍 MAIN: Room ID from URL parameter: ${roomId}`)
+                    } else {
+                        // Try 'projectId' parameter (collaborative mode uses this format)
+                        const projectId = urlParams.get('projectId')
+                        console.log(`🔍 MAIN: URL projectId parameter: ${projectId}`)
+                        
+                        if (projectId && projectId.startsWith('room-')) {
+                            // Extract room ID from 'room-{uuid}' format
+                            roomId = projectId.replace('room-', '')
+                            console.log(`🔍 MAIN: Room ID extracted from projectId: ${roomId}`)
+                        } else if (projectId) {
+                            // Use projectId directly if it doesn't have 'room-' prefix
+                            roomId = projectId
+                            console.log(`🔍 MAIN: Room ID from projectId directly: ${roomId}`)
+                        } else {
+                            // Try to extract from current URL path if it contains room info
+                            const pathMatch = window.location.pathname.match(/\/room\/([^\/]+)/)
+                            console.log(`🔍 MAIN: Path match result: ${pathMatch}`)
+                            if (pathMatch) {
+                                roomId = pathMatch[1]
+                                console.log(`🔍 MAIN: Room ID from path: ${roomId}`)
+                            }
+                        }
+                    }
+                } catch (urlError) {
+                    console.warn(`⚠️ MAIN: Failed to detect room context:`, urlError)
+                }
+                
+                console.log(`🔍 MAIN: Final detected room ID: '${roomId}'`)
+                
+                if (roomId) {
+                    console.log(`🔄 MAIN: Room context detected (${roomId}), using collaborative sample loading`)
+                    // In collaborative mode, use AudioStorage which can download from our database
+                    try {
+                        console.log(`🔄 MAIN: Calling AudioStorage.load() for sample ${UUID.toString(uuid)}`)
+                        const [audioData, peaks, metadata] = await AudioStorage.load(uuid, context)
+                        console.log(`✅ MAIN: Successfully loaded sample ${UUID.toString(uuid)} from collaborative storage`)
+                        // Progress is handled internally by AudioStorage
+                        progress(1.0)
+                        return [audioData, metadata]
+                    } catch (error) {
+                        console.error(`❌ MAIN: Failed to load sample ${UUID.toString(uuid)} from collaborative storage:`, error)
+                        console.error(`❌ MAIN: Error details:`, {
+                            name: (error as Error).name,
+                            message: (error as Error).message,
+                            stack: (error as Error).stack
+                        })
+                        // Fall back to external API as last resort
+                        console.log(`🔄 MAIN: Falling back to external OpenDAW API for sample ${UUID.toString(uuid)}`)
+                        return SampleApi.load(context, uuid, progress)
+                    }
+                } else {
+                    console.log(`🔄 MAIN: No room context, using external OpenDAW API`)
+                    // Non-collaborative mode, use external OpenDAW API
+                    return SampleApi.load(context, uuid, progress)
+                }
+            }
         } satisfies AudioServerApi, context)
         const service: StudioService =
             new StudioService(context, audioWorklets.value, audioDevices, audioManager, buildInfo)

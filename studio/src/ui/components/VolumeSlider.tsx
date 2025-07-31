@@ -117,7 +117,36 @@ export const VolumeSlider = ({lifecycle, editing, parameter}: Construct) => {
             },
             modify: (value: unitValue) => editing.modify(() => parameter.setUnitValue(value), false),
             cancel: (prevValue: unitValue) => editing.modify(() => parameter.setUnitValue(prevValue), false),
-            finalise: (_prevValue: unitValue, _newValue: unitValue): void => editing.mark(),
+            finalise: (_prevValue: unitValue, newValue: unitValue): void => {
+                editing.mark()
+                console.log('[VolumeSlider] Volume change finalised:', { parameterId: parameter.uuid, value: newValue })
+                
+                // 🚀 Broadcast parameter change to collaborators
+                try {
+                    const ws: any = (window as any).wsClient
+                    console.log('[VolumeSlider] WebSocket client status:', { 
+                        exists: !!ws, 
+                        isConnected: ws?.isConnected, 
+                        hasSendUpdateTrack: typeof ws?.sendUpdateTrack === 'function'
+                    })
+                    
+                    if (ws?.isConnected && typeof ws.sendUpdateTrack === 'function') {
+                        const updateData = {
+                            parameterId: parameter.uuid,
+                            parameterType: 'volume',
+                            value: newValue,
+                            timestamp: Date.now()
+                        }
+                        console.log('[VolumeSlider] ✅ Sending volume update:', updateData)
+                        ws.sendUpdateTrack(updateData)
+                        console.log('[VolumeSlider] ✅ Volume update sent successfully!')
+                    } else {
+                        console.warn('[VolumeSlider] ❌ Cannot send volume update - WebSocket not ready')
+                    }
+                } catch (err) {
+                    console.error('[VolumeSlider] ❌ Failed to send volume update:', err)
+                }
+            },
             finally: (): void => {}
         }), wrapper, {
             trackLength: trackLength - snapLength,

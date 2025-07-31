@@ -194,11 +194,15 @@ export const ChannelStrip = ({lifecycle, service, adapter, compact}: Construct) 
         TextTooltip.default(maxPeakLabel, () => "Click to reset"),
         adapter.isOutput
             ? Terminable.Empty
-            : DragAndDrop.installSource(iconElement, () => ({
-                uuid: UUID.toString(adapter.uuid),
-                type: "channelstrip",
-                start_index: adapter.indexField.getValue()
-            }), element),
+            : DragAndDrop.installSource(iconElement, () => {
+                const dragData = {
+                    uuid: UUID.toString(adapter.uuid),
+                    type: "channelstrip",
+                    start_index: adapter.indexField.getValue()
+                }
+                console.log('[ChannelStrip] Creating drag data:', dragData)
+                return dragData
+            }, element),
         volume.subscribe(updateVolumeLabel)
     )
     return element

@@ -18,6 +18,16 @@ export class Shortcuts {
                 service.browse()
             } else if (code === "Space") {
                 event.preventDefault()
+                
+                // 确保 AudioContext 是活跃的
+                if (service.context.state === 'suspended') {
+                    service.context.resume().then(() => {
+                        console.log('✅ AudioContext resumed for playback')
+                    }).catch(error => {
+                        console.error('❌ Failed to resume AudioContext:', error)
+                    })
+                }
+                
                 const playing = service.engine.isPlaying()
                 playing.setValue(!playing.getValue())
             } else if (code === "KeyE") {

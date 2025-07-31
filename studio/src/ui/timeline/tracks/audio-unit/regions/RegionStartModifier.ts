@@ -117,6 +117,31 @@ export class RegionStartModifier implements RegionModifier {
             solver()
         })
         RegionClipResolver.validateTracks(modifiedTracks)
+        
+        // 🚀 Broadcast region start resize to collaborators
+        try {
+            const ws: any = (window as any).wsClient
+            if (ws?.isConnected && typeof ws.sendRegionResized === 'function') {
+                result.forEach(({region, delta}) => {
+                    const regionId = region.uuid
+                    const trackId = region.trackBoxAdapter.unwrap().uuid
+                    const startTime = region.position + delta
+                    const duration = region.duration - delta
+                    
+                    console.log('[RegionStartModifier] Broadcasting region start resize:', {
+                        regionId,
+                        trackId,
+                        startTime,
+                        duration,
+                        delta
+                    })
+                    
+                    ws.sendRegionResized(regionId, trackId, startTime, duration)
+                })
+            }
+        } catch (err) {
+            console.error('[RegionStartModifier] ❌ Failed to broadcast region start resize:', err)
+        }
     }
 
     cancel(): void {

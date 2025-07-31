@@ -1,7 +1,7 @@
 import {defineConfig, UserConfig} from "vite"
 import {resolve} from "path"
 import * as path from "node:path"
-import {readFileSync, writeFileSync} from "fs"
+import {readFileSync, writeFileSync, mkdirSync} from "fs"
 import {randomUUID} from "crypto"
 import {BuildInfo} from "./src/BuildInfo"
 import viteCompression from "vite-plugin-compression"
@@ -19,7 +19,12 @@ export default defineConfig(({mode, command}) => {
             {
                 name: "generate-date-json",
                 buildStart() {
-                    const outputPath = resolve(__dirname, "public", "build-info.json")
+                    const publicDir = resolve(__dirname, "studio", "public")
+                    const outputPath = resolve(publicDir, "build-info.json")
+                    
+                    // Ensure the directory exists
+                    mkdirSync(publicDir, { recursive: true })
+                    
                     writeFileSync(outputPath, JSON.stringify({date, uuid, env} satisfies BuildInfo, null, 2))
                     console.debug(`Build info written to: ${outputPath}`)
                 }
@@ -61,7 +66,19 @@ export default defineConfig(({mode, command}) => {
         esbuild: {
             target: "esnext"
         },
-        clearScreen: false
+        clearScreen: false,
+        preview: {
+            port: 8080,
+            host: '0.0.0.0',
+            https: {
+                key: readFileSync(resolve(__dirname, "../localhost-key.pem")),
+                cert: readFileSync(resolve(__dirname, "../localhost.pem"))
+            },
+            headers: {
+                'Cross-Origin-Opener-Policy': 'same-origin',
+                'Cross-Origin-Embedder-Policy': 'require-corp'
+            }
+        }
     }
     if (command === "serve") {
         config.server = {
@@ -70,6 +87,10 @@ export default defineConfig(({mode, command}) => {
             https: {
                 key: readFileSync(resolve(__dirname, "../localhost-key.pem")),
                 cert: readFileSync(resolve(__dirname, "../localhost.pem"))
+            },
+            headers: {
+                'Cross-Origin-Opener-Policy': 'same-origin',
+                'Cross-Origin-Embedder-Policy': 'require-corp'
             },
             watch: {
                 ignored: ["**/src-tauri/**"]

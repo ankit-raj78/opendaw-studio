@@ -2,7 +2,9 @@ import { CollaborativeOpfsAgent, setStudioServiceRef } from './CollaborativeOpfs
 import { DatabaseService } from './DatabaseService'
 import { WSClient } from './WSClient'
 import { OverlayManager } from './OverlayManager'
-import { CollabMessage } from './MessageTypes'
+import { CollabMessage, CollabMessageType } from '../../../../opendaw-collab-mvp/src/websocket/MessageTypes'
+import { AudioClipBox, AudioRegionBox } from '../data/boxes'
+import { UUID, Option } from 'std'
 
 export interface CollaborationConfig {
   projectId: string
@@ -20,6 +22,7 @@ export class CollaborationManager {
   private overlay: OverlayManager | null = null
   private collaborativeAgent: CollaborativeOpfsAgent | null = null
   private isInitialized = false
+  private latestTimestamp: number = 0
 
   constructor(config: CollaborationConfig) {
     this.config = {
@@ -40,7 +43,25 @@ export class CollaborationManager {
       // Set global StudioService reference for project serialization
       if (this.config.studioService) {
         setStudioServiceRef(this.config.studioService)
-        console.log('[Collaboration] StudioService reference set for project serialization')
+        // Also expose globally for WSClient access
+        ;(window as any).globalStudioService = this.config.studioService
+        
+        // Add monitoring for globalStudioService
+        let lastContext = this.config.studioService?.context
+        setInterval(() => {
+          const current = (window as any).globalStudioService
+          const currentContext = current?.context
+          if (!current) {
+            console.error('🚨 globalStudioService became undefined!')
+          } else if (!currentContext && lastContext) {
+            console.error('🚨 AudioContext became undefined!')
+          } else if (currentContext?.state !== lastContext?.state) {
+            console.log('🔊 AudioContext state changed:', lastContext?.state, '->', currentContext?.state)
+          }
+          lastContext = currentContext
+        }, 5000)
+        
+        console.log('[Collaboration] StudioService reference set for project serialization and WSClient access')
       } else {
         console.warn('[Collaboration] No StudioService provided - project serialization will be limited')
       }
@@ -55,6 +76,60 @@ export class CollaborationManager {
       // Initialize WebSocket client
       this.ws = new WSClient(this.config.wsUrl!, this.config.projectId, this.config.userId)
       await this.ws.connect()
+      
+      // Expose WebSocket client globally for UI components
+      ;(window as any).wsClient = this.ws
+      console.log('[Collaboration] ✅ WebSocket client exposed globally as window.wsClient')
+      // send sync request (since last known timestamp)
+      const since = Number(sessionStorage.getItem(`collab_since_${this.config.projectId}`)) || undefined
+      this.ws.send({
+          type: 'SYNC_REQUEST',
+          projectId: this.config.projectId,
+          userId: this.config.userId,
+          timestamp: Date.now(),
+          data: { since }
+      } as any)
+
+      // register sync response handler
+      ;(this.ws as any).onSyncResponse = (events?: CollabMessage[]) => {
+          events?.forEach((ev: CollabMessage) => {
+              this.applyEvent(ev)
+              this.latestTimestamp = Math.max(this.latestTimestamp, (ev as any).timestamp || 0)
+          })
+          sessionStorage.setItem(`collab_since_${this.config.projectId}`, String(this.latestTimestamp))
+      }
+
+      // Register region created handler
+      ;(this.ws as any).onRegionCreated = (payload: any, fromUser: string) => {
+          console.log('[CollaborationManager] Region created by', fromUser, payload)
+          const { regionId, trackId, startTime, duration, sampleId } = payload
+          
+          // Get the studio service from window or config
+          const studioService = (window as any).globalStudioService || this.config.studioService
+          if (!studioService?.project) {
+              console.warn('[CollaborationManager] No project available for region creation')
+              return
+          }
+          
+          try {
+              // Call the applyEvent method which handles region creation
+              this.applyEvent({
+                  type: 'REGION_CREATED',
+                  projectId: this.config.projectId,
+                  userId: fromUser,
+                  timestamp: Date.now(),
+                  data: payload
+              } as CollabMessage)
+          } catch (error) {
+              console.error('[CollaborationManager] Failed to create region:', error)
+          }
+      }
+      
+      // Register clip created handler
+      ;(this.ws as any).onClipCreated = (payload: any, fromUser: string) => {
+          console.log('[CollaborationManager] Clip created by', fromUser, payload)
+          // Similar logic for clips if needed
+      }
 
       // Initialize UI overlay
       this.overlay = new OverlayManager(this.config.projectId, this.config.userId)
@@ -71,15 +146,18 @@ export class CollaborationManager {
 
       // Set up message handlers
       this.setupMessageHandlers()
+      
+      // Set up timeline deletion monitoring
+      this.setupTimelineDeletionMonitoring()
 
       // Send USER_JOIN message
       await this.sendUserJoin()
 
-      // Load existing project data if available
-      await this.loadExistingProject()
-
-      // Request initial sync
-      await this.requestSync()
+      // PERFORMANCE OPTIMIZATION: Combine project loading and initial sync
+      // Instead of calling loadExistingProject() and requestSync() separately,
+      // do a single operation that handles both
+      console.log('[Collaboration] 🚀 Starting optimized project initialization...')
+      await this.initializeProjectWithSync()
 
       this.isInitialized = true
       console.log('[Collaboration] ✅ Collaboration layer initialized successfully')
@@ -152,6 +230,49 @@ export class CollaborationManager {
     }
   }
 
+  /**
+   * OPTIMIZED: Load existing project directly to skip dashboard and show workspace immediately
+   */
+  private async initializeProjectWithSync(): Promise<void> {
+    try {
+      console.log('[Collaboration] � Loading existing project to skip dashboard...')
+      
+      if (!this.collaborativeAgent) {
+        console.error('[Collaboration] No collaborative agent available for project loading')
+        return
+      }
+      
+      // Try to load existing project from database/OPFS
+      const projectLoaded = await this.collaborativeAgent.loadProjectFromDatabase()
+      
+      if (projectLoaded) {
+        console.log('[Collaboration] ✅ Project loaded successfully - dashboard will be skipped')
+        
+        // OPTIMIZATION: Since project is loaded, StudioService will automatically show workspace instead of dashboard
+        // The session exists, so when StudioService initializes it will call switchScreen("default") instead of showing dashboard
+        
+      } else {
+        console.log('[Collaboration] No existing project found - will create new project and skip dashboard')
+        
+        // Create a minimal project session to ensure dashboard is skipped
+        if (this.config.studioService) {
+          console.log('[Collaboration] Creating minimal project session to bypass dashboard...')
+          this.config.studioService.cleanSlate() // This creates a new session
+          console.log('[Collaboration] ✅ New project session created - dashboard will be skipped')
+        }
+      }
+      
+    } catch (error) {
+      console.error('[Collaboration] Failed to initialize project:', error)
+      
+      // Fallback: create new project to at least skip dashboard
+      if (this.config.studioService) {
+        console.log('[Collaboration] Fallback: creating new project to skip dashboard')
+        this.config.studioService.cleanSlate()
+      }
+    }
+  }
+
   private async loadExistingProject(): Promise<void> {
     try {
       console.log('[Collaboration] Loading existing project data...')
@@ -203,6 +324,221 @@ export class CollaborationManager {
         data: {}
       })
     }
+  }
+
+  private applyEvent(event: CollabMessage) {
+      console.log('[Collaboration] Applying event:', event)
+      try {
+          const studioService = this.config.studioService
+          if (!studioService?.project) {
+              console.warn('[Collaboration] No project available for event:', event.type)
+              return
+          }
+
+          switch (event.type) {
+              case 'DRAG_TRACK':
+                  const { trackId, newIndex } = event.data
+                  // Find adapter by UUID and calculate delta for moveIndex
+                  const trackAdapter = studioService.project.boxGraph.findBox(trackId)
+                      ?.let(box => studioService.project.boxAdapters.adapterFor(box, (window as any).AudioUnitBoxAdapter))
+                  if (trackAdapter) {
+                      const currentIndex = trackAdapter.indexField.getValue()
+                      const delta = newIndex - currentIndex
+                      if (Math.abs(delta) > 0) {
+                          studioService.project.editing.modify(() => 
+                              studioService.project.rootBoxAdapter.audioUnits.moveIndex(currentIndex, delta)
+                          )
+                      }
+                  }
+                  break
+
+              case 'UPDATE_TRACK':
+                  const { parameterId, parameterType, value } = event.data
+                  // Find parameter by UUID and update it
+                  if (parameterId && typeof value !== 'undefined') {
+                      const parameter = studioService.project.boxGraph.findBox(parameterId)
+                          ?.let(box => box.unwrap?.())
+                      if (parameter && typeof parameter.setUnitValue === 'function') {
+                          studioService.project.editing.modify(() => 
+                              parameter.setUnitValue(value), false
+                          )
+                          studioService.project.editing.mark()
+                      }
+                  }
+                  break
+
+              // Timeline-specific events
+              case 'CLIP_CREATED':
+                  const { clipId, trackId: clipTrackId, startTime: clipStartTime, duration: clipDuration, sampleId: clipSampleId } = event.data
+                  console.log('[Collaboration] Creating clip from remote user:', { clipId, clipTrackId, clipStartTime, clipDuration, clipSampleId })
+                  
+                  try {
+                      // Parse UUID strings back to UUID format
+                      const clipUuid = UUID.parse(clipId)
+                      const trackUuid = UUID.parse(clipTrackId)
+                      const sampleUuid = (clipSampleId && clipSampleId !== 'unknown') ? UUID.parse(clipSampleId) : undefined
+                      
+                      // Find the target track and sample
+                      const targetTrack = studioService.project.boxGraph.findBox(trackUuid)
+                      const sampleFile = sampleUuid ? studioService.project.boxGraph.findBox(sampleUuid) : undefined
+                      
+                      if (targetTrack.nonEmpty()) {
+                          const trackBox = targetTrack.unwrap()
+                          studioService.project.editing.modify(() => {
+                              AudioClipBox.create(studioService.project.boxGraph, clipUuid, (box: any) => {
+                                  box.index?.setValue(clipStartTime)
+                                  box.duration?.setValue(clipDuration)  
+                                  box.clips?.refer(trackBox.clips)
+                                  if (sampleFile?.nonEmpty?.()) {
+                                      box.file?.refer(sampleFile.unwrap())
+                                  }
+                              })
+                              console.log('[Collaboration] ✅ Clip created successfully')
+                          })
+                      } else {
+                          console.warn('[Collaboration] Target track not found for clip creation:', clipTrackId)
+                      }
+                  } catch (uuidError) {
+                      console.error('[Collaboration] Failed to parse UUIDs for clip creation:', uuidError)
+                  }
+                  break
+
+              case 'CLIP_DELETED':
+                  const { clipId: deleteClipId } = event.data
+                  try {
+                      const clipUuidToDelete = UUID.parse(deleteClipId)
+                      const clipToDelete = studioService.project.boxGraph.findBox(clipUuidToDelete)
+                      if (clipToDelete.nonEmpty()) {
+                          console.log('[Collaboration] Deleting clip:', deleteClipId)
+                          studioService.project.editing.modify(() => 
+                              clipToDelete.unwrap().delete()
+                          )
+                      }
+                  } catch (uuidError) {
+                      console.error('[Collaboration] Failed to parse UUID for clip deletion:', uuidError)
+                  }
+                  break
+
+              case 'CLIP_MOVED':
+                  const { clipId: moveClipId, trackId: moveTrackId, newTrackId, startTime } = event.data
+                  try {
+                      const clipUuidToMove = UUID.parse(moveClipId)
+                      const clipToMove = studioService.project.boxGraph.findBox(clipUuidToMove)
+                      if (clipToMove.nonEmpty()) {
+                          const clip = clipToMove.unwrap()
+                          console.log('[Collaboration] Moving clip:', { moveClipId, startTime, newTrackId })
+                          studioService.project.editing.modify(() => {
+                              clip.index?.setValue(startTime)
+                              if (newTrackId && newTrackId !== moveTrackId) {
+                                  const newTrackUuid = UUID.parse(newTrackId)
+                                  const newTrack = studioService.project.boxGraph.findBox(newTrackUuid)
+                                  if (newTrack.nonEmpty()) {
+                                      clip.clips?.refer(newTrack.unwrap().clips)
+                                  }
+                              }
+                          })
+                      }
+                  } catch (uuidError) {
+                      console.error('[Collaboration] Failed to parse UUIDs for clip movement:', uuidError)
+                  }
+                  break
+
+              case 'REGION_CREATED':
+                  const { regionId, trackId: regionTrackId, startTime: regionStartTime, duration: regionDuration, sampleId: regionSampleId } = event.data
+                  console.log('[Collaboration] Creating region from remote user:', { regionId, regionTrackId, regionStartTime, regionDuration, regionSampleId })
+                  
+                  try {
+                      // Parse UUID strings back to UUID format
+                      const regionUuid = UUID.parse(regionId)
+                      const trackUuid = UUID.parse(regionTrackId)
+                      const sampleUuid = (regionSampleId && regionSampleId !== 'unknown') ? UUID.parse(regionSampleId) : undefined
+                      
+                      // Find the target track and sample
+                      const targetRegionTrack = studioService.project.boxGraph.findBox(trackUuid)
+                      const regionSampleFile = sampleUuid ? studioService.project.boxGraph.findBox(sampleUuid) : undefined
+                      
+                      if (targetRegionTrack.nonEmpty()) {
+                          const trackBox = targetRegionTrack.unwrap()
+                          studioService.project.editing.modify(() => {
+                              AudioRegionBox.create(studioService.project.boxGraph, regionUuid, (box: any) => {
+                                  box.position?.setValue(regionStartTime)
+                                  box.duration?.setValue(regionDuration)
+                                  box.loopDuration?.setValue(regionDuration)
+                                  box.regions?.refer(trackBox.regions)
+                                  if (regionSampleFile?.nonEmpty?.()) {
+                                      box.file?.refer(regionSampleFile.unwrap())
+                                  }
+                              })
+                              console.log('[Collaboration] ✅ Region created successfully')
+                          })
+                      } else {
+                          console.warn('[Collaboration] Target track not found for region creation:', regionTrackId)
+                      }
+                  } catch (uuidError) {
+                      console.error('[Collaboration] Failed to parse UUIDs for region creation:', uuidError)
+                  }
+                  break
+
+              case 'REGION_DELETED':
+                  const { regionId: deleteRegionId } = event.data
+                  try {
+                      const regionUuidToDelete = UUID.parse(deleteRegionId)
+                      const regionToDelete = studioService.project.boxGraph.findBox(regionUuidToDelete)
+                      if (regionToDelete.nonEmpty()) {
+                          console.log('[Collaboration] Deleting region:', deleteRegionId)
+                          studioService.project.editing.modify(() => 
+                              regionToDelete.unwrap().delete()
+                          )
+                      }
+                  } catch (uuidError) {
+                      console.error('[Collaboration] Failed to parse UUID for region deletion:', uuidError)
+                  }
+                  break
+
+              case 'REGION_MOVED':
+                  const { regionId: moveRegionId, trackId: moveRegionTrackId, newTrackId: newRegionTrackId, startTime: moveRegionStartTime } = event.data
+                  try {
+                      const regionUuidToMove = UUID.parse(moveRegionId)
+                      const regionToMove = studioService.project.boxGraph.findBox(regionUuidToMove)
+                      if (regionToMove.nonEmpty()) {
+                          const region = regionToMove.unwrap()
+                          console.log('[Collaboration] Moving region:', { moveRegionId, moveRegionStartTime, newRegionTrackId })
+                          studioService.project.editing.modify(() => {
+                              region.position?.setValue(moveRegionStartTime)
+                              if (newRegionTrackId && newRegionTrackId !== moveRegionTrackId) {
+                                  const newTrackUuid = UUID.parse(newRegionTrackId)
+                                  const newTrack = studioService.project.boxGraph.findBox(newTrackUuid)
+                                  if (newTrack.nonEmpty()) {
+                                      region.regions?.refer(newTrack.unwrap().regions)
+                                  }
+                              }
+                          })
+                      }
+                  } catch (uuidError) {
+                      console.error('[Collaboration] Failed to parse UUIDs for region movement:', uuidError)
+                  }
+                  break
+
+              case 'TIMELINE_CHANGE':
+                  const { targetId, targetType, property, value: changeValue } = event.data
+                  const target = studioService.project.boxGraph.findBox(targetId)
+                  if (target.nonEmpty()) {
+                      const targetBox = target.unwrap()
+                      console.log('[Collaboration] Applying timeline change:', { targetId, targetType, property, changeValue })
+                      studioService.project.editing.modify(() => {
+                          if (targetBox[property] && typeof targetBox[property].setValue === 'function') {
+                              targetBox[property].setValue(changeValue)
+                          }
+                      })
+                  }
+                  break
+
+              default:
+                  console.debug('[Collaboration] Unhandled event:', event.type)
+          }
+      } catch (error) {
+          console.error('[Collaboration] Error applying event:', event.type, error)
+      }
   }
 
   async cleanup(): Promise<void> {
@@ -284,6 +620,73 @@ export class CollaborationManager {
   onSyncResponse(callback: (data: any) => void): void {
     if (this.ws) {
       this.ws.onMessage('SYNC_RESPONSE', callback)
+    }
+  }
+
+  private setupTimelineDeletionMonitoring(): void {
+    try {
+      const studioService = this.config.studioService
+      if (!studioService?.project) {
+        console.warn('[Collaboration] No project available for deletion monitoring')
+        return
+      }
+
+      // Monitor box deletions by intercepting the box graph's delete operations
+      const project = studioService.project
+      const originalDelete = project.boxGraph.deleteBox?.bind(project.boxGraph)
+      
+      if (originalDelete) {
+        project.boxGraph.deleteBox = (boxId: any) => {
+          try {
+            const box = project.boxGraph.findBox(boxId)
+            if (box.nonEmpty()) {
+              const boxInstance = box.unwrap()
+              
+              // Check if it's a clip or region being deleted
+              if (boxInstance.constructor.name === 'AudioClipBox') {
+                const trackBox = boxInstance.clips?.parent
+                const trackId = trackBox?.uuid || 'unknown'
+                
+                console.log('[Collaboration] Broadcasting clip deletion:', {
+                  clipId: boxInstance.uuid,
+                  trackId
+                })
+                
+                this.ws?.send({
+                  type: 'CLIP_DELETED',
+                  projectId: this.config.projectId,
+                  userId: this.config.userId,
+                  timestamp: Date.now(),
+                  data: { clipId: boxInstance.uuid, trackId }
+                })
+              } else if (boxInstance.constructor.name === 'AudioRegionBox') {
+                const trackBox = boxInstance.regions?.parent
+                const trackId = trackBox?.uuid || 'unknown'
+                
+                console.log('[Collaboration] Broadcasting region deletion:', {
+                  regionId: boxInstance.uuid,
+                  trackId
+                })
+                
+                this.ws?.send({
+                  type: 'REGION_DELETED',
+                  projectId: this.config.projectId,
+                  userId: this.config.userId,
+                  timestamp: Date.now(),
+                  data: { regionId: boxInstance.uuid, trackId }
+                })
+              }
+            }
+          } catch (err) {
+            console.error('[Collaboration] Error broadcasting deletion:', err)
+          }
+          
+          // Call original delete method
+          return originalDelete(boxId)
+        }
+      }
+    } catch (err) {
+      console.error('[Collaboration] Failed to setup deletion monitoring:', err)
     }
   }
 

@@ -39,9 +39,18 @@ import { AudioUnitType } from './data/enums'
 import { AudioUnitBoxAdapter } from './audio-engine-shared/adapters/audio-unit/AudioUnitBoxAdapter'
 import { ColorCodes } from './ui/mixer/ColorCodes'
 import { IconSymbol } from './IconSymbol'
+// ⬇️  realtime collaboration client from local collaboration module
+import { WSClient } from './collaboration/WSClient'
+import { createCollabMessage } from './collaboration/MessageTypes'
+// @ts-ignore
+import { UpdateBasedTimelineSync } from './lib/timeline-sync/UpdateBasedTimelineSync'
 
 // Global variable to store the working API base URL
 let workingApiBaseUrl: string | null = null
+// Global ws variable for this tab
+let wsClient: WSClient | null = null
+// Global timeline sync instance
+let timelineSync: UpdateBasedTimelineSync | null = null
 
 // Auto-drag configuration
 const AUTO_DRAG_CONFIG = {
@@ -89,8 +98,8 @@ function getAuthToken(): { token: string | null, source: string } {
         return { token: sessionToken, source: 'sessionStorage' }
     }
     
-    // Try localStorage
-    const localToken = localStorage.getItem('token')
+    // Try localStorage with both keys
+    const localToken = localStorage.getItem('synxsphere_token') || localStorage.getItem('token')
     if (localToken) {
         return { token: localToken, source: 'localStorage' }
     }
@@ -103,20 +112,236 @@ function getAuthToken(): { token: string | null, source: string } {
                 return { token: parentToken, source: 'parent window' }
             }
         }
-    } catch (e) {
+    } catch (e: any) {
         console.warn('⚠️ AUTH: Could not access parent window token:', e.message)
     }
     
     return { token: null, source: 'none' }
 }
 
+// Expose getAuthToken globally for other modules
+;(window as any).getAuthToken = getAuthToken
+
+// Initialize room audio files on startup
+async function initializeRoomAudioFilesOnStartup(service: StudioService): Promise<void> {
+    console.log('🚀 STARTUP: Initializing room audio files...')
+    
+    try {
+        // Get room ID from URL
+        const roomId = extractRoomIdFromUrl()
+        if (!roomId) {
+            console.log('📝 STARTUP: No room ID found, skipping room audio initialization')
+            return
+        }
+
+        console.log(`🏠 STARTUP: Found room ID: ${roomId}`)
+
+        // Use the RoomAudioImporter we created
+        const { RoomAudioImporter } = await import('./service/RoomAudioImporter')
+        const importer = new RoomAudioImporter(service)
+
+        // Import all room audio files with progress tracking
+        let lastProgress = 0
+        const importedCount = await importer.importRoomAudioFiles(roomId, (progress, fileName) => {
+            // Only log progress every 25% to avoid spam
+            if (Math.floor(progress / 25) > Math.floor(lastProgress / 25)) {
+                console.log(`📊 STARTUP: Room audio import progress: ${Math.round(progress)}% (${fileName})`)
+                lastProgress = progress
+            }
+        })
+
+        if (importedCount > 0) {
+            console.log(`✅ STARTUP: Successfully imported ${importedCount} room audio files to OPFS`)
+            
+            // Optionally notify the UI that new samples are available
+            service.resetPeaks() // This triggers sample list refresh
+        } else {
+            console.log('📋 STARTUP: All room audio files already available in OPFS')
+        }
+
+    } catch (error) {
+        console.error('❌ STARTUP: Failed to initialize room audio files:', error)
+        // Don't throw - startup should continue even if this fails
+    }
+}
+
+// Extract room ID from current URL
+function extractRoomIdFromUrl(): string | null {
+    const urlParams = new URLSearchParams(window.location.search)
+    
+    // First try 'roomId' parameter
+    const urlRoomId = urlParams.get('roomId')
+    if (urlRoomId) {
+        return urlRoomId
+    }
+    
+    // Try 'projectId' parameter
+    const projectId = urlParams.get('projectId')
+    if (projectId && projectId.startsWith('room-')) {
+        return projectId.replace('room-', '')
+    } else if (projectId) {
+        return projectId
+    }
+    
+    // Try to extract from URL path
+    const pathMatch = window.location.pathname.match(/\/room\/([^\/]+)/)
+    if (pathMatch) {
+        return pathMatch[1]
+    }
+
+    return null
+}
+
+// Helper function to safely create a new project only if none exists
+function safeCreateNewProject(service: StudioService, reason: string): boolean {
+    const sessionOpt = service.sessionService.getValue()
+    if (sessionOpt.isEmpty()) {
+        console.log(`✅ Creating new project - Reason: ${reason}`)
+        service.cleanSlate()
+        return true
+    } else {
+        console.log(`⚠️ Project already exists, skipping initialization - Reason attempted: ${reason}`)
+        console.log(`📋 Existing project:`, sessionOpt.unwrap().meta.name)
+        return false
+    }
+}
+
+// Helper function to save initial project
+async function scheduleInitialProjectSave(service: StudioService, roomId: string) {
+    console.log('⏰ Scheduling initial project save for room:', roomId)
+    setTimeout(async () => {
+        try {
+            console.log('📝 Starting initial project save after 3 seconds...')
+            const sessionOpt = service.sessionService.getValue()
+            if (sessionOpt.nonEmpty()) {
+                const session = sessionOpt.unwrap()
+                console.log('✅ Session found:', session.meta.name, 'UUID:', session.uuid)
+                
+                const { Projects } = await import('@/project/Projects')
+
+                // Use a dummy progress observable value
+                const bundleBuffer = await Projects.exportBundle(session, { setValue: () => {} } as any)
+                const bundleData = Array.from(new Uint8Array(bundleBuffer))
+
+                console.log(`💾 Saving initial project bundle (${bundleData.length} bytes) to database...`)
+
+                // Use unified auth token function
+                const { token, source: tokenSource } = getAuthToken()
+                console.log('🔑 Using token from:', tokenSource, 'Token exists:', !!token, 'Length:', token?.length || 0)
+                
+                if (!token) {
+                    console.error('❌ No authentication token found!')
+                    console.error('❌ Checked: URL param, sessionStorage, localStorage, parent window')
+                    return
+                }
+                
+                // Get the correct API base URL
+                const apiBaseUrl = await getWorkingApiBaseUrl(token)
+                if (!apiBaseUrl) {
+                    console.error('❌ Cannot determine API base URL')
+                    return
+                }
+                
+                const apiUrl = `${apiBaseUrl}/api/rooms/${roomId}/studio-project`
+                console.log('📤 Sending PUT request to:', apiUrl)
+                
+                const res = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ boxGraphData: bundleData })
+                })
+                
+                console.log('📥 Response status:', res.status, 'OK:', res.ok)
+                
+                if (res.ok) {
+                    // Check content type before parsing
+                    const contentType = res.headers.get('content-type')
+                    console.log('📄 Response content-type:', contentType)
+                    
+                    if (contentType && contentType.includes('application/json')) {
+                        const responseData = await res.json()
+                        console.log('✅ Initial project saved to database successfully!')
+                        console.log('📋 Saved project details:', responseData)
+                    } else {
+                        // Response is not JSON - likely HTML
+                        const responseText = await res.text()
+                        console.error('❌ Expected JSON response but got:', contentType)
+                        console.error('❌ Response preview:', responseText.substring(0, 200) + '...')
+                        console.error('❌ This usually means the API endpoint is not configured correctly')
+                        console.error('💡 Check if the API route is properly set up at /api/rooms/[id]/studio-project')
+                    }
+                } else {
+                    const errorText = await res.text()
+                    console.error('❌ Failed to save initial project:', res.status)
+                    console.error('❌ Error response:', errorText)
+                }
+            } else {
+                console.warn('⚠️ scheduleInitialProjectSave: session is not ready yet')
+                console.warn('⚠️ Will retry in 2 seconds...')
+                // Retry after 2 more seconds
+                setTimeout(() => scheduleInitialProjectSave(service, roomId), 2000)
+            }
+        } catch (err: any) {
+            console.error('❌ Error during initial project save:', err)
+            console.error('❌ Error details:', err.message, err.stack)
+        }
+    }, 3000)
+}
+
 export async function initializeSynxSphereIntegration(service: StudioService) {
+    // 标记项目是否已从 bundle 加载
+    let projectLoadedFromBundle = false
+    
     console.log('🔗 MODIFIED VERSION: Initializing SynxSphere integration...')
     console.log('🎯 DEBUG: Integration function called, service:', service)
     console.log('🚀 FORCE PROJECT CREATION: This version will always create a project')
     
     // Set the service reference for collaboration
     setStudioServiceForCollaboration(service)
+    
+    // Initialize room audio files using the new importer
+    await initializeRoomAudioFilesOnStartup(service)
+
+    // Set up iframe message listener for load-project messages
+    window.addEventListener('message', (event: MessageEvent) => {
+        // Filter out setImmediate messages to avoid spam
+        if (typeof event.data === 'string' && event.data.startsWith('setImmediate$')) {
+            return
+        }
+        
+        console.log('🎵 IFRAME MESSAGE: Received message from parent:', event.data)
+        
+        // Only handle messages from trusted origins
+        const allowedOrigins = ['http://localhost:3000', 'http://localhost:8000', 'https://localhost:8000', 'https://localhost:8080']
+        if (!allowedOrigins.includes(event.origin)) {
+            console.warn('🚨 IFRAME MESSAGE: Ignoring message from untrusted origin:', event.origin, 'Allowed:', allowedOrigins)
+            return
+        }
+        
+        // Handle load-project message
+        if (event.data && event.data.type === 'load-project') {
+            console.log('📂 IFRAME MESSAGE: Handling load-project with audio files:', event.data.audioFiles?.length || 0)
+            
+            // Get the collaborative agent from the agents module
+            import('./service/agents').then(({ getCollaborativeAgent }) => {
+                const collaborativeAgent = getCollaborativeAgent()
+                if (collaborativeAgent) {
+                    console.log('🔄 IFRAME MESSAGE: Forwarding to collaborative agent')
+                    collaborativeAgent.handleCollaborationMessage(event.data)
+                } else {
+                    console.warn('⚠️ IFRAME MESSAGE: No collaborative agent available')
+                    // Store the message for later processing when agent becomes available
+                    ;(window as any).pendingLoadProjectMessage = event.data
+                }
+            }).catch(error => {
+                console.error('❌ IFRAME MESSAGE: Failed to get collaborative agent:', error)
+            })
+        }
+    })
+    console.log('✅ IFRAME MESSAGE: Message listener set up for load-project messages')
 
     // Check URL parameters
     const urlParams = new URLSearchParams(window.location.search)
@@ -152,7 +377,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
         try {
             const parentHasToken = window.parent && window.parent !== window && window.parent.localStorage.getItem('token')
             console.log('  - parent window token:', !!parentHasToken)
-        } catch (e) {
+        } catch (e: any) {
             console.log('  - parent window token: cross-origin blocked')
         }
     }
@@ -162,7 +387,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
         try {
             // FORCE PROJECT CREATION FIRST - ensure we always have a working project
             console.log('🚀 FORCE PROJECT CREATION: Creating new project immediately')
-            service.cleanSlate()
+            safeCreateNewProject(service, 'Initial room load with roomId and userId')
             await new Promise(resolve => setTimeout(resolve, 1000))
             service.switchScreen("default")
             
@@ -218,7 +443,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     
                     console.log('🔍 AUTOMATIC IMPORT: Project response status:', projectResponse.status)
                     console.log('🔍 AUTOMATIC IMPORT: Response headers:', projectResponse.headers)
-                } catch (fetchError) {
+                } catch (fetchError: any) {
                     console.error('❌ AUTOMATIC IMPORT: Failed to fetch project:', fetchError)
                     console.error('❌ AUTOMATIC IMPORT: Error details:', {
                         name: fetchError.name,
@@ -262,7 +487,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                             } else {
                                 console.warn('⚠️ No audio files found in database for room:', roomId)
                                 // Create empty project
-                                service.cleanSlate()
+                                if (safeCreateNewProject(service, 'No audio files found in database')) {
+                                    scheduleInitialProjectSave(service, roomId) // Add auto-save
+                                }
                                 await new Promise(resolve => setTimeout(resolve, 500))
                                 service.switchScreen("default")
                                 return
@@ -270,15 +497,19 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         } else {
                             console.error('❌ Failed to fetch audio files from database:', audioFilesResponse.status)
                             // Create empty project
-                            service.cleanSlate()
+                            if (safeCreateNewProject(service, 'Failed to fetch audio files from database')) {
+                                scheduleInitialProjectSave(service, roomId) // Add auto-save
+                            }
                             await new Promise(resolve => setTimeout(resolve, 500))
                             service.switchScreen("default")
                             return
                         }
-                    } catch (audioError) {
+                    } catch (audioError: any) {
                         console.error('❌ Error fetching audio files:', audioError)
                         // Create empty project
-                        service.cleanSlate()
+                        if (safeCreateNewProject(service, 'Error fetching audio files')) {
+                            scheduleInitialProjectSave(service, roomId) // Add auto-save
+                        }
                         await new Promise(resolve => setTimeout(resolve, 500))
                         service.switchScreen("default")
                         return
@@ -292,7 +523,9 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         roomId: roomId,
                         hasAudioFiles: !!(projectData.audioFiles && projectData.audioFiles.length),
                         audioFilesCount: projectData.audioFiles ? projectData.audioFiles.length : 0,
-                        hasProjectData: !!projectData.projectData
+                        hasProjectData: !!projectData.projectData,
+                        hasBoxGraphData: !!projectData.boxGraphData,
+                        boxGraphDataLength: projectData.boxGraphData ? projectData.boxGraphData.length : 0
                     })
                     
                     // Special debug for test2 room
@@ -301,19 +534,133 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     }
                 } else if (projectResponse) {
                     console.error(`❌ AUTOMATIC IMPORT: Failed to load studio project: ${projectResponse.status}`)
+                    const errorText = await projectResponse.text()
+                    console.error('❌ Error response:', errorText)
                     return
                 }
                 
                 if (projectData) {
                     console.log('✅ AUTOMATIC IMPORT: Room project data loaded')
-                    console.log('🔍 AUTOMATIC IMPORT: Full project data:', JSON.stringify(projectData, null, 2))
+                    console.log('🔍 AUTOMATIC IMPORT: Project details:', {
+                        id: projectData.id,
+                        name: projectData.name,
+                        roomId: projectData.roomId,
+                        hasBoxGraphData: !!projectData.boxGraphData,
+                        boxGraphDataSize: projectData.boxGraphData ? projectData.boxGraphData.length : 0,
+                        createdAt: projectData.createdAt,
+                        updatedAt: projectData.updatedAt
+                    })
                     
                     // Store project data globally for UI access
                     ;(window as any).currentProjectData = projectData.projectData
                     
-                    // Create a session FIRST before switching screens
-                    console.log('🎯 Creating new session before switching to workspace...')
-                    service.cleanSlate() // This creates a fresh session
+                    // Check if we have BoxGraph data to load
+                    if (projectData.boxGraphData && (Array.isArray(projectData.boxGraphData) ? projectData.boxGraphData.length > 0 : projectData.boxGraphData.length > 0)) {
+                        console.log('📊 AUTOMATIC IMPORT: Found project bundle, loading shared project...')
+                        
+                        let bundleBuffer: Uint8Array
+                        
+                        if (Array.isArray(projectData.boxGraphData)) {
+                            // Legacy array format
+                            console.log('📊 Project bundle (array format):', projectData.boxGraphData.length, 'bytes')
+                            bundleBuffer = new Uint8Array(projectData.boxGraphData)
+                        } else if (typeof projectData.boxGraphData === 'string') {
+                            // New base64 format for large bundles
+                            console.log('📊 Project bundle (base64 format):', projectData.boxGraphData.length, 'characters')
+                            try {
+                                const binaryString = atob(projectData.boxGraphData)
+                                bundleBuffer = new Uint8Array(binaryString.length)
+                                for (let i = 0; i < binaryString.length; i++) {
+                                    bundleBuffer[i] = binaryString.charCodeAt(i)
+                                }
+                                console.log('📊 Decoded bundle size:', bundleBuffer.byteLength, 'bytes')
+                            } catch (decodeError) {
+                                console.error('❌ Failed to decode base64 bundle:', decodeError)
+                                if (safeCreateNewProject(service, 'Failed to decode project bundle')) {
+                                    scheduleInitialProjectSave(service, roomId)
+                                }
+                                return
+                            }
+                        } else {
+                            console.error('❌ Unknown bundle format:', typeof projectData.boxGraphData)
+                            if (safeCreateNewProject(service, 'Unknown project bundle format')) {
+                                scheduleInitialProjectSave(service, roomId)
+                            }
+                            return
+                        }
+                        
+                        // Check if this is a valid .odb format (starts with PK)
+                        if (bundleBuffer[0] !== 0x50 || bundleBuffer[1] !== 0x4B) {
+                            console.log('⚠️ Project bundle is not in ZIP format, skipping import')
+                            console.log('📝 Creating new project instead')
+                            if (safeCreateNewProject(service, 'Project bundle is not in ZIP format')) {
+                                scheduleInitialProjectSave(service, roomId) // Add auto-save
+                            }
+                            return
+                        }
+                        
+                        try {
+                            // Convert to Uint8Array
+                            // bundleBuffer is already a Uint8Array from the conversion above
+                            
+                            // Import Projects module
+                            const { Projects } = await import('@/project/Projects')
+                            
+                            // Use OpenDAW's importBundle to load the .odb file
+                            const session = await Projects.importBundle(service, bundleBuffer.buffer as ArrayBuffer)
+                            
+                            // Set the loaded session as the current session
+                            service.sessionService.setValue(Option.wrap(session))
+                            
+                            console.log('✅ AUTOMATIC IMPORT: Project bundle loaded successfully')
+                            console.log('📝 Project name:', session.meta.name)
+                            console.log('🎵 Project UUID:', session.uuid)
+                            
+                            // Get box count for verification
+                            const boxCount = Array.from(session.project.boxGraph.boxes()).length
+                            console.log('📊 Loaded', boxCount, 'boxes from shared project')
+                            
+                            // 🎯 项目已成功加载，不需要再调用 loadProjectFromJSON
+                            console.log('✅ Project loaded from bundle, skipping JSON import')
+                            
+                            // 标记项目已从 bundle 加载
+                            projectLoadedFromBundle = true
+                        } catch (error) {
+                            console.error('❌ Failed to load project bundle:', error)
+                            console.error('❌ Error details:', error)
+                            
+                            // Check error type
+                            const errorMessage = error instanceof Error ? error.message : String(error)
+                            if (errorMessage.includes('asDefined failed')) {
+                                console.log('🔄 Project bundle is missing required files (likely missing uuid)')
+                                console.log('⚠️ This is an old format bundle. Please delete and recreate the room.')
+                            } else if (errorMessage.includes('Corrupt header')) {
+                                console.log('🔄 Data appears to be BoxGraph format, not .odb bundle')
+                                console.log('⚠️ Please refresh the page to create a new project')
+                            }
+                            
+                            console.error('❌ Falling back to creating new project')
+                            // Fall back to creating new project
+                            safeCreateNewProject(service, 'Failed to import project bundle')
+                            
+                            // Initialize timeline sync if WebSocket is connected
+                            initializeTimelineSync(service)
+                            
+                            // Save the new project after creation
+                            scheduleInitialProjectSave(service, roomId)
+                        }
+                    } else {
+                        console.log('📊 No BoxGraph data found, creating new project')
+                        // Create a session FIRST before switching screens
+                        console.log('🎯 Creating new session before switching to workspace...')
+                        safeCreateNewProject(service, 'No BoxGraph data found') // This creates a fresh session
+                        
+                        // Initialize timeline sync if WebSocket is connected
+                        initializeTimelineSync(service)
+                        
+                        // Save the new project after creation
+                        scheduleInitialProjectSave(service, roomId)
+                    }
                     
                     // Wait for session to be fully created
                     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -344,31 +691,61 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     
                     // Check if there are audio files to import
                     if (projectData.audioFiles && projectData.audioFiles.length > 0) {
-                        console.log('🎵 SAMPLE IMPORT: Found', projectData.audioFiles.length, 'audio files, importing to locally stored samples...')
-                        console.log('🎯 SAMPLE IMPORT: Audio files will be available in samples for manual use')
-                        console.log('📋 SAMPLE IMPORT: Files to import:', projectData.audioFiles.map(f => f.originalName).join(', '))
+                        console.log('🎵 SAMPLE IMPORT: Found', projectData.audioFiles.length, 'audio files')
                         
-                        // Import audio files as samples only
-                        await loadProjectFromJSON(service, projectData, roomId)
+                        // 只有在没有从 bundle 加载项目时才导入音频文件
+                        if (!projectLoadedFromBundle) {
+                            console.log('📋 SAMPLE IMPORT: Files to import:', projectData.audioFiles.map(f => f.originalName).join(', '))
+                            
+                            // Import audio files as samples only
+                            await loadProjectFromJSON(service, projectData, roomId)
+                            
+                            console.log('✅ Successfully imported audio files to locally stored samples')
+                        } else {
+                            console.log('📊 Project already loaded from bundle, skipping audio file import')
+                        }
                         
-                        console.log('✅ Successfully imported audio files to locally stored samples')
                         console.log('🎯 AUTO-DRAG: Now auto-dragging all samples to timeline...')
                         
                         // Auto-drag samples to timeline for all samples in this room
                         if (AUTO_DRAG_CONFIG.enabled) {
-                            await autoDragRoomSamplesToTimeline(service, roomId)
+                            // 在 auto-drag 之前检查当前项目状态
+                            const currentBoxCount = Array.from(service.project.boxGraph.boxes()).length
+                            console.log(`📊 Current box count before auto-drag: ${currentBoxCount}`)
+                            
+                            if (projectLoadedFromBundle && currentBoxCount > 6) {
+                                console.log('⚠️ Project already has content, skipping auto-drag to prevent overwrite')
+                            } else {
+                                await autoDragRoomSamplesToTimeline(service, roomId)
+                            }
                         } else {
                             await autoLoadTracksFromRoomSamples(service, roomId)
                         }
                         
+                        // 🔄 After samples imported, broadcast sample count for quick consistency check
+                        if (wsClient && wsClient.isConnected) {
+                            wsClient.send(createCollabMessage.sampleSync(roomId, userId, { sampleCount: projectData.audioFiles.length }))
+                        }
                     } else {
-                        console.log('📄 Loading project from JSON data (no audio files)')
-                        await loadProjectFromJSON(service, projectData, roomId)
+                        console.log('📄 No audio files found')
+                        
+                        // 只有在没有从 bundle 加载项目时才创建新项目
+                        if (!projectLoadedFromBundle) {
+                            await loadProjectFromJSON(service, projectData, roomId)
+                        }
                         
                         // Even if no new files, check if there are existing samples to auto-drag
                         console.log('🎯 AUTO-DRAG: Checking for existing samples to auto-drag...')
                         if (AUTO_DRAG_CONFIG.enabled) {
-                            await autoDragRoomSamplesToTimeline(service, roomId)
+                            // 在 auto-drag 之前检查当前项目状态
+                            const currentBoxCount = Array.from(service.project.boxGraph.boxes()).length
+                            console.log(`📊 Current box count before auto-drag: ${currentBoxCount}`)
+                            
+                            if (projectLoadedFromBundle && currentBoxCount > 6) {
+                                console.log('⚠️ Project already has content, skipping auto-drag to prevent overwrite')
+                            } else {
+                                await autoDragRoomSamplesToTimeline(service, roomId)
+                            }
                         } else {
                             await autoLoadTracksFromRoomSamples(service, roomId)
                         }
@@ -381,6 +758,60 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                         bundleSize: 0
                     }), 1500)
                     
+                    // 🟢 Start collaboration WebSocket after project ready
+                    if (!wsClient) {
+                        wsClient = new WSClient('wss://localhost:8443/ws', roomId, userId)
+                        await wsClient.connect().catch(console.error)
+                        
+                        // 🔄 Initialize timeline sync after WebSocket connection
+                        initializeTimelineSync(service)
+
+                        // Listen for sample sync from others
+                        wsClient.onMessage('SAMPLE_SYNC' as any, (msg: any) => {
+                            const expected = (msg.data?.sampleCount) as number
+                            const local = projectData.audioFiles?.length || 0
+                            if (expected !== local) {
+                                console.warn('⚠️ Sample count mismatch, reloading to sync…')
+                                window.location.reload()
+                            }
+                        })
+
+                        // Expose helpers for track drag/update (UI must call these)
+                        wsClient.onDragTrack = (trackId, newIndex) => {
+                            try {
+                                (service as any).timeline?.reorderTrack(trackId, newIndex)
+                            } catch (e) {
+                                console.error('Failed to apply remote drag', e)
+                            }
+                        }
+                        wsClient.onUpdateTrack = (track) => {
+                            try {
+                                (service as any).tracks?.applyRemoteUpdate?.(track)
+                            } catch (e) {
+                                console.error('Failed to apply remote track update', e)
+                            }
+                        }
+
+                        // Expose for other components
+                        ;(window as any).wsClient = wsClient
+
+                        const reorderById = (trackId: string, newIndex: number) => {
+                            try {
+                                const audioUnits = service.project.rootBoxAdapter.audioUnits
+                                const adapters = audioUnits.adapters()
+                                const currentIndex = adapters.findIndex((a: any) => a.uuid === trackId)
+                                if (currentIndex === -1) {return}
+                                const delta = newIndex - currentIndex
+                                if (delta !== 0) {
+                                    service.project.editing.modify(() => audioUnits.moveIndex(currentIndex, delta))
+                                }
+                            } catch (e) {
+                                console.error('Failed to reorder track', e)
+                            }
+                        }
+
+                        wsClient.onDragTrack = (trackId, newIndex) => reorderById(trackId, newIndex)
+                    }
                 } else {
                     console.log('ℹ️ AUTOMATIC IMPORT: No existing project found for room')
                     console.log('✅ AUTOMATIC IMPORT: Project already created, workspace already loaded')
@@ -388,64 +819,16 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
             } else {
                 console.warn('⚠️ No authentication token found, but still creating project')
                 // Create project even without token
-                service.cleanSlate()
+                safeCreateNewProject(service, 'No authentication token found')
                 
                 // Switch to default workspace screen
                 service.switchScreen("default")
             }
             
-            // Add comprehensive project info panel
-            const projectInfoPanel = document.createElement('div')
-            projectInfoPanel.id = 'synxsphere-project-info'
-            projectInfoPanel.style.cssText = `
-                position: fixed;
-                top: 10px;
-                right: 10px;
-                background: rgba(0, 0, 0, 0.9);
-                color: #ffffff;
-                padding: 12px 16px;
-                border-radius: 8px;
-                font-family: system-ui, -apple-system, sans-serif;
-                font-size: 12px;
-                z-index: 9999;
-                border: 1px solid #3b82f6;
-                backdrop-filter: blur(8px);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                min-width: 280px;
-                max-width: 400px;
-            `
-            
-            // Get project name from the loaded data or use default
-            const projectName = (window as any).currentProjectData?.name || `test${roomId}`
-            const userDisplayName = decodeURIComponent(userName || 'Unknown User')
-            
-            projectInfoPanel.innerHTML = `
-                <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                    <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-right: 8px;"></div>
-                    <span style="font-weight: 600; color: #10b981;">SynxSphere Connected</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="color: #94a3b8; font-size: 10px;">PROJECT:</span><br>
-                    <span style="font-weight: 500;">${projectName}</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="color: #94a3b8; font-size: 10px;">ROOM ID:</span><br>
-                    <span style="font-family: monospace; font-size: 11px;">${roomId}</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="color: #94a3b8; font-size: 10px;">USER:</span><br>
-                    <span style="font-weight: 500;">${userDisplayName}</span>
-                </div>
-                <div style="margin-bottom: 6px;">
-                    <span style="color: #94a3b8; font-size: 10px;">PROJECT ID:</span><br>
-                    <span style="font-family: monospace; font-size: 11px;">${projectId}</span>
-                </div>
-                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #374151;">
-                    <span style="color: #94a3b8; font-size: 10px;">Auto-save: </span>
-                    <span style="color: #10b981; font-size: 10px;">Every 30s</span>
-                </div>
-            `
-            document.body.appendChild(projectInfoPanel)
+            // Project info panel disabled for performance optimization
+            // const projectInfoPanel = document.createElement('div')
+            // projectInfoPanel.id = 'synxsphere-project-info'
+            // ... (panel creation code commented out for cleaner UI)
             
         } catch (error) {
             console.error('❌ Failed to load room project:', error)
@@ -462,7 +845,7 @@ async function loadOpenDAWBundle(service: StudioService, bundleBuffer: Uint8Arra
         const { Projects } = await import('@/project/Projects')
         
         // Use OpenDAW's built-in bundle import functionality
-        const session = await Projects.importBundle(service, bundleBuffer.buffer)
+        const session = await Projects.importBundle(service, bundleBuffer.buffer as ArrayBuffer)
         
         // Set the loaded session as the current session
         service.sessionService.setValue(Option.wrap(session))
@@ -476,7 +859,7 @@ async function loadOpenDAWBundle(service: StudioService, bundleBuffer: Uint8Arra
         console.log('🔄 Falling back to JSON project loading...')
         
         // Fallback to clean slate
-        service.cleanSlate()
+        safeCreateNewProject(service, 'Error loading OpenDAW bundle')
     }
 }
 
@@ -486,7 +869,7 @@ async function loadProjectFromJSON(service: StudioService, projectData: any, roo
         console.log('📄 Loading project from JSON data...')
         
         // Create a new project
-        service.cleanSlate()
+        safeCreateNewProject(service, 'Loading project from JSON data')
         
         // Wait for project to be initialized
         await new Promise(resolve => setTimeout(resolve, 500))
@@ -544,7 +927,7 @@ async function loadProjectFromJSON(service: StudioService, projectData: any, roo
     } catch (error) {
         console.error('❌ Error loading project from JSON:', error)
         // Fallback to clean slate
-        service.cleanSlate()
+        safeCreateNewProject(service, 'Error loading project from JSON')
     }
 }
 
@@ -671,6 +1054,13 @@ async function importRoomAudioFiles(service: StudioService, tracks: any[], roomI
 
 // Function to import room audio files to locally stored samples AND room OPFS  
 async function importRoomAudioFilesToSamples(service: StudioService, audioFiles: any[], roomId: string) {
+    console.log('🎵 IMPORT-TRACE: ==========================================')
+    console.log('🎵 IMPORT-TRACE: Starting importRoomAudioFilesToSamples')
+    console.log('🎵 IMPORT-TRACE: Room ID:', roomId)
+    console.log('🎵 IMPORT-TRACE: Audio files count:', audioFiles.length)
+    console.log('🎵 IMPORT-TRACE: Service context exists:', !!service?.context)
+    console.log('🎵 IMPORT-TRACE: ==========================================')
+    
     try {
         console.log('🎵 IMPORT-TO-SAMPLES: Starting room audio files sync for', audioFiles.length, 'audio files...')
         console.log('🎯 IMPORT-TO-SAMPLES: Room ID:', roomId)
@@ -836,10 +1226,16 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 })
                 
                 if (!audioResponse.ok) {
-                    console.error('❌ SAMPLE IMPORT FAILED: Cannot download audio file:', audioFileData.originalName)
-                    console.error('❌ Response status:', audioResponse.status, audioResponse.statusText)
-                    console.error('❌ File path attempted:', `${apiBaseUrl}/api/audio/stream/${audioFileData.id}`)
-                    continue
+                    if (audioResponse.status === 404) {
+                        console.warn(`⚠️ SAMPLE IMPORT: Audio file ${audioFileData.originalName} not found on server (404)`)
+                        console.warn(`💡 SAMPLE IMPORT: This file exists in database but the audio file is missing - skipping`)
+                        continue // Skip this file and continue with others
+                    } else {
+                        console.error('❌ SAMPLE IMPORT FAILED: Cannot download audio file:', audioFileData.originalName)
+                        console.error('❌ Response status:', audioResponse.status, audioResponse.statusText)
+                        console.error('❌ File path attempted:', `${apiBaseUrl}/api/audio/stream/${audioFileData.id}`)
+                        continue
+                    }
                 }
                 
                 const arrayBuffer = await audioResponse.arrayBuffer()
@@ -886,9 +1282,13 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 const randomValue = Math.random().toString()
                 const uniqueString = `audiofile-${audioFileData.id}-${audioFileData.originalName}-${roomId}-${audioTimestamp}-${randomValue}`
                 
-                // 1) UUID object for low-level storage  2) string for OpenDAW APIs / metadata
-                const audioFileUuidObj = await UUID.sha256(new TextEncoder().encode(uniqueString))
-                const audioFileUuid    = UUID.toString(audioFileUuidObj).toLowerCase()
+                // IMPORTANT: Use the database file ID directly as the UUID for proper linking
+                // This ensures the sample can be found later when the project is loaded
+                const audioFileUuid = audioFileData.id.toLowerCase()
+                console.log(`🔑 USING DATABASE ID AS UUID: ${audioFileUuid} (from database ID: ${audioFileData.id})`)
+                
+                // Also create the UUID object for low-level storage operations using existing import
+                const audioFileUuidObj = UUID.parse(audioFileUuid)
                 
                 console.log('🔍 PROCESSING AUDIO FILE:', {
                     originalName: audioFileData.originalName,
@@ -938,7 +1338,7 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 
                 // STEP 1: Import to locally stored samples using service.importSample
                 console.log(`📥 Step 1: Importing to locally stored samples...`)
-                console.log(`🔍 Import parameters:`, {
+                console.log(`�� Import parameters:`, {
                     uuid: audioFileUuid,
                     name: uniqueName,
                     arrayBufferSize: arrayBuffer.byteLength
@@ -964,21 +1364,44 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 // STEP 2: Also store in room-specific OPFS for faster room-based access
                 console.log(`💾 Step 2: Storing in room ${roomId} OPFS...`)
                 const { AudioStorage } = await import('@/audio/AudioStorage')
+                console.log(`🔄 Step 2: Storing in OPFS with UUID ${audioFileUuid}...`)
+                console.log(`🔄 Step 2: Audio data - frames: ${audioData.numberOfFrames}, channels: ${audioData.numberOfChannels}, sampleRate: ${audioData.sampleRate}`)
+                console.log(`🔄 Step 2: Peaks buffer size: ${peaksBuffer.byteLength} bytes`)
+                console.log(`🔄 Step 2: Sample metadata:`, JSON.stringify(sampleMetadata, null, 2))
                 
                 try {
+                    console.log(`🔄 STORAGE-TRACE: About to call AudioStorage.storeInRoom for room ${roomId}`)
                     await AudioStorage.storeInRoom(roomId, audioFileUuidObj, audioData, peaksBuffer, sampleMetadata)
+                    console.log(`✅ STORAGE-TRACE: AudioStorage.storeInRoom completed successfully`)
+                    
                     // ALSO store a global copy so core UI (which looks in samples/v2) can find the files
                     try {
+                        console.log(`🔄 STORAGE-TRACE: About to call AudioStorage.store for global copy`)
                         await AudioStorage.store(audioFileUuidObj, audioData, peaksBuffer, sampleMetadata)
+                        console.log(`✅ STORAGE-TRACE: AudioStorage.store completed successfully`)
                     } catch (globalStoreErr) {
-                        console.warn('⚠️ Failed to store global sample copy:', globalStoreErr)
+                        console.warn('⚠️ STORAGE-TRACE: Failed to store global sample copy:', globalStoreErr)
+                        console.warn('⚠️ STORAGE-TRACE: Global store error details:', {
+                            name: (globalStoreErr as Error).name,
+                            message: (globalStoreErr as Error).message,
+                            stack: (globalStoreErr as Error).stack
+                        })
                     }
                     console.log(`✅ Step 2 completed: Stored in room ${roomId} OPFS`)
                     
-                } catch (storeError) {
-                    console.error(`❌ Step 2 failed - room OPFS storage error:`, storeError)
-                    // Don't fail the whole import if room storage fails
-                    console.warn(`⚠️ Continuing with locally stored sample only`)
+                } catch (storageError) {
+                    console.error(`❌ STORAGE-TRACE: Storage failed for UUID ${audioFileUuid}:`, storageError)
+                    console.error(`❌ STORAGE-TRACE: Storage error details:`, {
+                        name: (storageError as Error).name,
+                        message: (storageError as Error).message,
+                        stack: (storageError as Error).stack,
+                        roomId: roomId,
+                        audioFileUuid: audioFileUuid,
+                        metadataSize: JSON.stringify(sampleMetadata).length,
+                        audioDataValid: !!(audioData && audioData.numberOfFrames > 0),
+                        peaksBufferValid: !!(peaksBuffer && peaksBuffer.byteLength > 0)
+                    })
+                    console.warn(`⚠️ Step 2 failed - room OPFS storage error, but continuing with import`)
                 }
                 
                 // Verify sample exists in room-specific OPFS
@@ -1016,6 +1439,27 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 // Continue with next file instead of stopping
                 console.warn(`⚠️ Skipping failed file ${audioFileData.originalName}, continuing with remaining files...`)
             }
+        }
+        
+        // DEBUG: Check OPFS state after all imports
+        console.log('🔍 IMPORT-TRACE: Checking final OPFS state...')
+        try {
+            const { AudioStorage } = await import('@/audio/AudioStorage')
+            const globalSamples = await AudioStorage.list()
+            const roomSamples = await AudioStorage.listRoom(roomId)
+            
+            console.log('🔍 IMPORT-TRACE: Final OPFS state:')
+            console.log('  📊 Global samples:', globalSamples.length)
+            console.log('  📊 Room samples:', roomSamples.length)
+            
+            if (globalSamples.length > 0) {
+                console.log('  📋 Global sample UUIDs:', globalSamples.map(s => s.uuid))
+            }
+            if (roomSamples.length > 0) {
+                console.log('  📋 Room sample UUIDs:', roomSamples.map(s => s.uuid))
+            }
+        } catch (opfsCheckError) {
+            console.error('❌ IMPORT-TRACE: Failed to check final OPFS state:', opfsCheckError)
         }
         
         console.log(`🎉 Room ${roomId} sample import completed! ${audioFilesToImport.length} new files imported, all files are now available in locally stored samples`)
@@ -2326,6 +2770,10 @@ async function forceTimelineUIUpdate(project: any) {
 
 // Function to update project info panel
 export function updateProjectInfoPanel(projectName?: string, additionalInfo?: any) {
+    // Project info panel disabled for performance optimization
+    // Panel creation was disabled, so this update function is also disabled
+    return
+    
     const panel = document.getElementById('synxsphere-project-info')
     if (!panel) return
     
@@ -2389,7 +2837,7 @@ export function updateProjectInfoPanel(projectName?: string, additionalInfo?: an
         ${bundleInfo}
         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #374151;">
             <span style="color: #94a3b8; font-size: 10px;">Auto-save: </span>
-            <span style="color: #10b981; font-size: 10px;">Every 30s</span>
+            <span style="color: #10b981; font-size: 10px;">Every 10s</span>
         </div>
     `
 }
@@ -2461,7 +2909,7 @@ export async function saveProjectToRoom(service: StudioService) {
     }
 }
 
-// Auto-save every 30 seconds
+// Auto-save every 10 seconds
 let autoSaveInterval: number | null = null
 
 export function startAutoSave(service: StudioService) {
@@ -2473,7 +2921,7 @@ export function startAutoSave(service: StudioService) {
     
     autoSaveInterval = window.setInterval(() => {
         saveProjectToRoom(service)
-    }, 30000) // 30 seconds
+    }, 10000) // 10 seconds
 }
 
 export function stopAutoSave() {
@@ -2582,4 +3030,22 @@ function normalizeUuid(id: any): string {
 
 function isValidUuidStr(str: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+}
+
+// Helper function to initialize timeline sync
+function initializeTimelineSync(service: StudioService): void {
+    if (!wsClient || timelineSync) {
+        return // No WebSocket or already initialized
+    }
+    
+    console.log('🔄 Initializing UpdateBasedTimelineSync...')
+    timelineSync = new UpdateBasedTimelineSync(service, wsClient)
+    
+    // Start timeline synchronization
+    timelineSync.start()
+    
+    // Expose globally for debugging
+    ;(window as any).timelineSync = timelineSync
+    
+    console.log('✅ UpdateBasedTimelineSync initialized and started')
 }

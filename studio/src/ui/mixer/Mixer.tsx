@@ -136,14 +136,22 @@ export const Mixer = ({lifecycle, service}: Construct) => {
         })(),
         DragAndDrop.installTarget(element, {
             drag: (event: DragEvent, dragData: AnyDragData): boolean => {
+                console.log('[Mixer] Drag event detected:', { type: dragData.type, dragData })
                 const {type} = dragData
-                if (type !== "channelstrip") {return false}
+                if (type !== "channelstrip") {
+                    console.log('[Mixer] Drag rejected - not channelstrip type')
+                    return false
+                }
                 const optAdapter = project.boxGraph.findBox(UUID.parse(dragData.uuid))
                     .map(box => project.boxAdapters.adapterFor(box, AudioUnitBoxAdapter))
-                if (optAdapter.isEmpty()) {return false}
+                if (optAdapter.isEmpty()) {
+                    console.log('[Mixer] Drag rejected - adapter not found')
+                    return false
+                }
                 const limit = optAdapter.unwrap().indicesLimit()
                 const [index, successor] = DragAndDrop.findInsertLocation(event, element, limit)
                 const delta = index - dragData.start_index
+                console.log('[Mixer] Drag calculation:', { index, startIndex: dragData.start_index, delta, limit })
                 if (delta < 0 || delta > 1) {
                     if (insertMarker.nextSibling !== successor) {
                         channelStripContainer.insertBefore(insertMarker, successor)
@@ -154,18 +162,54 @@ export const Mixer = ({lifecycle, service}: Construct) => {
                 return true
             },
             drop: (event: DragEvent, dragData: AnyDragData) => {
+                console.log('[Mixer] Drop event triggered:', { type: dragData.type, dragData })
                 if (insertMarker.isConnected) {insertMarker.remove()}
                 const {type} = dragData
-                if (type !== "channelstrip") {return}
+                if (type !== "channelstrip") {
+                    console.log('[Mixer] Drop rejected - not channelstrip type')
+                    return
+                }
                 const optAdapter = project.boxGraph.findBox(UUID.parse(dragData.uuid))
                     .map(box => project.boxAdapters.adapterFor(box, AudioUnitBoxAdapter))
                 const [min, max] = optAdapter.unwrap().indicesLimit()
-                if (min === max) {return}
+                if (min === max) {
+                    console.log('[Mixer] Drop rejected - min equals max')
+                    return
+                }
                 const [index] = DragAndDrop.findInsertLocation(event, element)
                 const delta = clamp(index, min, max) - dragData.start_index
+                console.log('[Mixer] Drop calculation:', { index, clampedIndex: clamp(index, min, max), startIndex: dragData.start_index, delta, min, max })
+                
                 if (delta < 0 || delta > 1) { // if delta is zero or one it has no effect on the order
+                    console.log('[Mixer] Applying track move:', { startIndex: dragData.start_index, delta })
                     service.project.editing.modify(() =>
                         project.rootBoxAdapter.audioUnits.moveIndex(dragData.start_index, delta))
+
+                    // 🚀 Broadcast to collaborators
+                    const trackId = optAdapter.unwrap().uuid
+                    const newIndex = clamp(index, min, max)
+                    console.log('[Mixer] Broadcasting dragTrack:', { trackId, newIndex })
+                    
+                    try {
+                        const ws: any = (window as any).wsClient
+                        console.log('[Mixer] WebSocket client status:', { 
+                            exists: !!ws, 
+                            isConnected: ws?.isConnected, 
+                            hasSendDragTrack: typeof ws?.sendDragTrack === 'function'
+                        })
+                        
+                        if (ws?.isConnected && typeof ws.sendDragTrack === 'function') {
+                            console.log('[Mixer] ✅ Sending dragTrack message...')
+                            ws.sendDragTrack(trackId, newIndex)
+                            console.log('[Mixer] ✅ dragTrack message sent successfully!')
+                        } else {
+                            console.warn('[Mixer] ❌ Cannot send dragTrack - WebSocket not ready')
+                        }
+                    } catch (err) {
+                        console.error('[Mixer] ❌ Failed to send dragTrack:', err)
+                    }
+                } else {
+                    console.log('[Mixer] Drop ignored - delta too small:', delta)
                 }
             },
             enter: () => {},

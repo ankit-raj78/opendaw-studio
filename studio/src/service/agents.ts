@@ -81,6 +81,21 @@ if (isCollaborative && projectId && userId) {
             currentOpfsAgent = collaborativeAgent
             collaborationInitialized = true
             
+            // PERFORMANCE FIX: Remove redundant audio pre-loading 
+            // The CollaborationManager.initialize() already calls:
+            // 1. loadExistingProject() - which loads audio files
+            // 2. requestSync() - which may trigger additional audio loading
+            // So we don't need this additional setTimeout trigger
+            console.log('� COLLAB-INIT: Audio loading handled by CollaborationManager initialization')
+            
+            // Only process pending load-project message if it exists
+            const pendingMessage = (window as any).pendingLoadProjectMessage
+            if (pendingMessage) {
+                console.log('� COLLAB-INIT: Processing pending load-project message')
+                collaborativeAgent.handleCollaborationMessage(pendingMessage)
+                delete (window as any).pendingLoadProjectMessage
+            }
+            
             // Add visual indicators
             const style = document.createElement('style')
             style.textContent = `
@@ -131,19 +146,13 @@ if (isCollaborative && projectId && userId) {
             `
             document.head.appendChild(style)
             
-            // Add collaboration panel to UI
-            const panel = document.createElement('div')
-            panel.className = 'collaboration-panel'
-            panel.innerHTML = `
-                <h4>🤝 Collaboration</h4>
-                <div class="collab-user">
-                    <div class="collab-status"></div>
-                    <span>${userName || userId}</span>
-                </div>
-                <div class="collab-info">Project: ${projectId}</div>
-                <div class="collab-info" id="online-users">Users: 1</div>
-            `
-            document.body.appendChild(panel)
+            // 🚀 PERFORMANCE: Disable collaboration panel UI to reduce clutter and improve performance
+            console.log('🔇 [agents.ts] Collaboration panel UI disabled for better performance')
+            // DISABLED: Visual collaboration panel not needed for functionality
+            // const panel = document.createElement('div')
+            // panel.className = 'collaboration-panel'
+            // panel.innerHTML = `...`
+            // document.body.appendChild(panel)
             
             // Set up event listeners for user join/leave events
             if (collaborationManager) {
@@ -185,6 +194,26 @@ if (isCollaborative && projectId && userId) {
                 console.log('✅ Event listeners set up successfully')
             } else {
                 console.error('❌ CollaborationManager is null, cannot set up event listeners')
+            }
+            
+            // Expose diagnostic function globally for debugging
+            ;(window as any).checkAudioConsistency = () => {
+                if (collaborativeAgent && typeof collaborativeAgent.checkAudioFileConsistency === 'function') {
+                    console.log('🔍 Running audio file consistency check...')
+                    collaborativeAgent.checkAudioFileConsistency()
+                } else {
+                    console.error('❌ Collaborative agent not available or missing checkAudioFileConsistency method')
+                }
+            }
+            
+            // Expose fix function globally for debugging
+            ;(window as any).fixDualStorage = () => {
+                if (collaborativeAgent && typeof collaborativeAgent.fixDualStorage === 'function') {
+                    console.log('🔧 Running dual storage fix...')
+                    collaborativeAgent.fixDualStorage()
+                } else {
+                    console.error('❌ Collaborative agent not available or missing fixDualStorage method')
+                }
             }
             
             // Function to update user count by requesting sync
@@ -283,6 +312,14 @@ const proxyAgent = new class implements OpfsProtocol {
 
 // Export the proxy agent
 export const OpfsAgent = proxyAgent
+
+// Get the collaborative agent for direct message handling
+export function getCollaborativeAgent() {
+    if (collaborationManager && (collaborationManager as any).collaborativeAgent) {
+        return (collaborationManager as any).collaborativeAgent
+    }
+    return null
+}
 
 // Cleanup function for collaboration
 export function cleanupCollaboration() {

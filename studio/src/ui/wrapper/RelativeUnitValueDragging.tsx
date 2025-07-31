@@ -65,7 +65,36 @@ export const RelativeUnitValueDragging = ({
             },
             modify: (value: unitValue) => editing.modify(() => parameter.setUnitValue(value), false),
             cancel: (prevValue: unitValue) => editing.modify(() => parameter.setUnitValue(prevValue), false),
-            finalise: (_prevValue: unitValue, _newValue: unitValue): void => editing.mark(),
+            finalise: (_prevValue: unitValue, newValue: unitValue): void => {
+                editing.mark()
+                console.log('[RelativeUnitValueDragging] Parameter change finalised:', { parameterId: parameter.uuid, value: newValue })
+                
+                // 🚀 Broadcast parameter change to collaborators
+                try {
+                    const ws: any = (window as any).wsClient
+                    console.log('[RelativeUnitValueDragging] WebSocket client status:', { 
+                        exists: !!ws, 
+                        isConnected: ws?.isConnected, 
+                        hasSendUpdateTrack: typeof ws?.sendUpdateTrack === 'function'
+                    })
+                    
+                    if (ws?.isConnected && typeof ws.sendUpdateTrack === 'function') {
+                        const updateData = {
+                            parameterId: parameter.uuid,
+                            parameterType: 'parameter',
+                            value: newValue,
+                            timestamp: Date.now()
+                        }
+                        console.log('[RelativeUnitValueDragging] ✅ Sending parameter update:', updateData)
+                        ws.sendUpdateTrack(updateData)
+                        console.log('[RelativeUnitValueDragging] ✅ Parameter update sent successfully!')
+                    } else {
+                        console.warn('[RelativeUnitValueDragging] ❌ Cannot send parameter update - WebSocket not ready')
+                    }
+                } catch (err) {
+                    console.error('[RelativeUnitValueDragging] ❌ Failed to send parameter update:', err)
+                }
+            },
             finally: (): void => element.classList.remove("modifying")
         }), element, options)
     )
