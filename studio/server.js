@@ -27,11 +27,12 @@ app.use((req, res) => {
 https
 	.createServer(
 		{
-			key: fs.readFileSync("../localhost-key.pem"),
-			cert: fs.readFileSync("../localhost.pem")
+			key: fs.readFileSync("/app/localhost-key.pem"),
+			cert: fs.readFileSync("/app/localhost.pem")
 		},
 		app
 	)
-	.listen(8080, () => {
-		console.log("Production build running at https://localhost:8080")
+	.listen(8080, '0.0.0.0', () => {
+		console.log("Production build running at https://0.0.0.0:8080")
+		console.log("Cross-Origin Isolation: Enabled")
 	})

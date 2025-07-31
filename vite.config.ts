@@ -66,7 +66,19 @@ export default defineConfig(({mode, command}) => {
         esbuild: {
             target: "esnext"
         },
-        clearScreen: false
+        clearScreen: false,
+        preview: {
+            port: 8080,
+            host: '0.0.0.0',
+            https: {
+                key: readFileSync(resolve(__dirname, "../localhost-key.pem")),
+                cert: readFileSync(resolve(__dirname, "../localhost.pem"))
+            },
+            headers: {
+                'Cross-Origin-Opener-Policy': 'same-origin',
+                'Cross-Origin-Embedder-Policy': 'require-corp'
+            }
+        }
     }
     if (command === "serve") {
         config.server = {
@@ -75,6 +87,10 @@ export default defineConfig(({mode, command}) => {
             https: {
                 key: readFileSync(resolve(__dirname, "../localhost-key.pem")),
                 cert: readFileSync(resolve(__dirname, "../localhost.pem"))
+            },
+            headers: {
+                'Cross-Origin-Opener-Policy': 'same-origin',
+                'Cross-Origin-Embedder-Policy': 'require-corp'
             },
             watch: {
                 ignored: ["**/src-tauri/**"]
