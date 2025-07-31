@@ -15,7 +15,7 @@ const headers: RequestInit = {
 
 export namespace SampleApi {
     export const ApiRoot = "https://184.73.115.98:8443/opendaw-api/samples"
-    export const FileRoot = "https://assets.opendaw.studio/samples"
+    export const FileRoot = "https://184.73.115.98:8443/external-samples"
 
     export const all = async (): Promise<ReadonlyArray<AudioSample>> => {
         return await Promises.retry(() => fetch(`${ApiRoot}/list.php`, headers).then(x => x.json(), () => []))
