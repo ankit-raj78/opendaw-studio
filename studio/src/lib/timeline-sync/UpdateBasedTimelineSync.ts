@@ -148,7 +148,7 @@ export class UpdateBasedTimelineSync {
         bundleData = Array.from(new Uint8Array(bundleBuffer))
         console.log(`[UpdateSync] 📦 Array encoded bundle size: ${bundleData.length} bytes`)
       }      // Get the correct API base URL (Next.js server on port 8000)
-      const apiBaseUrl = 'http://localhost:8000'
+      const apiBaseUrl = 'https://184.73.115.98:8443'
       const url = `${apiBaseUrl}/api/rooms/${this.wsClient.projectId}/studio-project`
       console.log(`[UpdateSync] 📤 Sending PUT request to: ${url}`)
       
@@ -230,7 +230,7 @@ export class UpdateBasedTimelineSync {
   // 获取可用的API URL
   private async getWorkingApiBaseUrl(token: string): Promise<string | null> {
     const apiUrls = [
-      'http://localhost:8000',  // 正确的端口
+      'https://184.73.115.98:8443',  // 正确的端口
       'http://localhost:3000',  // 备用
       'http://localhost:3001',  // 备用
       'http://localhost:3002'   // 备用

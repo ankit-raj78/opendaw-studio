@@ -69,7 +69,7 @@ async function getWorkingApiBaseUrl(token: string): Promise<string | null> {
     }
     
     // Force using the expected endpoint based on Docker configuration
-    const defaultHost = import.meta.env.VITE_SYNXSPHERE_URL || 'http://localhost:8000' // SyncSphere runs on this port
+    const defaultHost = import.meta.env.VITE_SYNXSPHERE_URL || 'https://184.73.115.98:8443' // SynxSphere runs on this port
     console.log(`🔍 Using expected API host: ${defaultHost}`)
     workingApiBaseUrl = defaultHost
     return defaultHost
@@ -317,8 +317,8 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
         // Only handle messages from trusted origins
         const allowedOrigins = [
             'http://localhost:3000', 
-            'http://localhost:8000', 
-            'https://localhost:8000', 
+            'https://184.73.115.98:8443', 
+            'https://184.73.115.98:8443', 
             'https://localhost:8080',
             'http://184.73.115.98:8000',
             'https://184.73.115.98:8000',
@@ -768,7 +768,7 @@ export async function initializeSynxSphereIntegration(service: StudioService) {
                     
                     // 🟢 Start collaboration WebSocket after project ready
                     if (!wsClient) {
-                        wsClient = new WSClient('wss://localhost:8443/ws', roomId, userId)
+                        wsClient = new WSClient('wss://184.73.115.98:8443/ws', roomId, userId)
                         await wsClient.connect().catch(console.error)
                         
                         // 🔄 Initialize timeline sync after WebSocket connection
