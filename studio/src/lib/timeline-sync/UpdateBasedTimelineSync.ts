@@ -194,8 +194,24 @@ export class UpdateBasedTimelineSync {
       console.error('[UpdateSync] ❌ Error saving project bundle:', error)
       console.error('[UpdateSync] Error details:', error)
       
+      // Check if this is an audio loading error
+      let errorMessage = 'Error: network issue'
+      if (error instanceof Error) {
+        if (error.message.includes('Audio file not found') || error.message.includes('not found')) {
+          errorMessage = 'Error: Some audio files are missing from server'
+        } else if (error.message.includes('Authentication failed')) {
+          errorMessage = 'Error: Authentication failed - please refresh and login again'
+        } else if (error.message.includes('Failed to load audio file')) {
+          errorMessage = 'Error: Failed to load audio files for project bundle'
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Error: Network connection failed'
+        } else if (error.message.trim() !== '') {
+          errorMessage = `Error: ${error.message}`
+        }
+      }
+      
       // 显示错误提示
-      this.showSaveNotification('Error: network issue', 'error')
+      this.showSaveNotification(errorMessage, 'error')
     }
   }
   

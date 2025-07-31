@@ -112,8 +112,32 @@ export class UIAudioLoader implements AudioLoader {
         const fetchResult = await Promises.tryCatch(this.#manager.fetch(this.#uuid, split[0]))
         if (this.#version !== version) {return}
         if (fetchResult.status === "rejected") {
-            console.warn(fetchResult.error)
-            this.#setState({type: "error", reason: "Error: N/A"})
+            const error = fetchResult.error as any
+            console.error(`[UIAudioLoader] ❌ Failed to fetch audio file ${UUID.toString(this.#uuid)}:`, error)
+            console.error(`[UIAudioLoader] Error details:`, {
+                uuid: UUID.toString(this.#uuid),
+                error: error,
+                errorType: error?.constructor?.name,
+                errorMessage: error?.message,
+                stack: error?.stack
+            })
+            
+            // Provide more detailed error message based on error type
+            let errorReason = "Failed to load audio file"
+            if (error?.message) {
+                const message = String(error.message)
+                if (message.includes('404') || message.includes('not found')) {
+                    errorReason = `Audio file not found on server (${UUID.toString(this.#uuid)})`
+                } else if (message.includes('401') || message.includes('unauthorized')) {
+                    errorReason = "Authentication failed - please check your login"
+                } else if (message.includes('network') || message.includes('fetch')) {
+                    errorReason = "Network error - please check your connection"
+                } else {
+                    errorReason = `Audio loading error: ${message}`
+                }
+            }
+            
+            this.#setState({type: "error", reason: errorReason})
             return
         }
         const [audio, meta] = fetchResult.value
@@ -126,8 +150,22 @@ export class UIAudioLoader implements AudioLoader {
             this.#peaks = Option.wrap(Peaks.from(new ByteArrayInput(peaks)))
             this.#setState({type: "loaded"})
         } else {
-            console.warn(storeResult.error)
-            this.#setState({type: "error", reason: "N/A"})
+            const storageError = storeResult.error as any
+            console.error(`[UIAudioLoader] ❌ Failed to store audio file ${UUID.toString(this.#uuid)}:`, storageError)
+            console.error(`[UIAudioLoader] Storage error details:`, {
+                uuid: UUID.toString(this.#uuid),
+                error: storageError,
+                errorType: storageError?.constructor?.name,
+                errorMessage: storageError?.message
+            })
+            
+            // Provide more detailed storage error message
+            let storageErrorReason = "Failed to store audio file locally"
+            if (storageError?.message) {
+                storageErrorReason = `Storage error: ${String(storageError.message)}`
+            }
+            
+            this.#setState({type: "error", reason: storageErrorReason})
         }
     }
 }

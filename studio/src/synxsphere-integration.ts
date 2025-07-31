@@ -1292,10 +1292,10 @@ async function importRoomAudioFilesToSamples(service: StudioService, audioFiles:
                 
                 // IMPORTANT: Use the database file ID directly as the UUID for proper linking
                 // This ensures the sample can be found later when the project is loaded
-                const audioFileUuid = audioFileData.id.toLowerCase()
+                const audioFileUuid = audioFileData.id // Use the exact database ID as UUID
                 console.log(`🔑 USING DATABASE ID AS UUID: ${audioFileUuid} (from database ID: ${audioFileData.id})`)
                 
-                // Also create the UUID object for low-level storage operations using existing import
+                // Create the UUID object for low-level storage operations
                 const audioFileUuidObj = UUID.parse(audioFileUuid)
                 
                 console.log('🔍 PROCESSING AUDIO FILE:', {
