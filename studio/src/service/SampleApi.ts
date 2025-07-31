@@ -10,12 +10,11 @@ const password = "prototype"
 const base64Credentials = btoa(`${username}:${password}`)
 const headers: RequestInit = {
     method: "GET",
-    headers: {"Authorization": `Basic ${base64Credentials}`},
     credentials: "include"
 }
 
 export namespace SampleApi {
-    export const ApiRoot = "https://api.opendaw.studio/samples"
+    export const ApiRoot = "https://184.73.115.98:8443/opendaw-api/samples"
     export const FileRoot = "https://assets.opendaw.studio/samples"
 
     export const all = async (): Promise<ReadonlyArray<AudioSample>> => {
