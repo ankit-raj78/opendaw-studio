@@ -147,8 +147,16 @@ export class UpdateBasedTimelineSync {
         // Use array format for smaller bundles (backward compatibility)
         bundleData = Array.from(new Uint8Array(bundleBuffer))
         console.log(`[UpdateSync] 📦 Array encoded bundle size: ${bundleData.length} bytes`)
-      }      // Get the correct API base URL (Next.js server on port 8000)
-      const apiBaseUrl = 'https://184.73.115.98:8443'
+      }
+      
+      // Get the correct API base URL through nginx proxy
+      const apiBaseUrl = await this.getWorkingApiBaseUrl(token)
+      if (!apiBaseUrl) {
+        console.error('[UpdateSync] Cannot determine API base URL')
+        this.showSaveNotification('Error: API server unavailable', 'error')
+        return
+      }
+      
       const url = `${apiBaseUrl}/api/rooms/${this.wsClient.projectId}/studio-project`
       console.log(`[UpdateSync] 📤 Sending PUT request to: ${url}`)
       
@@ -243,13 +251,13 @@ export class UpdateBasedTimelineSync {
     }, 2000)
   }
   
-  // 获取可用的API URL
+    // 获取可用的API URL
   private async getWorkingApiBaseUrl(token: string): Promise<string | null> {
     const apiUrls = [
-      'https://184.73.115.98:8443',  // 正确的端口
-      'http://localhost:3000',  // 备用
-      'http://localhost:3001',  // 备用
-      'http://localhost:3002'   // 备用
+      'https://184.73.115.98:8443',  // nginx proxy (correct for production)
+      'http://localhost:8443',       // nginx proxy (localhost)
+      'http://localhost:8000',       // direct SynxSphere (backup)
+      'http://localhost:3000'        // development fallback
     ]
     
     for (const url of apiUrls) {
