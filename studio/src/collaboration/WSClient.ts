@@ -23,6 +23,13 @@ export class WSClient {
     this.userId = userId
   }
 
+  private getUserDisplayName(): string {
+    // Generate a simple user number based on userId
+    const shortId = this.userId.slice(0, 8)
+    const userNumber = parseInt(shortId, 16) % 100 + 1 // Generate number 1-100
+    return `User ${userNumber}`
+  }
+
   async connect(): Promise<void> {
     if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
       return
@@ -43,13 +50,16 @@ export class WSClient {
           // Start heartbeat
           this.startHeartbeat()
           
-          // Join the project room
+          // Join the project room with user information
           this.send({
             type: 'USER_JOIN',
             projectId: this.projectId,
             userId: this.userId,
             timestamp: Date.now(),
-            data: {}
+            data: {
+              name: this.getUserDisplayName(),
+              isActive: true
+            }
           })
           
           resolve()

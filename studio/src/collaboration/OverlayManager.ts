@@ -21,7 +21,7 @@ export class OverlayManager {
     this.projectId = projectId
     this.currentUserId = userId
     
-    // Add current user to the list
+    // Add current user to the list with a clean name
     this.addUser(userId, { 
       name: 'You', 
       color: '#10b981',
@@ -55,6 +55,43 @@ export class OverlayManager {
       .box-owned-by-others { border-left: 4px solid var(--owner-color, #ef4444) !important; opacity: 0.8; }
       .box-locked { pointer-events: none !important; filter: grayscale(0.5); opacity: 0.6; }
       .box-owned-by-others input, .box-owned-by-others button { pointer-events: none !important; opacity: 0.6; }
+      
+      .collaboration-panel {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #9ca3af;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 12px;
+        z-index: 10000;
+        border: 1px solid #374151;
+      }
+      
+      .user-count {
+        margin: 0;
+        font-weight: 500;
+      }
+      
+      .connection-status {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #9ca3af;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 12px;
+        z-index: 10000;
+        border: 1px solid #374151;
+      }
+      
+      .connection-status.connected { border-color: #10b981; color: #10b981; }
+      .connection-status.disconnected { border-color: #ef4444; color: #ef4444; }
+      .connection-status.connecting { border-color: #f59e0b; color: #f59e0b; }
     `
     document.head.appendChild(style)
   }
@@ -68,8 +105,7 @@ export class OverlayManager {
     this.collaborationPanel = document.createElement('div')
     this.collaborationPanel.className = 'collaboration-panel'
     this.collaborationPanel.innerHTML = `
-      <h3>Collaborators</h3>
-      <ul class="user-list" id="user-list"></ul>
+      <div class="user-count" id="user-count">1 user online</div>
     `
     document.body.appendChild(this.collaborationPanel)
   }
@@ -210,9 +246,18 @@ export class OverlayManager {
   addUser(userId: string, userInfo: Partial<UserInfo>): void {
     console.log('[OverlayManager] Adding user:', userId, userInfo)
     
+    // Generate a clean user number instead of random names
+    let displayName = userInfo.name
+    if (!displayName || displayName.includes('User ')) {
+      // Generate a simple user number
+      const shortId = userId.slice(0, 8)
+      const userNumber = parseInt(shortId, 16) % 100 + 1 // Generate number 1-100
+      displayName = `User ${userNumber}`
+    }
+    
     const user: UserInfo = {
       id: userId,
-      name: userInfo.name || `User ${userId.slice(0, 8)}`,
+      name: displayName,
       color: userInfo.color || this.generateUserColor(userId),
       isActive: userInfo.isActive !== undefined ? userInfo.isActive : true
     }
@@ -250,13 +295,13 @@ export class OverlayManager {
         // Don't add yourself again, but add other users
         if (message.userId !== this.currentUserId) {
           this.addUser(message.userId, message.data)
-          this.showNotification(`${this.getUserName(message.userId)} joined`)
+          // Removed notification spam
         }
         break
       
       case 'USER_LEAVE':
         if (message.userId !== this.currentUserId) {
-          this.showNotification(`${this.getUserName(message.userId)} left`)
+          // Removed notification spam
           this.removeUser(message.userId)
         }
         break
@@ -267,11 +312,11 @@ export class OverlayManager {
       
       case 'BOX_CREATED':
         this.updateBoxOwnership(message.data.boxUuid, message.data.ownerId)
-        this.showNotification(`${this.getUserName(message.userId)} created a new track`)
+        // Removed notification spam
         break
       
       case 'BOX_UPDATED':
-        this.showNotification(`${this.getUserName(message.userId)} updated a track`, 1000)
+        // Removed notification spam
         break
       
       case 'SYNC_RESPONSE':
@@ -297,7 +342,8 @@ export class OverlayManager {
       data.activeUsers.forEach((userId: string) => {
         if (!this.users.has(userId) && userId !== this.currentUserId) {
           console.log('🔥 [OverlayManager] Adding new active user:', userId)
-          this.addUser(userId, { name: `User ${userId.slice(0, 8)}` })
+          // Don't pass a name, let addUser generate a friendly one
+          this.addUser(userId, {})
         }
       })
       
@@ -317,42 +363,14 @@ export class OverlayManager {
   }
 
   private updateUserList(): void {
-    const userList = document.getElementById('user-list')
-    if (!userList) return
+    const userCount = document.getElementById('user-count')
+    if (!userCount) return
 
-    console.log('[OverlayManager] Updating user list with', this.users.size, 'users')
+    const count = this.users.size
+    const text = count === 1 ? '1 user online' : `${count} users online`
+    userCount.textContent = text
     
-    userList.innerHTML = ''
-    
-    if (this.users.size === 0) {
-      const li = document.createElement('li')
-      li.className = 'user-item'
-      li.innerHTML = '<span class="user-name">No users online</span>'
-      userList.appendChild(li)
-      return
-    }
-    
-    this.users.forEach(user => {
-      const li = document.createElement('li')
-      li.className = 'user-item'
-      li.innerHTML = `
-        <div class="user-avatar" style="background-color: ${user.color}">
-          ${user.name.charAt(0).toUpperCase()}
-        </div>
-        <span class="user-name">${user.name}</span>
-        <span class="user-status">${user.isActive ? 'online' : 'away'}</span>
-      `
-      userList.appendChild(li)
-    })
-    
-    // Update panel title to show count
-    const panel = this.collaborationPanel
-    if (panel) {
-      const title = panel.querySelector('h3')
-      if (title) {
-        title.textContent = `Collaborators (${this.users.size})`
-      }
-    }
+    console.log(`[OverlayManager] Updated user count: ${text}`)
   }
 
   private refreshAllBoxStyling(): void {
@@ -388,7 +406,14 @@ export class OverlayManager {
 
   private getUserName(userId: string): string {
     const user = this.users.get(userId)
-    return user ? user.name : `User ${userId.slice(0, 8)}`
+    if (user) {
+      return user.name
+    }
+    
+    // Generate user number if user not found
+    const shortId = userId.slice(0, 8)
+    const userNumber = parseInt(shortId, 16) % 100 + 1 // Generate number 1-100
+    return `User ${userNumber}`
   }
 
   private showNotification(message: string, duration: number = 3000): void {
