@@ -428,8 +428,46 @@ export namespace AudioStorage {
             
             if (!response.ok) {
                 if (response.status === 404) {
-                    console.warn(`⚠️ DOWNLOAD: Sample ${sampleUuid} not found on server (404)`)
-                    console.warn(`💡 DOWNLOAD: This sample exists in database but the audio file is missing`)
+                    console.warn(`⚠️ DOWNLOAD: Sample ${sampleUuid} not found on SynxSphere server (404)`)
+                    console.log(`� DOWNLOAD: Trying external OpenDAW API fallback for ${sampleUuid}`)
+                    
+                    try {
+                        const externalResponse = await fetch(`https://assets.opendaw.studio/samples/${sampleUuid}`)
+                        console.log(`📡 EXTERNAL: Response status: ${externalResponse.status} ${externalResponse.statusText}`)
+                        
+                        if (externalResponse.ok) {
+                            const externalArrayBuffer = await externalResponse.arrayBuffer()
+                            console.log(`✅ EXTERNAL: Downloaded sample ${sampleUuid} from OpenDAW API (${externalArrayBuffer.byteLength} bytes)`)
+                            
+                            // Decode audio data from external API
+                            const audioBuffer = await context.decodeAudioData(externalArrayBuffer)
+                            const audioData = AudioData.from(audioBuffer)
+                            
+                            // Generate proper peaks data using AudioPeaks
+                            console.log(`🔄 EXTERNAL: Generating peaks for external sample ${sampleUuid}...`)
+                            const { AudioPeaks } = await import('@/audio/AudioPeaks')
+                            const externalPeaksBuffer = await AudioPeaks.generate(audioData, () => {})
+                            console.log(`✅ EXTERNAL: Generated peaks for external sample`)
+                            
+                            // Create metadata
+                            const metadata: AudioMetaData = {
+                                name: `External Sample ${sampleUuid}`,
+                                duration: audioBuffer.duration,
+                                bpm: 120,
+                                sample_rate: audioBuffer.sampleRate
+                            }
+                            
+                            // Convert peaks buffer to Peaks object
+                            const { Peaks } = await import('fusion')
+                            return [audioData, Peaks.from(new ByteArrayInput(externalPeaksBuffer)), metadata]
+                        } else {
+                            console.warn(`⚠️ EXTERNAL: Sample ${sampleUuid} not found on OpenDAW API either (${externalResponse.status})`)
+                        }
+                    } catch (externalError) {
+                        console.error(`❌ EXTERNAL: Failed to download ${sampleUuid} from OpenDAW API:`, externalError)
+                    }
+                    
+                    console.warn(`💡 DOWNLOAD: Sample ${sampleUuid} not available from any source`)
                     return null // Return null instead of throwing to handle missing files gracefully
                 } else {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
