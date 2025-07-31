@@ -172,7 +172,7 @@ export class UpdateBasedTimelineSync {
           console.log('[UpdateSync] Server response:', result)
           
           // 显示保存成功的提示
-          this.showSaveNotification('项目已保存', 'success')
+          this.showSaveNotification('Project saved successfully', 'success')
         } else {
           // Response is not JSON - likely HTML
           const responseText = await response.text()
@@ -181,21 +181,21 @@ export class UpdateBasedTimelineSync {
           console.error('[UpdateSync] ❌ This usually means the API endpoint is not configured correctly')
           
           // 显示错误提示
-          this.showSaveNotification('保存失败：服务器配置错误', 'error')
+          this.showSaveNotification('Error: server configuration issue', 'error')
         }
       } else {
         const errorText = await response.text()
         console.error('[UpdateSync] ❌ Failed to save project bundle:', response.status, errorText)
         
         // 显示错误提示
-        this.showSaveNotification(`保存失败：${response.status}`, 'error')
+        this.showSaveNotification(`Error: ${response.status}`, 'error')
       }
     } catch (error) {
       console.error('[UpdateSync] ❌ Error saving project bundle:', error)
       console.error('[UpdateSync] Error details:', error)
       
       // 显示错误提示
-      this.showSaveNotification('保存失败：网络错误', 'error')
+      this.showSaveNotification('Error: network issue', 'error')
     }
   }
   
@@ -293,8 +293,8 @@ export class UpdateBasedTimelineSync {
         <div style="display: flex; align-items: center; gap: 12px;">
           <div style="animation: spin 1s linear infinite;">🔄</div>
           <div>
-            <div style="font-weight: 500;">项目已更新</div>
-            <div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">正在重新加载...</div>
+            <div style="font-weight: 500;">Synchronizing...</div>
+            <div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">Reloading...</div>
           </div>
         </div>
       `
