@@ -254,7 +254,7 @@ export class UpdateBasedTimelineSync {
     // 获取可用的API URL
   private async getWorkingApiBaseUrl(token: string): Promise<string | null> {
     const apiUrls = [
-      'https://184.73.115.98:8443',  // nginx proxy (correct for production)
+      'https://app.synctown.ai:8443',  // nginx proxy (correct for production)
       'http://localhost:8443',       // nginx proxy (localhost)
       'http://localhost:8000',       // direct SynxSphere (backup)
       'http://localhost:3000'        // development fallback

@@ -61,7 +61,7 @@ if (isCollaborative && projectId && userId) {
     try {
         // Initialize collaboration manager
         // Use environment variables or defaults
-        const wsUrl = import.meta.env.VITE_COLLABORATION_WS_URL || 'wss://184.73.115.98:8443/ws'
+        const wsUrl = import.meta.env.VITE_COLLABORATION_WS_URL || 'wss://app.synctown.ai:8443/ws'
         const httpUrl = import.meta.env.VITE_COLLABORATION_HTTP_URL || 'http://localhost:3003'
         
         collaborationManager = new CollaborationManager({

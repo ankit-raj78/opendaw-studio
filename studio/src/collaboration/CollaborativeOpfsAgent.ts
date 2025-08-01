@@ -433,7 +433,7 @@ export class CollaborativeOpfsAgent implements OpfsProtocol {
             continue
           }
 
-          const response = await fetch(`https://184.73.115.98:8443/api/audio/stream/${audioFile.id}`, {
+          const response = await fetch(`https://app.synctown.ai:8443/api/audio/stream/${audioFile.id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           })
 

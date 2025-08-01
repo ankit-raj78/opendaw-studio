@@ -217,7 +217,7 @@ export class RoomAudioImporter {
      * Determines the API base URL
      */
     private async getApiBaseUrl(token: string): Promise<string> {
-        const baseUrl = 'https://184.73.115.98:8443'
+        const baseUrl = 'https://app.synctown.ai:8443'
         
         try {
             const testResponse = await fetch(`${baseUrl}/api/health`, { 

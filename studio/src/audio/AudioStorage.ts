@@ -398,7 +398,7 @@ export namespace AudioStorage {
             }
             
             // Determine API base URL - audio files are served from SynxSphere API
-            let apiBaseUrl = 'https://184.73.115.98:8443'
+            let apiBaseUrl = 'https://app.synctown.ai:8443'
             try {
                 const testResponse = await fetch(`${apiBaseUrl}/api/health`, { 
                     headers: { 'Authorization': `Bearer ${token}` },
@@ -650,7 +650,7 @@ export namespace AudioStorage {
             }
             
             // Determine API base URL - studio-project API is served from SynxSphere API
-            let apiBaseUrl = 'https://184.73.115.98:8443'
+            let apiBaseUrl = 'https://app.synctown.ai:8443'
             try {
                 const testResponse = await fetch(`${apiBaseUrl}/api/health`, { 
                     headers: { 'Authorization': `Bearer ${token}` },

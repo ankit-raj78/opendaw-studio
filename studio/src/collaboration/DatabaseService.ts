@@ -23,7 +23,7 @@ export interface UserSession {
 }
 
 export class DatabaseService {
-  private baseUrl: string = 'https://184.73.115.98:8443/api' // Changed to main SynxSphere API
+  private baseUrl: string = 'https://app.synctown.ai:8443/api' // Changed to main SynxSphere API
   private authToken: string | null = null
 
   constructor(connectionString?: string) {

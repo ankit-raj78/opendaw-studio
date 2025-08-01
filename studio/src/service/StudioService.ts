@@ -477,7 +477,7 @@ export class StudioService {
         console.log(`📡 UPLOAD: Uploading '${name}' (${arrayBuffer.byteLength} bytes) to room ${roomId}`)
 
         // Upload to server
-        const response = await fetch('https://184.73.115.98:8443/api/audio/upload', {
+        const response = await fetch('https://app.synctown.ai:8443/api/audio/upload', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`

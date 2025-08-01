@@ -26,8 +26,8 @@ export class CollaborationManager {
 
   constructor(config: CollaborationConfig) {
     this.config = {
-      wsUrl: 'ws://184.73.115.98:3005',
-      dbUrl: 'http://184.73.115.98:3004',
+      wsUrl: 'ws://app.synctown.ai:3005',
+      dbUrl: 'http://app.synctown.ai:3004',
       ...config
     }
   }
